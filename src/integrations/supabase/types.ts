@@ -480,6 +480,7 @@ export type Database = {
       visitors: {
         Row: {
           created_at: string | null
+          did_not_show: boolean | null
           email: string | null
           host_member_id: string | null
           id: string
@@ -492,6 +493,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          did_not_show?: boolean | null
           email?: string | null
           host_member_id?: string | null
           id?: string
@@ -504,6 +506,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          did_not_show?: boolean | null
           email?: string | null
           host_member_id?: string | null
           id?: string

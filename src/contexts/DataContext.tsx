@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -389,7 +388,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const markVisitorNoShow = async (id: string) => {
-    return updateVisitor(id, { didNotShow: true });
+    try {
+      const { error } = await supabase
+        .from('visitors')
+        .update({ did_not_show: true })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error marking visitor as no-show:', error);
+        toast.error('Failed to mark visitor as no-show');
+        return;
+      }
+
+      setVisitors(prev =>
+        prev.map(visitor =>
+          visitor.id === id ? { ...visitor, didNotShow: true } : visitor
+        )
+      );
+      
+      toast.success('Visitor marked as no-show');
+    } catch (error) {
+      console.error('Error in markVisitorNoShow:', error);
+      toast.error('Failed to mark visitor as no-show');
+    }
   };
 
   const addReferral = async (referral: Partial<Referral>) => {
