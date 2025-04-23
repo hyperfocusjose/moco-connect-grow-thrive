@@ -107,7 +107,7 @@ const adminFeatures = [
     title: "Weekly Reports",
     description: "View the latest weekly group performance report.",
     icon: BarChart,
-    modal: "weeklyReport" as OverlayType,
+    modal: "weeklyReport" as OverlayType, // Keep as overlay
   },
   {
     title: "Create Poll",
@@ -169,14 +169,11 @@ const AdminPanel: React.FC = () => {
         ))}
       </div>
 
+      {/* Admin overlays */}
       <AddMemberOverlay open={overlay === "addMember"} onClose={() => setOverlay(null)} />
-
       <WeeklyReportOverlay open={overlay === "weeklyReport"} onClose={() => setOverlay(null)} />
-
       <CreatePollOverlay open={overlay === "createPoll"} onClose={() => setOverlay(null)} />
-
       <ApproveEventsOverlay open={overlay === "approveEvents"} onClose={() => setOverlay(null)} />
-
       <PresenterHistoryDialog
         open={overlay === "presenterHistory"}
         onOpenChange={() => setOverlay(null)}
