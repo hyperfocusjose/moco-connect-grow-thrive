@@ -6,14 +6,17 @@ import { MemberCard } from '@/components/directory/MemberCard';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, X } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { MemberForm } from '@/components/forms/MemberForm';
+import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 const Directory: React.FC = () => {
-  const { users, visitors } = useData();
+  const { users, visitors, markVisitorNoShow } = useData();
   const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -70,6 +73,17 @@ const Directory: React.FC = () => {
   // Handle add new member button click
   const handleAddMember = () => {
     setIsAddFormOpen(true);
+  };
+  
+  // Handle marking a visitor as no-show
+  const handleMarkNoShow = async (visitorId: string) => {
+    try {
+      await markVisitorNoShow(visitorId);
+      toast.success('Visitor marked as no-show');
+    } catch (error) {
+      console.error('Error marking visitor as no-show:', error);
+      toast.error('Failed to mark visitor as no-show');
+    }
   };
 
   return (
@@ -141,8 +155,40 @@ const Directory: React.FC = () => {
             />
           </div>
           
-          {/* Visitors grid - to be implemented */}
+          {/* Visitors grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredVisitors.map((visitor) => (
+              <div key={visitor.id} className="border rounded-lg p-4 bg-white shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-medium">{visitor.visitorName}</h3>
+                    <p className="text-sm text-muted-foreground">{visitor.visitorBusiness}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {visitor.didNotShow ? (
+                      <Badge variant="destructive">No Show</Badge>
+                    ) : isAdmin && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => handleMarkNoShow(visitor.id)}
+                      >
+                        <X className="h-3 w-3 mr-1" /> Mark No-Show
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <div className="text-xs text-gray-500 flex flex-col gap-1">
+                    <div>Visit date: {format(new Date(visitor.visitDate), 'MMM dd, yyyy')}</div>
+                    {visitor.email && <div>Email: {visitor.email}</div>}
+                    {visitor.phoneNumber && <div>Phone: {visitor.phoneNumber}</div>}
+                    {visitor.industry && <div>Industry: {visitor.industry}</div>}
+                  </div>
+                </div>
+              </div>
+            ))}
             {filteredVisitors.length === 0 && (
               <div className="col-span-full text-center py-10 text-muted-foreground">
                 No past visitors found matching your search criteria.
