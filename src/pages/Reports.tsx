@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Pie, PieChart, Cell } from 'recharts';
 import { Activity, Referral, Visitor, OneToOne, TYFCB } from '@/types';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   format, 
   subMonths, 
@@ -39,10 +39,8 @@ const Reports = () => {
     to: undefined
   });
   
-  // Get top performers
   const topPerformers = getTopPerformers();
 
-  // Calculate date range based on the selected time frame
   const getCurrentDateRange = () => {
     const now = new Date();
     
@@ -68,13 +66,11 @@ const Reports = () => {
   const dateRange = getCurrentDateRange();
   const isCustomRange = customDateRange.from && customDateRange.to;
 
-  // Filter activities by date range
   const filteredActivities = activities.filter(activity => {
     const activityDate = new Date(activity.date);
     return isWithinInterval(activityDate, { start: dateRange.start, end: dateRange.end });
   });
 
-  // Filter other data by date range
   const filteredReferrals = referrals.filter(item => {
     const itemDate = new Date(item.date);
     return isWithinInterval(itemDate, { start: dateRange.start, end: dateRange.end });
@@ -95,7 +91,6 @@ const Reports = () => {
     return isWithinInterval(itemDate, { start: dateRange.start, end: dateRange.end });
   });
 
-  // Prepare data for charts based on view mode
   const generateChartData = () => {
     if (viewMode === 'weekly') {
       return generateWeeklyData();
@@ -106,7 +101,6 @@ const Reports = () => {
     }
   };
 
-  // Generate monthly data for charts
   const generateMonthlyData = () => {
     const months = [];
     let current = new Date(dateRange.start);
@@ -147,7 +141,6 @@ const Reports = () => {
     });
   };
 
-  // Generate weekly data for charts
   const generateWeeklyData = () => {
     const weeks = eachWeekOfInterval({
       start: dateRange.start,
@@ -183,7 +176,6 @@ const Reports = () => {
     });
   };
 
-  // Generate daily data for charts (for custom date range)
   const generateDailyData = () => {
     if (!customDateRange.from || !customDateRange.to) {
       return [];
@@ -223,7 +215,6 @@ const Reports = () => {
 
   const chartData = generateChartData();
 
-  // Data for the pie chart
   const activityTypeData = [
     { name: 'Referrals', value: filteredReferrals.length, color: '#8884d8' },
     { name: 'Visitors', value: filteredVisitors.length, color: '#82ca9d' },
@@ -231,7 +222,6 @@ const Reports = () => {
     { name: 'TYFCB', value: filteredTYFCBs.length, color: '#ff8042' }
   ];
 
-  // Handle custom date selection
   const handleCustomDateSelect = (range: { from?: Date, to?: Date }) => {
     setCustomDateRange({
       from: range.from,
@@ -240,7 +230,6 @@ const Reports = () => {
     
     if (range.from && range.to) {
       setTimeFrame('custom');
-      // If the range is less than 14 days, use daily view
       const dayDiff = Math.ceil(
         (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -255,7 +244,6 @@ const Reports = () => {
     }
   };
 
-  // Reset custom date selection
   const resetCustomDate = () => {
     setCustomDateRange({
       from: undefined,
@@ -660,7 +648,6 @@ const Reports = () => {
                   {users.map(user => {
                     const metrics = useData().getUserMetrics(user.id);
                     
-                    // Skip if user has no activity
                     if (metrics.referrals === 0 && metrics.visitors === 0 && 
                         metrics.oneToOnes === 0 && metrics.tyfcb.amount === 0) {
                       return null;
