@@ -33,13 +33,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
 
-  // Modified fetchRoles function that doesn't depend on user_roles table
-  // This is a temporary implementation until you create the user_roles table
+  // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
-    // For now, we'll return an empty array since the table doesn't exist yet
-    console.log('Fetching roles for user:', userId);
-    // Once you create the user_roles table, you can uncomment this code
-    /*
     try {
       const { data, error } = await supabase
         .from('user_roles')
@@ -60,11 +55,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRoles([]);
       return [];
     }
-    */
-    setRoles([]);
-    return [];
   };
 
+  // Initialize authentication state from local storage
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -82,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  // Setup Supabase authentication when we implement it
+  // Handle login with Supabase authentication
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -95,26 +88,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user) {
+        // Get user profile data from the profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          throw new Error('Failed to fetch user profile');
+        }
+        
+        // Get user roles
+        const userRoles = await fetchRoles(data.user.id);
+        const isAdmin = userRoles.includes('admin');
+        
+        // Combine auth and profile data
         const newUser: User = {
           id: data.user.id,
-          firstName: data.user.user_metadata.firstName || '',
-          lastName: data.user.user_metadata.lastName || '',
-          email: data.user.email || '',
-          phoneNumber: data.user.user_metadata.phoneNumber || '',
-          businessName: data.user.user_metadata.businessName || '',
-          industry: data.user.user_metadata.industry || '',
-          tags: data.user.user_metadata.tags || [],
-          isAdmin: false, // We'll set this based on roles once implemented
-          createdAt: new Date(data.user.created_at),
+          firstName: profileData.first_name || '',
+          lastName: profileData.last_name || '',
+          email: profileData.email || '',
+          phoneNumber: profileData.phone_number || '',
+          businessName: profileData.business_name || '',
+          industry: profileData.industry || '',
+          bio: profileData.bio || '',
+          profilePicture: profileData.profile_picture || '',
+          tags: [], // We'll fetch tags separately if needed
+          isAdmin,
+          website: profileData.website || '',
+          linkedin: profileData.linkedin || '',
+          facebook: profileData.facebook || '',
+          tiktok: profileData.tiktok || '',
+          instagram: profileData.instagram || '',
+          createdAt: new Date(profileData.created_at),
         };
+        
+        // Fetch member tags if needed
+        try {
+          const { data: tagsData } = await supabase
+            .from('member_tags')
+            .select('tag')
+            .eq('member_id', data.user.id);
+            
+          if (tagsData) {
+            newUser.tags = tagsData.map(t => t.tag);
+          }
+        } catch (tagError) {
+          console.error('Error fetching member tags:', tagError);
+        }
         
         setCurrentUser(newUser);
         localStorage.setItem('currentUser', JSON.stringify(newUser));
         setIsAuthenticated(true);
-        
-        if (newUser.id) {
-          await fetchRoles(newUser.id);
-        }
       }
     } catch (error) {
       console.error('Login error:', error);
