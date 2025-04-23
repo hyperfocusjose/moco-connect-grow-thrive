@@ -245,9 +245,10 @@ const Events = () => {
   const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
   
   const isAdmin = currentUser?.isAdmin;
+  const [tuesdayMeetingsInitialized, setTuesdayMeetingsInitialized] = useState(false);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && !tuesdayMeetingsInitialized && events.length > 0) {
       const today = startOfDay(new Date());
       const nextYear = addYears(today, 1);
       
@@ -256,15 +257,19 @@ const Events = () => {
         end: nextYear
       });
       
-      futureTuesdays.forEach(tuesday => {
-        const tuesdayExists = events.some(event => 
-          isSameDay(new Date(event.date), tuesday) && 
-          event.name.includes('Tuesday Meeting')
-        );
-        
-        if (!tuesdayExists) {
+      const existingTuesdayMeetingDates = new Set(
+        events
+          .filter(event => event.name.includes('Tuesday Meeting'))
+          .map(event => format(new Date(event.date), 'yyyy-MM-dd'))
+      );
+      
+      const missingTuesdays = futureTuesdays.filter(
+        tuesday => !existingTuesdayMeetingDates.has(format(tuesday, 'yyyy-MM-dd'))
+      );
+      
+      if (missingTuesdays.length > 0) {
+        missingTuesdays.forEach(tuesday => {
           createEvent({
-            id: `tuesday-meeting-${format(tuesday, 'yyyy-MM-dd')}`,
             name: 'Tuesday Meeting',
             date: tuesday,
             startTime: '08:00',
@@ -277,10 +282,12 @@ const Events = () => {
             isPresentationMeeting: false,
             createdAt: new Date()
           });
-        }
-      });
+        });
+      }
+      
+      setTuesdayMeetingsInitialized(true);
     }
-  }, [currentUser, events, createEvent]);
+  }, [isAdmin, events, createEvent, currentUser, tuesdayMeetingsInitialized]);
 
   const filteredEvents = events.filter(event => {
     const eventDate = new Date(event.date);

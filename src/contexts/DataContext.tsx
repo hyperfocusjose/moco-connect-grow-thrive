@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -36,6 +37,8 @@ export interface DataContextType {
   getTopPerformers: () => any;
   addUser: (user: User) => Promise<void>;
   updateUser: (id: string, user: Partial<User>) => Promise<void>;
+  markVisitorNoShow: (id: string) => Promise<void>;
+  getActivityForAllMembers: () => Record<string, any>[];
 }
 
 const DataContext = createContext<DataContextType>({
@@ -66,6 +69,8 @@ const DataContext = createContext<DataContextType>({
   getTopPerformers: () => ({}),
   addUser: async () => {},
   updateUser: async () => {},
+  markVisitorNoShow: async () => {},
+  getActivityForAllMembers: () => [],
 });
 
 export const useData = () => useContext(DataContext);
@@ -119,7 +124,42 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     
+    // Fetch visitors
+    const fetchVisitors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('visitors')
+          .select('*')
+          .order('visit_date', { ascending: false });
+        
+        if (error) {
+          console.error('Error fetching visitors:', error);
+          return;
+        }
+        
+        // Transform the data to match the Visitor type
+        const transformedVisitors: Visitor[] = data.map(visitor => ({
+          id: visitor.id,
+          visitorName: visitor.visitor_name,
+          visitorBusiness: visitor.visitor_business,
+          visitDate: new Date(visitor.visit_date),
+          hostMemberId: visitor.host_member_id || undefined,
+          isSelfEntered: visitor.is_self_entered || false,
+          phoneNumber: visitor.phone_number || undefined,
+          email: visitor.email || undefined,
+          industry: visitor.industry || undefined,
+          createdAt: new Date(visitor.created_at),
+          didNotShow: visitor.did_not_show || false,
+        }));
+        
+        setVisitors(transformedVisitors);
+      } catch (error) {
+        console.error('Error in fetchVisitors:', error);
+      }
+    };
+    
     fetchEvents();
+    fetchVisitors();
   }, []);
 
   // Remove demo stats; default to empty object, provide dummy implementations.
@@ -249,41 +289,107 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getUserMetrics = (userId: string) => {
-    // Ensure we always return a properly structured object with all expected properties
+    // Calculate metrics based on actual data
+    const userReferrals = referrals.filter(r => r.fromMemberId === userId);
+    const userVisitors = visitors.filter(v => v.hostMemberId === userId && !v.didNotShow);
+    const userOneToOnes = oneToOnes.filter(
+      o => o.member1Id === userId || o.member2Id === userId
+    );
+    const userTYFCB = tyfcbs.filter(t => t.fromMemberId === userId);
+    
+    const totalTYFCBAmount = userTYFCB.reduce((sum, curr) => sum + Number(curr.amount || 0), 0);
+    
+    // Ensure we return a properly structured object with all expected properties
     return {
-      referrals: 0,
-      visitors: 0,
-      oneToOnes: 0,
+      referrals: userReferrals.length,
+      visitors: userVisitors.length,
+      oneToOnes: userOneToOnes.length,
       tyfcb: {
-        amount: 0,
-        count: 0
+        amount: totalTYFCBAmount,
+        count: userTYFCB.length
       }
     };
   };
 
   const addVisitor = async (visitor: Partial<Visitor>) => {
-    const newVisitor: Visitor = {
-      id: uuidv4(),
-      visitorName: visitor.visitorName || '',
-      visitorBusiness: visitor.visitorBusiness || '',
-      visitDate: visitor.visitDate || new Date(),
-      hostMemberId: visitor.hostMemberId,
-      isSelfEntered: visitor.isSelfEntered || false,
-      phoneNumber: visitor.phoneNumber,
-      email: visitor.email,
-      industry: visitor.industry,
-      createdAt: new Date(),
-    };
+    try {
+      const newVisitor: Visitor = {
+        id: uuidv4(),
+        visitorName: visitor.visitorName || '',
+        visitorBusiness: visitor.visitorBusiness || '',
+        visitDate: visitor.visitDate || new Date(),
+        hostMemberId: visitor.hostMemberId,
+        isSelfEntered: visitor.isSelfEntered || false,
+        phoneNumber: visitor.phoneNumber,
+        email: visitor.email,
+        industry: visitor.industry,
+        createdAt: new Date(),
+        didNotShow: false,
+      };
 
-    setVisitors(prev => [...prev, newVisitor]);
-    return Promise.resolve();
+      const { error } = await supabase.from('visitors').insert({
+        id: newVisitor.id,
+        visitor_name: newVisitor.visitorName,
+        visitor_business: newVisitor.visitorBusiness,
+        visit_date: newVisitor.visitDate.toISOString(),
+        host_member_id: newVisitor.hostMemberId,
+        is_self_entered: newVisitor.isSelfEntered,
+        phone_number: newVisitor.phoneNumber,
+        email: newVisitor.email,
+        industry: newVisitor.industry,
+        created_at: newVisitor.createdAt.toISOString(),
+        did_not_show: newVisitor.didNotShow,
+      });
+
+      if (error) {
+        console.error('Error adding visitor:', error);
+        toast.error('Failed to add visitor');
+        return;
+      }
+
+      setVisitors(prev => [...prev, newVisitor]);
+      toast.success('Visitor added successfully');
+    } catch (error) {
+      console.error('Error in addVisitor:', error);
+      toast.error('Failed to add visitor');
+    }
   };
 
   const updateVisitor = async (id: string, visitor: Partial<Visitor>) => {
-    setVisitors(prev => 
-      prev.map(item => item.id === id ? { ...item, ...visitor } : item)
-    );
-    return Promise.resolve();
+    try {
+      const { error } = await supabase
+        .from('visitors')
+        .update({
+          visitor_name: visitor.visitorName,
+          visitor_business: visitor.visitorBusiness,
+          visit_date: visitor.visitDate?.toISOString(),
+          host_member_id: visitor.hostMemberId,
+          is_self_entered: visitor.isSelfEntered,
+          phone_number: visitor.phoneNumber,
+          email: visitor.email,
+          industry: visitor.industry,
+          did_not_show: visitor.didNotShow,
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error updating visitor:', error);
+        toast.error('Failed to update visitor');
+        return;
+      }
+
+      setVisitors(prev => 
+        prev.map(item => item.id === id ? { ...item, ...visitor } : item)
+      );
+      toast.success('Visitor updated successfully');
+    } catch (error) {
+      console.error('Error in updateVisitor:', error);
+      toast.error('Failed to update visitor');
+    }
+  };
+
+  const markVisitorNoShow = async (id: string) => {
+    return updateVisitor(id, { didNotShow: true });
   };
 
   const addReferral = async (referral: Partial<Referral>) => {
@@ -319,7 +425,40 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getTopPerformers = () => {
-    return {};
+    const memberPerformance = users.map(user => {
+      const metrics = getUserMetrics(user.id);
+      return {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        referrals: metrics.referrals,
+        visitors: metrics.visitors,
+        oneToOnes: metrics.oneToOnes,
+        tyfcb: metrics.tyfcb,
+      };
+    });
+
+    const sortedByReferrals = [...memberPerformance].sort((a, b) => b.referrals - a.referrals);
+    const sortedByVisitors = [...memberPerformance].sort((a, b) => b.visitors - a.visitors);
+    const sortedByOneToOnes = [...memberPerformance].sort((a, b) => b.oneToOnes - a.oneToOnes);
+    const sortedByTYFCB = [...memberPerformance].sort((a, b) => b.tyfcb.amount - a.tyfcb.amount);
+
+    return {
+      referrals: sortedByReferrals.slice(0, 5),
+      visitors: sortedByVisitors.slice(0, 5),
+      oneToOnes: sortedByOneToOnes.slice(0, 5),
+      tyfcb: sortedByTYFCB.slice(0, 5),
+    };
+  };
+
+  const getActivityForAllMembers = () => {
+    return users.map(user => {
+      const metrics = getUserMetrics(user.id);
+      return {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        metrics,
+      };
+    });
   };
 
   return (
@@ -351,6 +490,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getTopPerformers,
       addUser,
       updateUser,
+      markVisitorNoShow,
+      getActivityForAllMembers,
     }}>
       {children}
     </DataContext.Provider>

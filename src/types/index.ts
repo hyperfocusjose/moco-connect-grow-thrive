@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   firstName: string;
@@ -32,15 +31,16 @@ export interface Referral {
 
 export interface Visitor {
   id: string;
-  hostMemberId?: string;
   visitorName: string;
   visitorBusiness: string;
   visitDate: Date;
+  hostMemberId?: string;
   isSelfEntered?: boolean;
   phoneNumber?: string;
   email?: string;
   industry?: string;
   createdAt: Date;
+  didNotShow?: boolean;
 }
 
 export interface OneToOne {
