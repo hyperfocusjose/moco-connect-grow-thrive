@@ -55,11 +55,11 @@ serve(async (req) => {
       throw createUserError;
     }
 
-    // Create an entry in the profiles table
+    // Use upsert to update the profile if it exists or create it if it doesn't
     if (user?.user) {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({
+        .upsert({
           id: user.user.id,
           first_name: userData.firstName,
           last_name: userData.lastName,
@@ -74,6 +74,8 @@ serve(async (req) => {
           facebook: userData.facebook || "",
           tiktok: userData.tiktok || "",
           instagram: userData.instagram || "",
+        }, {
+          onConflict: 'id'  // This tells Supabase to update if there's a conflict on the id column
         });
 
       if (profileError) {
