@@ -14,6 +14,11 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
+              <img 
+                src="/moco-png-logo.png" 
+                alt="MocoPNG Logo" 
+                className="mx-auto h-24 w-auto mb-6"
+              />
               <h1 className="text-4xl md:text-5xl font-bold mb-4">
                 Montgomery County Professional Networking Group
               </h1>
