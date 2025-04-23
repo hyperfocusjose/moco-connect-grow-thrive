@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Initialize with empty data arrays, removing all demo data.
 const defaultUsers: User[] = [];
@@ -79,6 +81,47 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
 
+  // Fetch events from Supabase on component mount
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .order('date', { ascending: true });
+        
+        if (error) {
+          console.error('Error fetching events:', error);
+          return;
+        }
+        
+        // Transform the data to match the Event type
+        const transformedEvents: Event[] = data.map(event => ({
+          id: event.id,
+          name: event.name,
+          date: new Date(event.date),
+          startTime: event.start_time,
+          endTime: event.end_time,
+          location: event.location,
+          description: event.description || '',
+          createdBy: event.created_by || '',
+          isApproved: event.is_approved || false,
+          isFeatured: event.is_featured || false,
+          isPresentationMeeting: event.is_presentation_meeting || false,
+          presenter: event.presenter || undefined,
+          createdAt: new Date(event.created_at),
+          isCancelled: event.is_cancelled || false,
+        }));
+        
+        setEvents(transformedEvents);
+      } catch (error) {
+        console.error('Error in fetchEvents:', error);
+      }
+    };
+    
+    fetchEvents();
+  }, []);
+
   // Remove demo stats; default to empty object, provide dummy implementations.
   const stats = {};
 
@@ -99,40 +142,114 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createEvent = async (event: Partial<Event>) => {
-    const newEvent: Event = {
-      id: uuidv4(),
-      name: event.name || 'New Event',
-      date: event.date || new Date(),
-      startTime: event.startTime || '08:00',
-      endTime: event.endTime || '09:00',
-      location: event.location || 'Location TBD',
-      description: event.description || '',
-      createdBy: event.createdBy || '',
-      isApproved: event.isApproved || false,
-      isFeatured: event.isFeatured || false,
-      isPresentationMeeting: event.isPresentationMeeting || false,
-      presenter: event.presenter,
-      createdAt: new Date(),
-      isCancelled: false,
-    };
+    try {
+      const newEvent: Event = {
+        id: uuidv4(),
+        name: event.name || 'New Event',
+        date: event.date || new Date(),
+        startTime: event.startTime || '08:00',
+        endTime: event.endTime || '09:00',
+        location: event.location || 'Location TBD',
+        description: event.description || '',
+        createdBy: event.createdBy || '',
+        isApproved: event.isApproved || false,
+        isFeatured: event.isFeatured || false,
+        isPresentationMeeting: event.isPresentationMeeting || false,
+        presenter: event.presenter,
+        createdAt: new Date(),
+        isCancelled: false,
+      };
 
-    setEvents(prev => [...prev, newEvent]);
-    return Promise.resolve();
+      // Insert into Supabase
+      const { error } = await supabase.from('events').insert({
+        id: newEvent.id,
+        name: newEvent.name,
+        date: newEvent.date.toISOString(),
+        start_time: newEvent.startTime,
+        end_time: newEvent.endTime,
+        location: newEvent.location,
+        description: newEvent.description,
+        created_by: newEvent.createdBy,
+        is_approved: newEvent.isApproved,
+        is_featured: newEvent.isFeatured,
+        is_presentation_meeting: newEvent.isPresentationMeeting,
+        presenter: newEvent.presenter,
+        created_at: newEvent.createdAt.toISOString(),
+        is_cancelled: newEvent.isCancelled,
+      });
+
+      if (error) {
+        console.error('Error creating event:', error);
+        toast.error('Failed to create event');
+        return;
+      }
+
+      setEvents(prev => [...prev, newEvent]);
+      toast.success('Event created successfully');
+    } catch (error) {
+      console.error('Error in createEvent:', error);
+      toast.error('Failed to create event');
+    }
   };
 
   const updateEvent = async (id: string, event: Partial<Event>) => {
-    setEvents(prev =>
-      prev.map(item => item.id === id ? { ...item, ...event } : item)
-    );
-    return Promise.resolve();
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          name: event.name,
+          date: event.date?.toISOString(),
+          start_time: event.startTime,
+          end_time: event.endTime,
+          location: event.location,
+          description: event.description,
+          is_approved: event.isApproved,
+          is_featured: event.isFeatured,
+          is_presentation_meeting: event.isPresentationMeeting,
+          presenter: event.presenter,
+          is_cancelled: event.isCancelled,
+        })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error updating event:', error);
+        toast.error('Failed to update event');
+        return;
+      }
+
+      setEvents(prev =>
+        prev.map(item => item.id === id ? { ...item, ...event } : item)
+      );
+      toast.success('Event updated successfully');
+    } catch (error) {
+      console.error('Error in updateEvent:', error);
+      toast.error('Failed to update event');
+    }
   };
 
   const deleteEvent = async (id: string) => {
-    setEvents(prev => prev.filter(item => item.id !== id));
-    return Promise.resolve();
+    try {
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting event:', error);
+        toast.error('Failed to delete event');
+        return;
+      }
+
+      setEvents(prev => prev.filter(item => item.id !== id));
+      toast.success('Event deleted successfully');
+    } catch (error) {
+      console.error('Error in deleteEvent:', error);
+      toast.error('Failed to delete event');
+    }
   };
 
   const getUserMetrics = (userId: string) => {
+    // Ensure we always return a properly structured object with all expected properties
     return {
       referrals: 0,
       visitors: 0,
