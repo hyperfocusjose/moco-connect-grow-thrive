@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Referral, Visitor, OneToOne, TYFCB, Event, Poll, Activity, User } from '@/types';
 import { useAuth } from './AuthContext';
@@ -6,7 +7,7 @@ interface DataContextType {
   referrals: Referral[];
   visitors: Visitor[];
   oneToOnes: OneToOne[];
-  tyfcb: TYFCB[];
+  tyfcbs: TYFCB[]; // Fixed: Changed from tyfcb to tyfcbs to match usage throughout the file
   events: Event[];
   polls: Poll[];
   activities: Activity[];
