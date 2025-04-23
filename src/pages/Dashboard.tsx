@@ -41,6 +41,13 @@ const Dashboard = () => {
       }).sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
     : [];
 
+  // Add an onComplete handler for the VisitorForm
+  const handleVisitorFormComplete = () => {
+    // This function will be called when a visitor is successfully added
+    // No need for specific functionality here as the MetricCard component 
+    // will handle closing the dialog
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -67,7 +74,7 @@ const Dashboard = () => {
           description="Total visitors brought YTD"
           icon={visitorIcon}
           iconColor="bg-blue-600"
-          formComponent={<VisitorForm />}
+          formComponent={<VisitorForm onComplete={handleVisitorFormComplete} />}
         />
 
         <MetricCard
