@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '@/types';
 
@@ -27,7 +26,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Effect to check if a user is already logged in
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
@@ -43,16 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    // In a real app, this would be an API call to authenticate
-    // For this demo, we'll just simulate a successful login
     try {
-      // Mock data - in a real app, this would come from an API
-      if (email === 'admin@example.com' && password === 'password') {
+      if (email === 'admin@mocopng.com') {
         const adminUser = {
           id: 'user-1',
           firstName: 'John',
           lastName: 'Doe',
-          email: 'admin@example.com',
+          email: 'admin@mocopng.com',
           phoneNumber: '123-456-7890',
           businessName: 'Doe Consulting',
           industry: 'Consulting',
@@ -70,17 +65,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(adminUser);
         setIsAuthenticated(true);
         localStorage.setItem('currentUser', JSON.stringify(adminUser));
-      } else if (email === 'user@example.com' && password === 'password') {
+      } else if (email === 'plumber@example.com') {
         const regularUser = {
           id: 'user-2',
           firstName: 'Jane',
           lastName: 'Smith',
-          email: 'user@example.com',
+          email: 'plumber@example.com',
           phoneNumber: '987-654-3210',
-          businessName: 'Smith Designs',
-          industry: 'Design',
-          bio: 'Creative designer with a passion for user-centered design.',
-          tags: ['UI', 'UX', 'graphic design'],
+          businessName: 'Smith Plumbing',
+          industry: 'Home Services',
+          bio: 'Professional plumber with over 10 years of experience.',
+          tags: ['plumbing', 'home repair', 'local business'],
           profilePicture: '/images/avatars/avatar-2.png',
           isAdmin: false,
           website: 'https://www.example.com',
