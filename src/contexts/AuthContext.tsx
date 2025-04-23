@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -11,6 +12,25 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateCurrentUser: (user: User) => Promise<void>;
+}
+
+// Define a type for the profile data from Supabase
+interface ProfileData {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone_number?: string;
+  business_name?: string;
+  industry?: string;
+  bio?: string;
+  profile_picture?: string;
+  website?: string;
+  linkedin?: string;
+  facebook?: string;
+  tiktok?: string;
+  instagram?: string;
+  created_at?: string;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -102,7 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userRoles = await fetchRoles(data.user.id);
         const isAdmin = userRoles.includes('admin');
         
-        const profile = profileData || {};
+        // Correctly type the profile data
+        const profile = (profileData as ProfileData) || {};
         
         // Combine auth and profile data
         const newUser: User = {
