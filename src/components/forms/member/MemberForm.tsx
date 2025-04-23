@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -84,9 +85,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
           profilePicture: profileImage || member.profilePicture,
         });
         
-        toast({
-          title: "Member updated",
-          description: "Member information has been updated successfully",
+        toast("Member updated", {
+          description: "Member information has been updated successfully"
         });
       } else {
         const password = generateTemporaryPassword();
@@ -125,10 +125,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
           
           if (result.error) {
             if (result.error.includes("already been registered")) {
-              toast({
-                title: "Email already exists",
-                description: "A user with this email already exists. Try a different email or update the existing user.",
-                variant: "destructive",
+              toast("Email already exists", {
+                description: "A user with this email already exists. Try a different email or update the existing user."
               });
               return;
             }
@@ -161,9 +159,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
           
           await addUser(newUser);
           
-          toast({
-            title: "Member added",
-            description: `New member has been added successfully. Their temporary password is: ${password}`,
+          toast("Member added", {
+            description: `New member has been added successfully. Their temporary password is: ${password}`
           });
           
           await fetchUsers();
@@ -171,10 +168,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
           console.error('Error in member form:', error);
           
           if (error.message && error.message.includes("already been registered")) {
-            toast({
-              title: "Email already exists",
-              description: "A user with this email already exists. Try a different email or update the existing user.",
-              variant: "destructive",
+            toast("Email already exists", {
+              description: "A user with this email already exists. Try a different email or update the existing user."
             });
             return;
           }
@@ -186,10 +181,8 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
       onComplete();
     } catch (error: any) {
       console.error('Error in member form:', error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
+      toast("Error", {
+        description: error.message
       });
     } finally {
       setIsSubmitting(false);
