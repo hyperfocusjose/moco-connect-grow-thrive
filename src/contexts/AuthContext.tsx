@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -36,11 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
     try {
-      // Using more aggressive type assertion for Supabase query
-      const { data, error } = await (supabase
+      const { data: rolesData, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId) as unknown as Promise<{ data: Array<{ role: string }>, error: any }>);
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error fetching roles:', error);
@@ -48,7 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      const roleList = data?.map((row) => row.role) || [];
+      const roleList = rolesData?.map(row => row.role) || [];
       setRoles(roleList);
       return roleList;
     } catch (error) {
@@ -89,12 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user) {
-        // Get user profile data from the profiles table with more aggressive type assertion
-        const { data: profileData, error: profileError } = await (supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single() as unknown as Promise<{ data: any, error: any }>);
+          .single();
           
         if (profileError) {
           console.error('Error fetching profile:', profileError);
@@ -105,7 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userRoles = await fetchRoles(data.user.id);
         const isAdmin = userRoles.includes('admin');
         
-        // Protect against null profile data with default values
         const profile = profileData || {};
         
         // Combine auth and profile data
@@ -119,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           industry: profile.industry || '',
           bio: profile.bio || '',
           profilePicture: profile.profile_picture || '',
-          tags: [], // We'll fetch tags separately if needed
+          tags: [], // We'll fetch tags separately
           isAdmin,
           website: profile.website || '',
           linkedin: profile.linkedin || '',
@@ -129,12 +125,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(profile.created_at || data.user.created_at),
         };
         
-        // Fetch member tags if needed
+        // Fetch member tags
         try {
-          const { data: tagsData } = await (supabase
+          const { data: tagsData } = await supabase
             .from('member_tags')
             .select('tag')
-            .eq('member_id', data.user.id) as unknown as Promise<{ data: Array<{ tag: string }>, error: any }>);
+            .eq('member_id', data.user.id);
             
           if (tagsData && tagsData.length > 0) {
             newUser.tags = tagsData.map(t => t.tag);

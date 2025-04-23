@@ -9,7 +9,104 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      member_tags: {
+        Row: {
+          id: string
+          member_id: string | null
+          tag: string
+        }
+        Insert: {
+          id?: string
+          member_id?: string | null
+          tag: string
+        }
+        Update: {
+          id?: string
+          member_id?: string | null
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_tags_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bio: string | null
+          business_name: string | null
+          created_at: string | null
+          email: string | null
+          facebook: string | null
+          first_name: string | null
+          id: string
+          industry: string | null
+          instagram: string | null
+          last_name: string | null
+          linkedin: string | null
+          phone_number: string | null
+          profile_picture: string | null
+          tiktok: string | null
+          website: string | null
+        }
+        Insert: {
+          bio?: string | null
+          business_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          facebook?: string | null
+          first_name?: string | null
+          id: string
+          industry?: string | null
+          instagram?: string | null
+          last_name?: string | null
+          linkedin?: string | null
+          phone_number?: string | null
+          profile_picture?: string | null
+          tiktok?: string | null
+          website?: string | null
+        }
+        Update: {
+          bio?: string | null
+          business_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          facebook?: string | null
+          first_name?: string | null
+          id?: string
+          industry?: string | null
+          instagram?: string | null
+          last_name?: string | null
+          linkedin?: string | null
+          phone_number?: string | null
+          profile_picture?: string | null
+          tiktok?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          role: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
