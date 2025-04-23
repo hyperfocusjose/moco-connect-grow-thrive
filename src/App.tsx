@@ -16,6 +16,7 @@ import Reports from "./pages/Reports";
 import Polls from "./pages/Polls";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
               
               {/* Admin routes with AppLayout */}
               <Route element={<AppLayout requireAuth requireAdmin />}>
+                <Route path="/admin" element={<AdminPanel />} />
                 {/* Admin routes will be added here */}
               </Route>
 
