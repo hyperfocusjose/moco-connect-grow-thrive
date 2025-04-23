@@ -3,18 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import WeeklyReport from "./Reports";
-import { MemberForm } from "@/components/forms/MemberForm";
-import { Badge } from "@/components/ui/badge";
-import PresenterHistoryDialog from "@/components/events/PresenterHistoryDialog";
 import { useData } from "@/contexts/DataContext";
 import { AdminFeatureCard } from "@/components/admin/AdminFeatureCard";
 import { AddMemberOverlay } from "@/components/admin/AddMemberOverlay";
 import { WeeklyReportOverlay } from "@/components/admin/WeeklyReportOverlay";
 import { CreatePollOverlay } from "@/components/admin/CreatePollOverlay";
 import { ApproveEventsOverlay } from "@/components/admin/ApproveEventsOverlay";
+import PresenterHistoryDialog from "@/components/events/PresenterHistoryDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import WeeklyReport from "./Reports";
+import { MemberForm } from "@/components/forms/MemberForm";
+import { Badge } from "@/components/ui/badge";
+
+// Define the overlay type
+type OverlayType = "addMember" | "weeklyReport" | "createPoll" | "approveEvents" | "presenterHistory" | null;
 
 const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
   <div className="p-6">
@@ -92,25 +95,25 @@ const adminFeatures = [
     title: "Add New Member",
     description: "Add a new member to the group.",
     icon: Users,
-    modal: "addMember",
+    modal: "addMember" as OverlayType,
   },
   {
     title: "Approve Events",
     description: "Review and approve pending event submissions.",
     icon: Calendar,
-    modal: "approveEvents",
+    modal: "approveEvents" as OverlayType,
   },
   {
     title: "Weekly Reports",
     description: "View the latest weekly group performance report.",
     icon: BarChart,
-    modal: "weeklyReport",
+    modal: "weeklyReport" as OverlayType,
   },
   {
     title: "Create Poll",
     description: "Create a new poll or survey for members.",
     icon: ClipboardList,
-    modal: "createPoll",
+    modal: "createPoll" as OverlayType,
   },
   {
     title: "Settings",
@@ -122,14 +125,12 @@ const adminFeatures = [
     title: "Presenter History",
     description: "View the presenters at past Tuesday meetings.",
     icon: BarChart,
-    modal: "presenterHistory",
+    modal: "presenterHistory" as OverlayType,
   },
 ];
 
 const AdminPanel: React.FC = () => {
-  const [overlay, setOverlay] = React.useState<
-    null | "addMember" | "weeklyReport" | "createPoll" | "approveEvents" | "presenterHistory"
-  >(null);
+  const [overlay, setOverlay] = React.useState<OverlayType>(null);
   const pendingEventsCount = usePendingEventsCount();
   const { events, getUser } = useData();
 
