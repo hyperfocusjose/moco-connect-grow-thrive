@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -104,7 +103,7 @@ const Reports = () => {
   });
 
   const filteredOneToOnes = oneToOnes.filter(item => {
-    const itemDate = new Date(item.meetingDate);
+    const itemDate = new Date(item.date);
     return isWithinInterval(itemDate, { start: dateRange.start, end: dateRange.end });
   });
 
@@ -146,7 +145,7 @@ const Reports = () => {
       );
       
       const monthOneToOnes = filteredOneToOnes.filter(item => 
-        isWithinInterval(new Date(item.meetingDate), { start: month.start, end: month.end })
+        isWithinInterval(new Date(item.date), { start: month.start, end: month.end })
       );
       
       const monthTYFCBs = filteredTYFCBs.filter(item => 
@@ -181,7 +180,7 @@ const Reports = () => {
       );
       
       const weekOneToOnes = filteredOneToOnes.filter(item => 
-        isWithinInterval(new Date(item.meetingDate), { start: weekStart, end: weekEnd })
+        isWithinInterval(new Date(item.date), { start: weekStart, end: weekEnd })
       );
       
       const weekTYFCBs = filteredTYFCBs.filter(item => 
@@ -218,7 +217,7 @@ const Reports = () => {
       );
       
       const dayOneToOnes = filteredOneToOnes.filter(item => 
-        isSameDay(new Date(item.meetingDate), day)
+        isSameDay(new Date(item.date), day)
       );
       
       const dayTYFCBs = filteredTYFCBs.filter(item => 
@@ -291,7 +290,7 @@ const Reports = () => {
     });
     
     const recentOneToOnes = oneToOnes.filter(item => {
-      const itemDate = new Date(item.meetingDate);
+      const itemDate = new Date(item.date);
       return isAfter(itemDate, lastTuesday);
     });
     
@@ -301,12 +300,12 @@ const Reports = () => {
     });
     
     const memberMetrics = users.map(user => {
-      const userReferrals = recentReferrals.filter(item => item.referringMemberId === user.id);
+      const userReferrals = recentReferrals.filter(item => item.fromMemberId === user.id);
       const userVisitors = recentVisitors.filter(item => item.hostMemberId === user.id);
       const userOneToOnes = recentOneToOnes.filter(item => 
-        item.memberOneId === user.id || item.memberTwoId === user.id
+        item.member1Id === user.id || item.member2Id === user.id
       );
-      const userTYFCBs = recentTYFCBs.filter(item => item.thankingMemberId === user.id);
+      const userTYFCBs = recentTYFCBs.filter(item => item.fromMemberId === user.id);
       
       return {
         user,

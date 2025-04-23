@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -47,7 +46,7 @@ interface MemberFormProps {
 }
 
 export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) => {
-  const { users, setUsers } = useData();
+  const { addUser, updateUser } = useData();
   const { toast } = useToast();
   const [tags, setTags] = useState<string[]>(member?.tags || []);
   const [tagInput, setTagInput] = useState("");
@@ -72,15 +71,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
       instagram: member?.instagram || "",
     },
   });
-
-  // Helper functions to update users
-  const addUser = (user: User) => {
-    setUsers([...users, user]);
-  };
-
-  const updateUser = (id: string, updatedUser: User) => {
-    setUsers(users.map(u => u.id === id ? updatedUser : u));
-  };
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -124,15 +114,15 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
         phoneNumber: data.phoneNumber,
         businessName: data.businessName,
         industry: data.industry,
-        bio: data.bio,
+        bio: data.bio || "",
         tags: tags,
         profilePicture: profileImage || "",
         isAdmin: false,
-        website: data.website,
-        linkedin: data.linkedin,
-        facebook: data.facebook,
-        tiktok: data.tiktok,
-        instagram: data.instagram,
+        website: data.website || "",
+        linkedin: data.linkedin || "",
+        facebook: data.facebook || "",
+        tiktok: data.tiktok || "",
+        instagram: data.instagram || "",
         createdAt: new Date(),
       };
       
