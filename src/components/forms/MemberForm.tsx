@@ -92,6 +92,16 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
     }
   };
 
+  const generateTemporaryPassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  };
+
   const onSubmit = async (data: FormValues) => {
     try {
       if (isEditing && member) {
@@ -109,26 +119,47 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
       } else {
         const password = generateTemporaryPassword();
         
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email: data.email,
-          password: password,
-          email_confirm: true,
-          user_metadata: {
-            first_name: data.firstName,
-            last_name: data.lastName
-          }
+        const { data: sessionData } = await supabase.auth.getSession();
+        
+        const response = await fetch("https://fermfvwyoqewedrzgben.functions.supabase.co/create-user", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sessionData.session?.access_token || ""}`,
+          },
+          body: JSON.stringify({
+            email: data.email,
+            password: password,
+            userData: {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              businessName: data.businessName,
+              industry: data.industry,
+              bio: data.bio || "",
+              phoneNumber: data.phoneNumber,
+              profilePicture: profileImage || "",
+              website: data.website || "",
+              linkedin: data.linkedin || "",
+              facebook: data.facebook || "",
+              tiktok: data.tiktok || "",
+              instagram: data.instagram || "",
+              tags: tags,
+            }
+          }),
         });
 
-        if (authError) {
-          throw new Error(authError.message);
+        const result = await response.json();
+        
+        if (result.error) {
+          throw new Error(result.error);
         }
 
-        if (!authData.user) {
+        if (!result.user?.user) {
           throw new Error('Failed to create user');
         }
 
         const newUser: User = {
-          id: authData.user.id,
+          id: result.user.user.id,
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
@@ -168,16 +199,6 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
 
   const handleImageUpload = (imageUrl: string) => {
     setProfileImage(imageUrl);
-  };
-
-  const generateTemporaryPassword = () => {
-    const length = 12;
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
-    }
-    return password;
   };
 
   return (
