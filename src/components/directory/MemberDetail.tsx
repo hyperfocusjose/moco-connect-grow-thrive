@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { ReferralForm } from '@/components/forms/ReferralForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
@@ -147,6 +148,12 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
           className="sm:max-w-md p-0"
           onInteractOutside={e => e.preventDefault()}
         >
+          <DialogTitle className="sr-only">
+            {openForm === 'referral' ? 'Make Referral' : 
+             openForm === '1to1' ? 'Record One-to-One' : 
+             openForm === 'tyfcb' ? 'Record Closed Business' : ''}
+          </DialogTitle>
+          
           {openForm === 'referral' && (
             <ReferralForm
               onComplete={() => { closeForm(); onClose(); }}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -26,7 +27,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
 
+// Extended schema to include the referringMemberId when admin is using the form
 const formSchema = z.object({
+  referringMemberId: z.string().optional(),
   referredToMemberId: z.string({
     required_error: "Please select the member to refer to",
   }),
@@ -40,7 +43,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const ReferralForm: React.FC<{ onComplete?: () => void; forceShowInputMemberSelect?: boolean }> = ({
+export const ReferralForm: React.FC<{ 
+  onComplete?: () => void; 
+  forceShowInputMemberSelect?: boolean 
+}> = ({
   onComplete,
   forceShowInputMemberSelect = false
 }) => {
@@ -62,7 +68,7 @@ export const ReferralForm: React.FC<{ onComplete?: () => void; forceShowInputMem
       description: "",
       date: new Date().toISOString().substring(0, 10),
       ...(showReferringMemberSelect
-        ? {}
+        ? { referringMemberId: "" }
         : { referringMemberId: currentUser?.id ?? "" })
     },
   });
@@ -79,7 +85,7 @@ export const ReferralForm: React.FC<{ onComplete?: () => void; forceShowInputMem
 
     try {
       await addReferral({
-        referringMemberId: showReferringMemberSelect ? data.referringMemberId : currentUser.id,
+        referringMemberId: showReferringMemberSelect ? data.referringMemberId! : currentUser.id,
         referredToMemberId: data.referredToMemberId,
         description: data.description,
         date: new Date(data.date),
