@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -26,8 +26,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
+import { User } from '@/types';
 
-// Extended schema to include the referringMemberId when admin is using the form
 const formSchema = z.object({
   referringMemberId: z.string().optional(),
   referredToMemberId: z.string({
@@ -45,36 +45,45 @@ type FormValues = z.infer<typeof formSchema>;
 
 export const ReferralForm: React.FC<{ 
   onComplete?: () => void; 
-  forceShowInputMemberSelect?: boolean 
+  forceShowInputMemberSelect?: boolean;
+  preselectedMember?: User;
 }> = ({
   onComplete,
-  forceShowInputMemberSelect = false
+  forceShowInputMemberSelect = false,
+  preselectedMember
 }) => {
   const { currentUser } = useAuth();
   const { users, addReferral } = useData();
   const { toast } = useToast();
 
-  // Get other users excluding current user
-  const otherUsers = users.filter(user => user.id !== currentUser?.id);
-
   // For admin, allow selecting the referring member; otherwise, pre-select current
-  const showReferringMemberSelect = forceShowInputMemberSelect;
+  const showMemberOneSelect = forceShowInputMemberSelect;
   const allUsers = users;
+
+  // Get other users (for member selection)
+  // For non-admin, filter out the current user from possible selections
+  const referringMemberId = showMemberOneSelect ? undefined : currentUser?.id;
+  const otherUsers = users.filter(user => user.id !== referringMemberId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      referredToMemberId: "",
+      referredToMemberId: preselectedMember?.id || "",
       description: "",
       date: new Date().toISOString().substring(0, 10),
-      ...(showReferringMemberSelect
-        ? { referringMemberId: "" }
-        : { referringMemberId: currentUser?.id ?? "" })
+      ...(showMemberOneSelect ? { referringMemberId: "" } : { referringMemberId: currentUser?.id ?? "" })
     },
   });
 
+  // If preselectedMember changes, update the form
+  useEffect(() => {
+    if (preselectedMember) {
+      form.setValue('referredToMemberId', preselectedMember.id);
+    }
+  }, [preselectedMember, form]);
+
   const onSubmit = async (data: FormValues) => {
-    if (!currentUser && !showReferringMemberSelect) {
+    if (!currentUser && !showMemberOneSelect) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -85,26 +94,24 @@ export const ReferralForm: React.FC<{
 
     try {
       await addReferral({
-        referringMemberId: showReferringMemberSelect ? data.referringMemberId! : currentUser.id,
+        referringMemberId: showMemberOneSelect ? data.referringMemberId! : currentUser.id,
         referredToMemberId: data.referredToMemberId,
         description: data.description,
         date: new Date(data.date),
       });
 
       toast({
-        title: "Referral added",
+        title: "Referral made",
         description: "Your referral has been recorded successfully",
       });
 
-      // Reset form
       form.reset({
         referredToMemberId: "",
         description: "",
         date: new Date().toISOString().substring(0, 10),
-        ...(showReferringMemberSelect ? { referringMemberId: "" } : {})
+        ...(showMemberOneSelect ? { referringMemberId: "" } : {})
       });
 
-      // Call onComplete callback if provided
       if (onComplete) {
         onComplete();
       }
@@ -112,7 +119,7 @@ export const ReferralForm: React.FC<{
       toast({
         variant: "destructive",
         title: "Error",
-        description: "There was a problem adding your referral",
+        description: "There was a problem making your referral",
       });
     }
   };
@@ -121,20 +128,20 @@ export const ReferralForm: React.FC<{
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-4">
-          {showReferringMemberSelect && (
+          {showMemberOneSelect && (
             <FormField
               control={form.control}
               name="referringMemberId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Referring Member</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
+                  <FormLabel>Who is referring?</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select referring member" />
+                        <SelectValue placeholder="Select member" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -146,7 +153,7 @@ export const ReferralForm: React.FC<{
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    The member making the referral
+                    The member making this referral
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -159,7 +166,7 @@ export const ReferralForm: React.FC<{
             name="referredToMemberId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Referred To</FormLabel>
+                <FormLabel>Refer To</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
@@ -178,7 +185,7 @@ export const ReferralForm: React.FC<{
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  The member you are referring work to
+                  The member you're referring a client to
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -193,13 +200,13 @@ export const ReferralForm: React.FC<{
                 <FormLabel>Description</FormLabel>
                 <FormControl>
                   <Textarea
-                    placeholder="Describe the referral (e.g. Jennifer Jones needs her roof repaired)"
+                    placeholder="Describe the referral"
                     className="resize-none"
                     {...field}
                   />
                 </FormControl>
                 <FormDescription>
-                  A brief description of the referral
+                  A brief description of the referral opportunity
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -232,7 +239,7 @@ export const ReferralForm: React.FC<{
           >
             {form.formState.isSubmitting ? (
               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-            ) : "Add Referral"}
+            ) : "Make Referral"}
           </Button>
         </DialogFooter>
       </form>

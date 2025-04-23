@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Referral, Visitor, OneToOne, TYFCB, Event, Poll, Activity, User } from '@/types';
 import { useAuth } from './AuthContext';
@@ -7,7 +6,7 @@ interface DataContextType {
   referrals: Referral[];
   visitors: Visitor[];
   oneToOnes: OneToOne[];
-  tyfcbs: TYFCB[];
+  tyfcb: TYFCB[];
   events: Event[];
   polls: Poll[];
   activities: Activity[];
@@ -149,6 +148,7 @@ const generateMockData = () => {
       thankingMemberId: '2',
       thankedMemberId: '3',
       amount: 2500,
+      description: 'Real estate commission for home purchase',
       date: new Date(2023, 3, 25),
       createdAt: new Date(2023, 3, 25),
     },
@@ -157,6 +157,7 @@ const generateMockData = () => {
       thankingMemberId: '3',
       thankedMemberId: '2',
       amount: 1200,
+      description: 'Plumbing work for new homeowner',
       date: new Date(2023, 4, 10),
       createdAt: new Date(2023, 4, 10),
     },
