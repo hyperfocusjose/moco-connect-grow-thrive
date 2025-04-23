@@ -1,5 +1,5 @@
 
-import { eachDayOfInterval, isTuesday, startOfDay, nextTuesday, isAfter, isBefore, isSameDay } from 'date-fns';
+import { eachDayOfInterval, isTuesday, startOfDay, nextTuesday, isAfter, isBefore, isSameDay, previousTuesday, isWithinInterval, eachWeekOfInterval } from 'date-fns';
 
 /**
  * Get all Tuesdays in a given interval
@@ -17,11 +17,8 @@ export const startOfTuesday = (date: Date) => {
     return day;
   }
   // Find the previous Tuesday
-  const prevTuesday = new Date(day);
-  while (!isTuesday(prevTuesday)) {
-    prevTuesday.setDate(prevTuesday.getDate() - 1);
-  }
-  return startOfDay(prevTuesday);
+  return startOfDay(previousTuesday(day));
 };
 
-export { isAfter, isBefore, isSameDay };
+// Re-export functions from date-fns
+export { isAfter, isBefore, isSameDay, previousTuesday, isWithinInterval, eachWeekOfInterval };
