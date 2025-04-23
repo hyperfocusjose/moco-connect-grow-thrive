@@ -8,7 +8,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/
 import { ReferralForm } from '@/components/forms/ReferralForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
-import { Phone, Mail, ArrowUpRight, ListCheck, Calendar } from 'lucide-react';
+import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Twitter, Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,6 +57,40 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
           </div>
         </div>
 
+        {/* Social Media Links */}
+        {(member.website || member.linkedin || member.twitter || member.instagram) && (
+          <div className="flex justify-center space-x-3 mb-6">
+            {member.website && (
+              <a href={ensureHttps(member.website)} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="icon" className="rounded-full">
+                  <Globe className="h-4 w-4 text-gray-600" />
+                </Button>
+              </a>
+            )}
+            {member.linkedin && (
+              <a href={getLinkedInUrl(member.linkedin)} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="icon" className="rounded-full">
+                  <Linkedin className="h-4 w-4 text-blue-600" />
+                </Button>
+              </a>
+            )}
+            {member.twitter && (
+              <a href={getTwitterUrl(member.twitter)} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="icon" className="rounded-full">
+                  <Twitter className="h-4 w-4 text-blue-400" />
+                </Button>
+              </a>
+            )}
+            {member.instagram && (
+              <a href={getInstagramUrl(member.instagram)} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="icon" className="rounded-full">
+                  <Instagram className="h-4 w-4 text-pink-600" />
+                </Button>
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Contact Info - iPhone-like layout */}
         <div className="space-y-5 mb-6">
           <a
@@ -84,6 +118,23 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
               <div className="text-lg">{member.email}</div>
             </div>
           </a>
+          
+          {member.website && (
+            <a
+              href={ensureHttps(member.website)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div className="mr-3 p-2 bg-purple-100 rounded-full">
+                <Globe className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-sm font-medium">website</div>
+                <div className="text-lg truncate max-w-[200px]">{member.website}</div>
+              </div>
+            </a>
+          )}
         </div>
 
         <Separator className="my-6" />
@@ -180,3 +231,23 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
     </div>
   );
 };
+
+// Helper functions for URLs
+function ensureHttps(url: string): string {
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
+function getLinkedInUrl(username: string): string {
+  return username.startsWith('http') ? username : `https://linkedin.com/in/${username.replace(/^@/, '')}`;
+}
+
+function getTwitterUrl(username: string): string {
+  return username.startsWith('http') ? username : `https://twitter.com/${username.replace(/^@/, '')}`;
+}
+
+function getInstagramUrl(username: string): string {
+  return username.startsWith('http') ? username : `https://instagram.com/${username.replace(/^@/, '')}`;
+}

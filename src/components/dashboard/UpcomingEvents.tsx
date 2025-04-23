@@ -27,6 +27,24 @@ export const UpcomingEvents: React.FC = () => {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 2);
 
+  // Get the next upcoming non-Tuesday meeting event
+  const nextNonTuesdayEvent = events
+    .filter(
+      event =>
+        event.isApproved &&
+        !event.isCancelled &&
+        !event.name.toLowerCase().includes('tuesday meeting') &&
+        isAfter(new Date(event.date), today)
+    )
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
+
+  // Combine and sort all events to display
+  const eventsToDisplay = [...upcomingTuesdayMeetings];
+  if (nextNonTuesdayEvent) {
+    eventsToDisplay.push(nextNonTuesdayEvent);
+  }
+  eventsToDisplay.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   // Format date/time helpers
   const formatDate = (date: Date) => {
     return format(date, 'EEEE, MMMM d');
@@ -51,12 +69,12 @@ export const UpcomingEvents: React.FC = () => {
           <Calendar className="mr-2 h-5 w-5 text-maroon" />
           Upcoming Events
         </CardTitle>
-        <CardDescription>Next Tuesday meetings scheduled for the group</CardDescription>
+        <CardDescription>Next events scheduled for the group</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {upcomingTuesdayMeetings.length > 0 ? (
-            upcomingTuesdayMeetings.map(event => (
+          {eventsToDisplay.length > 0 ? (
+            eventsToDisplay.map(event => (
               <div key={event.id} className="mb-6 bg-muted/50 p-4 rounded-lg border">
                 <div className="flex justify-between items-start">
                   <div>
@@ -79,7 +97,7 @@ export const UpcomingEvents: React.FC = () => {
                     </div>
                   )}
                 </div>
-                {!event.isPresentationMeeting && (
+                {event.name.toLowerCase().includes('tuesday meeting') && !event.isPresentationMeeting && (
                   <div className="mt-2 text-xs text-muted-foreground italic">
                     No presentation scheduled
                   </div>
@@ -87,7 +105,7 @@ export const UpcomingEvents: React.FC = () => {
               </div>
             ))
           ) : (
-            <p className="text-sm text-muted-foreground">No upcoming Tuesday meetings scheduled.</p>
+            <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
           )}
         </div>
         <Button

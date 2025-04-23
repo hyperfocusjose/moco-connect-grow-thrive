@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
@@ -21,7 +20,8 @@ import {
   addYears,
   isTuesday,
   startOfDay,
-  isPast
+  isPast,
+  getDaysInMonth
 } from 'date-fns';
 import { eachTuesdayOfInterval } from '@/utils/dateUtils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -316,6 +316,29 @@ const Events = () => {
       }));
   };
 
+  // Generate calendar days for the current month
+  const generateCalendarDays = () => {
+    const firstDay = startOfMonth(currentDate);
+    const lastDay = endOfMonth(currentDate);
+    const totalDays = getDaysInMonth(currentDate);
+    
+    const startDay = firstDay.getDay(); // 0 for Sunday, 1 for Monday, etc.
+    const days = [];
+    
+    // Add empty cells for days before the first day of month
+    for (let i = 0; i < startDay; i++) {
+      days.push(null);
+    }
+    
+    // Add days of the month
+    for (let i = 1; i <= totalDays; i++) {
+      const day = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
+      days.push(day);
+    }
+    
+    return days;
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -380,7 +403,7 @@ const Events = () => {
                           mode="single"
                           selected={newEvent.date}
                           onSelect={(date) => date && setNewEvent({ ...newEvent, date })}
-                          className="rounded-md border"
+                          className="rounded-md border pointer-events-auto"
                           disabled={(date) => date < new Date()}
                         />
                       </PopoverContent>
@@ -585,10 +608,11 @@ const Events = () => {
           </div>
           
           <div className="grid grid-cols-7 gap-1">
-            {eachDayOfInterval({
-              start: startOfMonth(currentDate),
-              end: endOfMonth(currentDate)
-            }).map((day, dayIdx) => {
+            {generateCalendarDays().map((day, dayIdx) => {
+              if (day === null) {
+                return <div key={`empty-${dayIdx}`} className="min-h-24 p-1"></div>;
+              }
+              
               const eventsOnDay = getEventsForDay(day);
               const isToday = isSameDay(day, new Date());
               const isTuesdayDay = isTuesday(day);
@@ -760,9 +784,15 @@ const Events = () => {
                 type="checkbox"
                 id="isPresentationMeeting"
                 checked={tuesdayMeetingDialog?.isPresentationMeeting || false}
-                onChange={(e) => setTuesdayMeetingDialog(prev => 
-                  prev ? { ...prev, isPresentationMeeting: e.target.checked } : null
-                )}
+                onChange={(e) => {
+                  if (tuesdayMeetingDialog) {
+                    setTuesdayMeetingDialog({
+                      ...tuesdayMeetingDialog,
+                      isPresentationMeeting: e.target.checked,
+                      presenter: e.target.checked ? tuesdayMeetingDialog.presenter : undefined
+                    });
+                  }
+                }}
                 className="h-4 w-4 rounded border-gray-300"
               />
               <Label htmlFor="isPresentationMeeting">This is a presentation meeting</Label>
@@ -847,286 +877,4 @@ const Events = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
-  );
-};
-
-interface EventsListProps {
-  events: EventType[];
-  getUser: (userId: string) => any;
-  currentUser: any;
-  onView: (event: EventType) => void;
-  onManageTuesdayMeeting?: (event: EventType) => void;
-  onCancel: (event: EventType) => void;
-  onDelete: (eventId: string) => void;
-  formatTime: (time: string) => string;
-  isAdmin?: boolean;
-  isCancelled?: boolean;
-}
-
-const EventsList: React.FC<EventsListProps> = ({ 
-  events, 
-  getUser, 
-  currentUser, 
-  onView, 
-  onManageTuesdayMeeting,
-  onCancel, 
-  onDelete,
-  formatTime,
-  isAdmin,
-  isCancelled 
-}) => {
-  if (events.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">No events found</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {events.map((event) => (
-        <EventCard 
-          key={event.id} 
-          event={event} 
-          getUser={getUser} 
-          currentUser={currentUser} 
-          onView={onView}
-          onManageTuesdayMeeting={onManageTuesdayMeeting}
-          onCancel={onCancel}
-          onDelete={onDelete}
-          formatTime={formatTime}
-          isAdmin={isAdmin}
-          isCancelled={isCancelled}
-        />
-      ))}
-    </div>
-  );
-};
-
-interface EventCardProps {
-  event: EventType;
-  getUser: (userId: string) => any;
-  currentUser: any;
-  onView: (event: EventType) => void;
-  onManageTuesdayMeeting?: (event: EventType) => void;
-  onCancel: (event: EventType) => void;
-  onDelete: (eventId: string) => void;
-  formatTime: (time: string) => string;
-  isAdmin?: boolean;
-  isCancelled?: boolean;
-}
-
-const EventCard: React.FC<EventCardProps> = ({ 
-  event, 
-  getUser, 
-  currentUser, 
-  onView, 
-  onManageTuesdayMeeting,
-  onCancel, 
-  onDelete,
-  formatTime,
-  isAdmin,
-  isCancelled 
-}) => {
-  const eventDate = new Date(event.date);
-  const isPast = eventDate < new Date();
-  const presenter = event.presenter ? getUser(event.presenter) : null;
-  const isTuesdayMeeting = event.name.includes('Tuesday Meeting');
-
-  return (
-    <Card className={`overflow-hidden ${event.isCancelled ? 'opacity-70' : ''}`}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-xl">{event.name}</CardTitle>
-          <div className="flex space-x-1">
-            {event.isCancelled && (
-              <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
-                Cancelled
-              </Badge>
-            )}
-          </div>
-        </div>
-        <CardDescription>
-          {format(eventDate, 'EEEE, MMMM d, yyyy')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center">
-            <Clock className="h-4 w-4 mr-2 text-gray-500" />
-            <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
-          </div>
-          <div className="flex items-center">
-            <MapPin className="h-4 w-4 mr-2 text-gray-500" />
-            <span>{event.location}</span>
-          </div>
-          {event.isPresentationMeeting && presenter && (
-            <div className="flex items-center">
-              <User className="h-4 w-4 mr-2 text-gray-500" />
-              <span>Presenter: {presenter.firstName} {presenter.lastName}</span>
-            </div>
-          )}
-          {isTuesdayMeeting && !event.isPresentationMeeting && (
-            <div className="flex items-center text-gray-500 italic">
-              <span>No presentation scheduled</span>
-            </div>
-          )}
-          {event.description && <p className="pt-2">{event.description}</p>}
-        </div>
-      </CardContent>
-      <CardFooter className="pt-0 flex justify-between">
-        <Button 
-          variant={isPast || event.isCancelled ? "outline" : "default"} 
-          className={isPast || event.isCancelled ? "" : "bg-maroon hover:bg-maroon/90"} 
-          size="sm"
-          onClick={() => onView(event)}
-        >
-          View Details
-        </Button>
-        
-        {isAdmin && !event.isCancelled && (
-          <div className="flex space-x-2">
-            {isTuesdayMeeting && onManageTuesdayMeeting && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onManageTuesdayMeeting(event)}
-              >
-                {event.isPresentationMeeting ? 'Change Presenter' : 'Add Presenter'}
-              </Button>
-            )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                >
-                  {isTuesdayMeeting ? "Cancel" : "Delete"}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isTuesdayMeeting 
-                      ? "This will cancel the Tuesday meeting. It won't be shown to members."
-                      : "This will permanently delete the event and cannot be undone."}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={() => {
-                      if (isTuesdayMeeting) {
-                        onCancel(event);
-                      } else {
-                        onDelete(event.id);
-                      }
-                    }}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    {isTuesdayMeeting ? "Cancel Meeting" : "Delete Event"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        )}
-      </CardFooter>
-    </Card>
-  );
-};
-
-interface PendingEventsListProps {
-  events: EventType[];
-  getUser: (userId: string) => any;
-  onApprove: (event: EventType) => void;
-  onDisapprove: (event: EventType) => void;
-  onView: (event: EventType) => void;
-  formatTime: (time: string) => string;
-}
-
-const PendingEventsList: React.FC<PendingEventsListProps> = ({ 
-  events, 
-  getUser, 
-  onApprove, 
-  onDisapprove, 
-  onView,
-  formatTime 
-}) => {
-  if (events.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">No pending events found</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {events.map((event) => (
-        <Card key={event.id} className="overflow-hidden border-amber-200">
-          <CardHeader className="pb-2 bg-amber-50">
-            <div className="flex justify-between items-start">
-              <CardTitle className="text-xl">{event.name}</CardTitle>
-              <Badge variant="outline" className="border-amber-500 text-amber-700">
-                Pending
-              </Badge>
-            </div>
-            <CardDescription>
-              {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
-            </CardDescription>
-            <CardDescription className="text-xs mt-1">
-              Submitted by: {getUser(event.createdBy)?.firstName} {getUser(event.createdBy)?.lastName}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pb-4 pt-4">
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
-              </div>
-              <div className="flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{event.location}</span>
-              </div>
-              {event.description && <p className="pt-2">{event.description}</p>}
-            </div>
-          </CardContent>
-          <CardFooter className="pt-0 flex justify-between">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onView(event)}
-            >
-              View Details
-            </Button>
-            
-            <div className="space-x-2">
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={() => onDisapprove(event)}
-              >
-                Disapprove
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => onApprove(event)}
-              >
-                Approve
-              </Button>
-            </div>
-          </CardFooter>
-        </Card>
-      ))}
-    </div>
-  );
-};
-
-export default Events;

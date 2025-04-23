@@ -1,16 +1,19 @@
-
 export interface User {
   id: string;
-  email: string;
   firstName: string;
   lastName: string;
-  businessName: string;
+  email: string;
   phoneNumber: string;
-  profilePicture: string;
+  businessName: string;
   industry: string;
-  bio: string;
+  bio?: string;
   tags: string[];
+  profilePicture?: string;
   isAdmin: boolean;
+  website?: string;
+  linkedin?: string;
+  twitter?: string;
+  instagram?: string;
   createdAt: Date;
 }
 
@@ -25,10 +28,14 @@ export interface Referral {
 
 export interface Visitor {
   id: string;
-  hostMemberId: string;
+  hostMemberId?: string;
   visitorName: string;
   visitorBusiness: string;
   visitDate: Date;
+  isSelfEntered?: boolean;
+  phoneNumber?: string;
+  email?: string;
+  industry?: string;
   createdAt: Date;
 }
 

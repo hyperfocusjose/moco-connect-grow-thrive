@@ -10,11 +10,15 @@ import { VisitorForm } from '@/components/forms/VisitorForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Users, Calendar, ListCheck } from 'lucide-react';
+import { ArrowUpRight, Users, Calendar, ListCheck, Star, Clock } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { format, isAfter, startOfToday, addWeeks } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const { getUserMetrics } = useData();
+  const { getUserMetrics, visitors } = useData();
   const navigate = useNavigate();
 
   // If user is logged in, get their metrics
@@ -25,6 +29,17 @@ const Dashboard = () => {
   const visitorIcon = <Users className="h-4 w-4 text-white" />;
   const oneToOneIcon = <ListCheck className="h-4 w-4 text-white" />;
   const tyfcbIcon = <Calendar className="h-4 w-4 text-white" />;
+
+  // Get upcoming visitors
+  const today = startOfToday();
+  const fourWeeksLater = addWeeks(today, 4);
+  
+  const upcomingVisitors = visitors
+    ? visitors.filter(visitor => {
+        const visitDate = new Date(visitor.visitDate);
+        return isAfter(visitDate, today) && visitDate <= fourWeeksLater;
+      }).sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
+    : [];
 
   return (
     <div className="space-y-6">
@@ -74,10 +89,54 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Activity and Events */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <RecentActivity />
-        <UpcomingEvents />
+      {/* Activity, Events, and Visitors */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <RecentActivity />
+        </div>
+        <div className="lg:col-span-1">
+          <UpcomingEvents />
+        </div>
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Star className="mr-2 h-5 w-5 text-maroon" />
+                Upcoming Visitors
+              </CardTitle>
+              <CardDescription>People visiting our meetings in the next 4 weeks</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {upcomingVisitors.length > 0 ? (
+                <div className="space-y-4">
+                  {upcomingVisitors.map((visitor) => (
+                    <div key={visitor.id} className="p-3 border rounded-md">
+                      <div className="flex justify-between">
+                        <div>
+                          <p className="font-medium">{visitor.visitorName}</p>
+                          <p className="text-sm text-muted-foreground">{visitor.visitorBusiness}</p>
+                        </div>
+                        {visitor.isSelfEntered && (
+                          <Badge variant="outline" className="h-6 bg-amber-50 text-amber-800 border-amber-300">
+                            <Star className="mr-1 h-3 w-3" /> Self-Registered
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs flex items-center text-muted-foreground">
+                        <Clock className="mr-1 h-3 w-3" />
+                        <span>Visiting on {format(new Date(visitor.visitDate), "EEEE, MMMM d")}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No upcoming visitors scheduled.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Quick Links */}
