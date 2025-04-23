@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -157,6 +158,7 @@ export interface DataContextType {
   deletePoll: (id: string) => Promise<void>;
   votePoll: (pollId: string, optionId: string) => Promise<void>;
   hasVoted: (pollId: string, userId: string) => boolean;
+  getTopPerformers: () => any;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -183,6 +185,7 @@ const DataContext = createContext<DataContextType>({
   deletePoll: async () => {},
   votePoll: async () => {},
   hasVoted: () => false,
+  getTopPerformers: () => ({}),
 });
 
 export const useData = () => useContext(DataContext);
@@ -258,6 +261,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phoneNumber: visitor.phoneNumber,
       email: visitor.email,
       industry: visitor.industry,
+      createdAt: new Date(), // Adding the missing createdAt property
     };
 
     setVisitors(prev => [...prev, newVisitor]);
@@ -303,6 +307,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  // Add the missing getTopPerformers function
+  const getTopPerformers = () => {
+    return {
+      topReferrals: {
+        user: users[0],
+        count: 15,
+      },
+      topVisitors: {
+        user: users[1],
+        count: 8,
+      },
+      topOneToOnes: {
+        user: users[2],
+        count: 22,
+      },
+      topTYFCB: {
+        user: users[0],
+        amount: 750,
+      }
+    };
+  };
+
   return (
     <DataContext.Provider value={{
       users,
@@ -328,6 +354,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deletePoll,
       votePoll,
       hasVoted,
+      getTopPerformers,
     }}>
       {children}
     </DataContext.Provider>
