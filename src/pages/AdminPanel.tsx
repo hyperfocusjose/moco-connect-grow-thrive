@@ -10,6 +10,11 @@ import { MemberForm } from "@/components/forms/MemberForm";
 import { Badge } from "@/components/ui/badge";
 import PresenterHistoryDialog from "@/components/events/PresenterHistoryDialog";
 import { useData } from "@/contexts/DataContext";
+import { AdminFeatureCard } from "@/components/admin/AdminFeatureCard";
+import { AddMemberOverlay } from "@/components/admin/AddMemberOverlay";
+import { WeeklyReportOverlay } from "@/components/admin/WeeklyReportOverlay";
+import { CreatePollOverlay } from "@/components/admin/CreatePollOverlay";
+import { ApproveEventsOverlay } from "@/components/admin/ApproveEventsOverlay";
 
 const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
   <div className="p-6">
@@ -78,7 +83,7 @@ const PendingEventsList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 const usePendingEventsCount = () => {
-  const [count, setCount] = useState(2);
+  const [count] = React.useState(2);
   return count;
 };
 
@@ -122,19 +127,11 @@ const adminFeatures = [
 ];
 
 const AdminPanel: React.FC = () => {
-  const [overlay, setOverlay] = useState<
+  const [overlay, setOverlay] = React.useState<
     null | "addMember" | "weeklyReport" | "createPoll" | "approveEvents" | "presenterHistory"
   >(null);
   const pendingEventsCount = usePendingEventsCount();
   const { events, getUser } = useData();
-
-  const handleCardClick = (feature: any) => {
-    if (feature.modal) {
-      setOverlay(feature.modal);
-    }
-  };
-
-  const closeOverlay = () => setOverlay(null);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -153,90 +150,35 @@ const AdminPanel: React.FC = () => {
       </Card>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {adminFeatures.map((feature) => {
-          const showBadge = feature.modal === "approveEvents" && pendingEventsCount > 0;
-          return feature.modal ? (
-            <div
-              key={feature.title}
-              onClick={() => handleCardClick(feature)}
-              className="group cursor-pointer relative"
-            >
-              <Card className="h-full hover:shadow-lg hover:border-maroon transition">
-                <CardHeader className="flex-row items-center space-y-0 gap-4">
-                  <span className="relative">
-                    <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
-                    {feature.modal === "approveEvents" && pendingEventsCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-1.5 -right-1.5 text-xs px-1.5 py-0.5"
-                      >
-                        {pendingEventsCount}
-                      </Badge>
-                    )}
-                  </span>
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <Link to={feature.link} key={feature.title} className="group">
-              <Card className="h-full hover:shadow-lg hover:border-maroon transition">
-                <CardHeader className="flex-row items-center space-y-0 gap-4">
-                  <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
+        {adminFeatures.map((feature) => (
+          <AdminFeatureCard
+            key={feature.title}
+            title={feature.title}
+            description={feature.description}
+            icon={feature.icon}
+            showBadge={feature.modal === "approveEvents"}
+            badgeCount={feature.modal === "approveEvents" ? pendingEventsCount : undefined}
+            onClick={
+              feature.modal
+                ? () => setOverlay(feature.modal)
+                : undefined
+            }
+            link={feature.link}
+          />
+        ))}
       </div>
 
-      <Dialog open={overlay === "addMember"} onOpenChange={closeOverlay}>
-        <DialogContent className="sm:max-w-lg p-0" onInteractOutside={e => e.preventDefault()}>
-          <MemberForm onComplete={closeOverlay} />
-        </DialogContent>
-      </Dialog>
+      <AddMemberOverlay open={overlay === "addMember"} onClose={() => setOverlay(null)} />
 
-      <Dialog open={overlay === "weeklyReport"} onOpenChange={closeOverlay}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Weekly Report</DialogTitle>
-            <DialogDescription>
-              Most recent weekly report below.
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="h-[60vh] pr-4">
-            <WeeklyReport />
-          </ScrollArea>
-          <div className="flex justify-end mt-4">
-            <DialogClose asChild>
-              <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
-            </DialogClose>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WeeklyReportOverlay open={overlay === "weeklyReport"} onClose={() => setOverlay(null)} />
 
-      <Dialog open={overlay === "createPoll"} onOpenChange={closeOverlay}>
-        <DialogContent className="sm:max-w-lg p-0" onInteractOutside={e => e.preventDefault()}>
-          <PollForm onComplete={closeOverlay} />
-        </DialogContent>
-      </Dialog>
+      <CreatePollOverlay open={overlay === "createPoll"} onClose={() => setOverlay(null)} />
 
-      <Dialog open={overlay === "approveEvents"} onOpenChange={closeOverlay}>
-        <DialogContent className="sm:max-w-xl">
-          <PendingEventsList onClose={closeOverlay} />
-        </DialogContent>
-      </Dialog>
+      <ApproveEventsOverlay open={overlay === "approveEvents"} onClose={() => setOverlay(null)} />
 
       <PresenterHistoryDialog
         open={overlay === "presenterHistory"}
-        onOpenChange={closeOverlay}
+        onOpenChange={() => setOverlay(null)}
         events={events}
         getUser={getUser}
       />
