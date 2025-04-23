@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -118,8 +119,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             profile.member_tags.map((tagObj: any) => tagObj.tag) : 
             [];
           
-          // Check if user has admin role
-          const isAdmin = profile.user_roles ? 
+          // Check if user has admin role - safely handle potential errors
+          const isAdmin = profile.user_roles && Array.isArray(profile.user_roles) ? 
             profile.user_roles.some((role: any) => role.role === 'admin') : 
             false;
           
@@ -166,7 +167,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data) {
         const transformedActivities: Activity[] = data.map(activity => ({
           id: activity.id,
-          type: activity.type,
+          // Cast the string type to the expected union type
+          type: activity.type as Activity['type'],
           description: activity.description,
           date: new Date(activity.date),
           userId: activity.user_id,
