@@ -1,12 +1,17 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Activity } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 
 export const RecentActivity: React.FC = () => {
-  const { activities, getUser } = useData();
+  const { activities, getUser, fetchActivities } = useData();
+  
+  useEffect(() => {
+    // Fetch activities when component mounts
+    fetchActivities();
+  }, [fetchActivities]);
   
   // Get the 10 most recent activities
   const recentActivities = [...activities].sort((a, b) => 

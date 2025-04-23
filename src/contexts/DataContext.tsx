@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +18,7 @@ export interface DataContextType {
   tyfcbs: TYFCB[];
   polls: Poll[];
   stats: Record<string, any>;
-  getUser: (userId: string) => User | undefined;
+  getUser: (userId: string | undefined) => User | undefined;
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, event: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
@@ -39,6 +39,7 @@ export interface DataContextType {
   markVisitorNoShow: (id: string) => Promise<void>;
   getActivityForAllMembers: () => Record<string, any>[];
   fetchUsers: () => Promise<void>;
+  fetchActivities: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -72,6 +73,7 @@ const DataContext = createContext<DataContextType>({
   markVisitorNoShow: async () => {},
   getActivityForAllMembers: () => [],
   fetchUsers: async () => {},
+  fetchActivities: async () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -88,11 +90,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [polls, setPolls] = useState<Poll[]>([]);
 
   // Fetch users from Supabase on component mount
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*, member_tags(tag)');
+        .select('*, member_tags(tag), user_roles(role)');
       
       if (error) {
         console.error('Error fetching users:', error);
@@ -105,43 +107,85 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Transform the data to match the User type
-      const transformedUsers: User[] = data.map(profile => {
-        // Extract tags from the member_tags relation
-        const tags = profile.member_tags ? 
-          profile.member_tags.map((tagObj: any) => tagObj.tag) : 
-          [];
-        
-        return {
-          id: profile.id,
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          email: profile.email || '',
-          phoneNumber: profile.phone_number || '',
-          businessName: profile.business_name || '',
-          industry: profile.industry || '',
-          bio: profile.bio || '',
-          tags: tags,
-          profilePicture: profile.profile_picture || '',
-          isAdmin: false, // We'll need to handle admin status elsewhere
-          website: profile.website || '',
-          linkedin: profile.linkedin || '',
-          facebook: profile.facebook || '',
-          tiktok: profile.tiktok || '',
-          instagram: profile.instagram || '',
-          createdAt: new Date(profile.created_at),
-        };
-      });
+      const transformedUsers: User[] = data
+        .filter(profile => {
+          // Filter out profiles with no first name or last name (incomplete profiles)
+          return profile.first_name && profile.last_name;
+        })
+        .map(profile => {
+          // Extract tags from the member_tags relation
+          const tags = profile.member_tags ? 
+            profile.member_tags.map((tagObj: any) => tagObj.tag) : 
+            [];
+          
+          // Check if user has admin role
+          const isAdmin = profile.user_roles ? 
+            profile.user_roles.some((role: any) => role.role === 'admin') : 
+            false;
+          
+          return {
+            id: profile.id,
+            firstName: profile.first_name || '',
+            lastName: profile.last_name || '',
+            email: profile.email || '',
+            phoneNumber: profile.phone_number || '',
+            businessName: profile.business_name || '',
+            industry: profile.industry || '',
+            bio: profile.bio || '',
+            tags: tags,
+            profilePicture: profile.profile_picture || '',
+            isAdmin: isAdmin,
+            website: profile.website || '',
+            linkedin: profile.linkedin || '',
+            facebook: profile.facebook || '',
+            tiktok: profile.tiktok || '',
+            instagram: profile.instagram || '',
+            createdAt: new Date(profile.created_at),
+          };
+        });
       
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error in fetchUsers:', error);
     }
-  };
+  }, []);
+
+  // Fetch activities
+  const fetchActivities = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .order('date', { ascending: false });
+        
+      if (error) {
+        console.error('Error fetching activities:', error);
+        return;
+      }
+      
+      if (data) {
+        const transformedActivities: Activity[] = data.map(activity => ({
+          id: activity.id,
+          type: activity.type,
+          description: activity.description,
+          date: new Date(activity.date),
+          userId: activity.user_id,
+          relatedUserId: activity.related_user_id,
+          referenceId: activity.reference_id,
+        }));
+        
+        setActivities(transformedActivities);
+      }
+    } catch (error) {
+      console.error('Error in fetchActivities:', error);
+    }
+  }, []);
 
   // Fetch data on component mount
   useEffect(() => {
     const fetchData = async () => {
       await fetchUsers();
+      await fetchActivities();
       
       // Fetch events from Supabase on component mount
       const fetchEvents = async () => {
@@ -219,12 +263,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     fetchData();
-  }, []);
+  }, [fetchUsers, fetchActivities]);
 
   // Remove demo stats; default to empty object, provide dummy implementations.
   const stats = {};
 
-  const getUser = (userId: string) => {
+  const getUser = (userId: string | undefined) => {
+    if (!userId) return undefined;
     return users.find(user => user.id === userId);
   };
 
@@ -636,6 +681,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       markVisitorNoShow,
       getActivityForAllMembers,
       fetchUsers,
+      fetchActivities,
     }}>
       {children}
     </DataContext.Provider>

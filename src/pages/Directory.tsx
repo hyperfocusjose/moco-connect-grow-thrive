@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
@@ -10,7 +11,7 @@ import { Search, Plus, X } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { MemberForm } from '@/components/forms/MemberForm';
+import { MemberForm } from '@/components/forms/member/MemberForm';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -36,7 +37,13 @@ const Directory: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Filter out admin users and incomplete profiles
   const filteredMembers = users.filter(member => {
+    // Skip profiles without proper first/last name or admins
+    if (!member.firstName || !member.lastName || member.isAdmin) {
+      return false;
+    }
+    
     const searchLower = searchTerm.toLowerCase();
     return (
       member.firstName.toLowerCase().includes(searchLower) ||
