@@ -20,5 +20,5 @@ export const startOfTuesday = (date: Date) => {
   return startOfDay(previousTuesday(day));
 };
 
-// Re-export functions from date-fns
+// Re-export functions from date-fns that we need
 export { isAfter, isBefore, isSameDay, previousTuesday, isWithinInterval, eachWeekOfInterval };
