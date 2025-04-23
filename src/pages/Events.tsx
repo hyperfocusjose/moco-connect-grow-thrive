@@ -23,7 +23,7 @@ import {
   isPast,
   getDaysInMonth
 } from 'date-fns';
-import { eachTuesdayOfInterval } from '@/utils/dateUtils';
+import { eachTuesdayOfInterval, formatDateForComparison } from '@/utils/dateUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -260,11 +260,11 @@ const Events = () => {
       const existingTuesdayMeetingDates = new Set(
         events
           .filter(event => event.name.includes('Tuesday Meeting'))
-          .map(event => format(new Date(event.date), 'yyyy-MM-dd'))
+          .map(event => formatDateForComparison(new Date(event.date)))
       );
       
       const missingTuesdays = futureTuesdays.filter(
-        tuesday => !existingTuesdayMeetingDates.has(format(tuesday, 'yyyy-MM-dd'))
+        tuesday => !existingTuesdayMeetingDates.has(formatDateForComparison(tuesday))
       );
       
       if (missingTuesdays.length > 0) {
@@ -297,13 +297,23 @@ const Events = () => {
     
     if (selectedTab === 'upcoming') {
       if (isWeeklyMeeting) {
-        const upcomingTuesdayMeetings = events
+        const uniqueTuesdayMeetingDates = new Map();
+        
+        events
           .filter(e => 
             e.name.toLowerCase().includes('tuesday meeting') && 
             !e.isCancelled && 
             e.isApproved &&
             new Date(e.date) >= today
           )
+          .forEach(meeting => {
+            const meetingDate = formatDateForComparison(new Date(meeting.date));
+            if (!uniqueTuesdayMeetingDates.has(meetingDate) || meeting.isPresentationMeeting) {
+              uniqueTuesdayMeetingDates.set(meetingDate, meeting);
+            }
+          });
+        
+        const upcomingTuesdayMeetings = Array.from(uniqueTuesdayMeetingDates.values())
           .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
           .slice(0, 2);
         

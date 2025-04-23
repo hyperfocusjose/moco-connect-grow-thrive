@@ -20,5 +20,12 @@ export const startOfTuesday = (date: Date) => {
   return startOfDay(previousTuesday(day));
 };
 
+/**
+ * Format a date to a string for comparison
+ */
+export const formatDateForComparison = (date: Date) => {
+  return date.toISOString().split('T')[0];
+};
+
 // Re-export functions from date-fns that we need
 export { isAfter, isBefore, isSameDay, previousTuesday, isWithinInterval, eachWeekOfInterval };
