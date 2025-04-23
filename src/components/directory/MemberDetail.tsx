@@ -158,18 +158,21 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
             <ReferralForm
               onComplete={() => { closeForm(); onClose(); }}
               forceShowInputMemberSelect={isAdmin}
+              preselectedMember={member}
             />
           )}
           {openForm === '1to1' && (
             <OneToOneForm
               onComplete={() => { closeForm(); onClose(); }}
               forceShowInputMemberSelect={isAdmin}
+              preselectedMember={member}
             />
           )}
           {openForm === 'tyfcb' && (
             <TYFCBForm
               onComplete={() => { closeForm(); onClose(); }}
               forceShowInputMemberSelect={isAdmin}
+              preselectedMember={member}
             />
           )}
         </DialogContent>

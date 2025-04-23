@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -26,6 +26,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
+import { User } from '@/types';
 
 const formSchema = z.object({
   thankingMemberId: z.string().optional(),
@@ -47,10 +48,12 @@ type FormValues = z.infer<typeof formSchema>;
 
 export const TYFCBForm: React.FC<{ 
   onComplete?: () => void; 
-  forceShowInputMemberSelect?: boolean 
+  forceShowInputMemberSelect?: boolean;
+  preselectedMember?: User;
 }> = ({
   onComplete,
-  forceShowInputMemberSelect = false
+  forceShowInputMemberSelect = false,
+  preselectedMember
 }) => {
   const { currentUser } = useAuth();
   const { users, addTYFCB } = useData();
@@ -68,13 +71,20 @@ export const TYFCBForm: React.FC<{
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      thankedMemberId: "",
+      thankedMemberId: preselectedMember?.id || "",
       amount: "",
       description: "",
       date: new Date().toISOString().substring(0, 10),
       ...(showMemberOneSelect ? { thankingMemberId: "" } : { thankingMemberId: currentUser?.id ?? "" })
     },
   });
+
+  // If preselectedMember changes, update the form
+  useEffect(() => {
+    if (preselectedMember) {
+      form.setValue('thankedMemberId', preselectedMember.id);
+    }
+  }, [preselectedMember, form]);
 
   const onSubmit = async (data: FormValues) => {
     if (!currentUser && !showMemberOneSelect) {

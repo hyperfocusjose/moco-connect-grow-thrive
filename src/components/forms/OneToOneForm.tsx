@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -24,8 +24,10 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
+import { User } from '@/types';
 
 const formSchema = z.object({
+  memberOneId: z.string().optional(),
   memberTwoId: z.string({
     required_error: "Please select the other member",
   }),
@@ -36,9 +38,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const OneToOneForm: React.FC<{ onComplete?: () => void; forceShowInputMemberSelect?: boolean }> = ({
+export const OneToOneForm: React.FC<{ 
+  onComplete?: () => void; 
+  forceShowInputMemberSelect?: boolean;
+  preselectedMember?: User;
+}> = ({
   onComplete,
-  forceShowInputMemberSelect = false
+  forceShowInputMemberSelect = false,
+  preselectedMember
 }) => {
   const { currentUser } = useAuth();
   const { users, addOneToOne } = useData();
@@ -52,16 +59,23 @@ export const OneToOneForm: React.FC<{ onComplete?: () => void; forceShowInputMem
   const memberOneId = showMemberOneSelect ? undefined : currentUser?.id;
   const otherUsers = users.filter(user => user.id !== memberOneId);
 
-  const form = useForm({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      memberTwoId: "",
+      memberTwoId: preselectedMember?.id || "",
       meetingDate: new Date().toISOString().substring(0, 10),
       ...(showMemberOneSelect ? {} : { memberOneId: currentUser?.id ?? "" })
     },
   });
 
-  const onSubmit = async (data) => {
+  // If preselectedMember changes, update the form
+  useEffect(() => {
+    if (preselectedMember) {
+      form.setValue('memberTwoId', preselectedMember.id);
+    }
+  }, [preselectedMember, form]);
+
+  const onSubmit = async (data: FormValues) => {
     if (!currentUser && !showMemberOneSelect) {
       toast({
         variant: "destructive",

@@ -45,6 +45,7 @@ export interface TYFCB {
   thankingMemberId: string;
   thankedMemberId: string;
   amount: number;
+  description: string;
   date: Date;
   createdAt: Date;
 }
