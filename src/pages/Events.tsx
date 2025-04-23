@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
@@ -64,8 +63,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import PresenterHistoryDialog from '@/components/events/PresenterHistoryDialog';
 
-// Components for the event list views (these would typically be in separate files)
 const EventsList = ({ 
   events, 
   getUser, 
@@ -243,7 +242,6 @@ const Events = () => {
     description: '',
   });
   
-  // For managing Tuesday meetings
   const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
   
   const isAdmin = currentUser?.isAdmin;
@@ -291,9 +289,7 @@ const Events = () => {
     const isWeeklyMeeting = event.name.toLowerCase().includes('tuesday meeting');
     
     if (selectedTab === 'upcoming') {
-      // For upcoming tab, show only next 2 Tuesday meetings and other future events
       if (isWeeklyMeeting) {
-        // For Tuesday meetings, consider only the next 2 uncancelled meetings
         const upcomingTuesdayMeetings = events
           .filter(e => 
             e.name.toLowerCase().includes('tuesday meeting') && 
@@ -306,14 +302,11 @@ const Events = () => {
         
         return upcomingTuesdayMeetings.some(meeting => meeting.id === event.id);
       } else {
-        // For non-Tuesday meetings, show all future approved events
         return eventDate >= today && event.isApproved && !event.isCancelled;
       }
     } else if (selectedTab === 'past') {
-      // For past tab, show only non-Tuesday meetings that are in the past
       return eventDate < today && event.isApproved && !isWeeklyMeeting;
     } else if (selectedTab === 'my-events' && currentUser) {
-      // For my-events, show only events created by the current user that are in the future
       return (event.createdBy === currentUser.id || event.presenter === currentUser.id) && 
              eventDate >= today;
     } else if (selectedTab === 'pending' && isAdmin) {
@@ -453,15 +446,13 @@ const Events = () => {
     });
   };
 
-  // Format time from 24hr to 12hr format
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
     const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    const hour12 = hours % 12 || 12;
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Get presenter history for Tuesday meetings
   const getPresenterHistory = () => {
     return events
       .filter(event => 
@@ -477,21 +468,18 @@ const Events = () => {
       }));
   };
 
-  // Generate calendar days for the current month
   const generateCalendarDays = () => {
     const firstDay = startOfMonth(currentDate);
     const lastDay = endOfMonth(currentDate);
     const totalDays = getDaysInMonth(currentDate);
     
-    const startDay = firstDay.getDay(); // 0 for Sunday, 1 for Monday, etc.
+    const startDay = firstDay.getDay();
     const days = [];
     
-    // Add empty cells for days before the first day of month
     for (let i = 0; i < startDay; i++) {
       days.push(null);
     }
     
-    // Add days of the month
     for (let i = 1; i <= totalDays; i++) {
       const day = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
       days.push(day);
@@ -833,7 +821,6 @@ const Events = () => {
         </div>
       )}
 
-      {/* Event Details Dialog */}
       <Dialog open={!!eventDetails} onOpenChange={(open) => !open && setEventDetails(null)}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
@@ -930,7 +917,6 @@ const Events = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Tuesday Meeting Presenter Dialog */}
       <Dialog open={!!tuesdayMeetingDialog} onOpenChange={(open) => !open && setTuesdayMeetingDialog(null)}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
@@ -999,45 +985,12 @@ const Events = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Presenter History Dialog */}
-      <Dialog open={presenterHistoryOpen} onOpenChange={setPresenterHistoryOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Presenter History</DialogTitle>
-            <DialogDescription>
-              Past presenters at Tuesday meetings
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-4">
-              {getPresenterHistory().length > 0 ? (
-                getPresenterHistory().map((item, index) => (
-                  <div key={index} className="flex justify-between items-center border-b pb-2">
-                    <div>
-                      <p className="font-medium">
-                        {item.presenter ? `${item.presenter.firstName} ${item.presenter.lastName}` : 'Unknown presenter'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.presenter?.businessName || ''}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p>{format(item.date, "EEEE, MMMM d, yyyy")}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center py-8 text-muted-foreground">No presentation history found</p>
-              )}
-            </div>
-          </ScrollArea>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PresenterHistoryDialog
+        open={presenterHistoryOpen}
+        onOpenChange={setPresenterHistoryOpen}
+        events={events}
+        getUser={getUser}
+      />
     </div>
   );
 };

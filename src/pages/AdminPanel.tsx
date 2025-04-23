@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
@@ -9,8 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import WeeklyReport from "./Reports";
 import { MemberForm } from "@/components/forms/MemberForm";
 import { Badge } from "@/components/ui/badge";
+import PresenterHistoryDialog from "@/components/events/PresenterHistoryDialog";
+import { useData } from "@/contexts/DataContext";
 
-// --- Simple placeholder: create poll form ---
 const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
   <div className="p-6">
     <h2 className="text-lg font-semibold mb-2">Create a New Poll</h2>
@@ -18,7 +18,6 @@ const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
       className="space-y-3"
       onSubmit={e => {
         e.preventDefault();
-        // Here, you could integrate with actual poll creation.
         onComplete();
       }}
     >
@@ -33,10 +32,7 @@ const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
   </div>
 );
 
-// --- Simple placeholder: pending events overlay ---
 const PendingEventsList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  // This would actually fetch real data using react-query or context
-  // For demo purposes, we'll just mock a list and action
   const [pendingEvents, setPendingEvents] = useState([
     { id: 1, name: "Spring Social", date: "2025-05-02", requestedBy: "Alex" },
     { id: 2, name: "Fundraiser", date: "2025-05-10", requestedBy: "Sam" },
@@ -81,15 +77,11 @@ const PendingEventsList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-// -- Mock pending events count for badge (would be fetched real-time in a full app)
 const usePendingEventsCount = () => {
-  // this can be replaced with real query/hook logic
   const [count, setCount] = useState(2);
-  // Optionally fetch and update
   return count;
 };
 
-// Admin features configuration (updated to modal triggers only where required)
 const adminFeatures = [
   {
     title: "Add New Member",
@@ -121,11 +113,20 @@ const adminFeatures = [
     icon: Settings,
     link: "/settings",
   },
+  {
+    title: "Presenter History",
+    description: "View the presenters at past Tuesday meetings.",
+    icon: BarChart,
+    modal: "presenterHistory",
+  },
 ];
 
 const AdminPanel: React.FC = () => {
-  const [overlay, setOverlay] = useState<null | "addMember" | "weeklyReport" | "createPoll" | "approveEvents">(null);
+  const [overlay, setOverlay] = useState<
+    null | "addMember" | "weeklyReport" | "createPoll" | "approveEvents" | "presenterHistory"
+  >(null);
   const pendingEventsCount = usePendingEventsCount();
+  const { events, getUser } = useData();
 
   const handleCardClick = (feature: any) => {
     if (feature.modal) {
@@ -153,7 +154,6 @@ const AdminPanel: React.FC = () => {
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {adminFeatures.map((feature) => {
-          // Badge logic for Approve Events
           const showBadge = feature.modal === "approveEvents" && pendingEventsCount > 0;
           return feature.modal ? (
             <div
@@ -165,7 +165,7 @@ const AdminPanel: React.FC = () => {
                 <CardHeader className="flex-row items-center space-y-0 gap-4">
                   <span className="relative">
                     <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
-                    {showBadge && (
+                    {feature.modal === "approveEvents" && pendingEventsCount > 0 && (
                       <Badge
                         variant="destructive"
                         className="absolute -top-1.5 -right-1.5 text-xs px-1.5 py-0.5"
@@ -197,14 +197,12 @@ const AdminPanel: React.FC = () => {
         })}
       </div>
 
-      {/* Add Member Modal */}
       <Dialog open={overlay === "addMember"} onOpenChange={closeOverlay}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={e => e.preventDefault()}>
           <MemberForm onComplete={closeOverlay} />
         </DialogContent>
       </Dialog>
 
-      {/* Weekly Report Modal */}
       <Dialog open={overlay === "weeklyReport"} onOpenChange={closeOverlay}>
         <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
           <DialogHeader>
@@ -224,19 +222,24 @@ const AdminPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Poll Modal */}
       <Dialog open={overlay === "createPoll"} onOpenChange={closeOverlay}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={e => e.preventDefault()}>
           <PollForm onComplete={closeOverlay} />
         </DialogContent>
       </Dialog>
 
-      {/* Approve Events Modal */}
       <Dialog open={overlay === "approveEvents"} onOpenChange={closeOverlay}>
         <DialogContent className="sm:max-w-xl">
           <PendingEventsList onClose={closeOverlay} />
         </DialogContent>
       </Dialog>
+
+      <PresenterHistoryDialog
+        open={overlay === "presenterHistory"}
+        onOpenChange={closeOverlay}
+        events={events}
+        getUser={getUser}
+      />
     </div>
   );
 };
