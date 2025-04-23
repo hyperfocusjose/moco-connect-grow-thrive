@@ -1,19 +1,30 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
 
 interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  roles: string[];
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateCurrentUser: (user: User) => Promise<void>;
+}
+
+// Utility to get human-readable role names
+function hasRole(roles: string[], role: string) {
+  return roles.includes(role);
 }
 
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   isAuthenticated: false,
   isLoading: false,
+  roles: [],
+  isAdmin: false,
   login: async () => {},
   logout: () => {},
   updateCurrentUser: async () => {},
@@ -25,6 +36,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [roles, setRoles] = useState<string[]>([]);
+
+  // Fetch roles from Supabase user_roles table
+  const fetchRoles = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching roles:', error);
+      setRoles([]);
+      return [];
+    }
+    const roleList = data?.map((row) => row.role) || [];
+    setRoles(roleList);
+    return roleList;
+  };
 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
@@ -33,6 +62,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const user = JSON.parse(storedUser);
         setCurrentUser(user);
         setIsAuthenticated(true);
+        if (user.id) {
+          fetchRoles(user.id);
+        }
       } catch (error) {
         console.error('Failed to parse stored user data:', error);
       }
@@ -40,80 +72,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
+  // login only sets basic user info, then loads roles from Supabase
   const login = async (email: string, password: string) => {
-    try {
-      if (email === 'admin@mocopng.com') {
-        const adminUser = {
-          id: 'user-1',
-          firstName: 'John',
-          lastName: 'Doe',
-          email: 'admin@mocopng.com',
-          phoneNumber: '123-456-7890',
-          businessName: 'Doe Consulting',
-          industry: 'Consulting',
-          bio: 'Experienced consultant specializing in business strategy.',
-          tags: ['strategy', 'management', 'leadership'],
-          profilePicture: '/images/avatars/avatar-1.png',
-          isAdmin: true,
-          website: 'https://www.example.com',
-          linkedin: 'john.doe',
-          facebook: 'johndoe',
-          tiktok: '@johndoe',
-          instagram: 'johndoe',
-          createdAt: new Date(),
-        };
-        setCurrentUser(adminUser);
-        setIsAuthenticated(true);
-        localStorage.setItem('currentUser', JSON.stringify(adminUser));
-      } else if (email === 'plumber@example.com') {
-        const regularUser = {
-          id: 'user-2',
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'plumber@example.com',
-          phoneNumber: '987-654-3210',
-          businessName: 'Smith Plumbing',
-          industry: 'Home Services',
-          bio: 'Professional plumber with over 10 years of experience.',
-          tags: ['plumbing', 'home repair', 'local business'],
-          profilePicture: '/images/avatars/avatar-2.png',
-          isAdmin: false,
-          website: 'https://www.example.com',
-          linkedin: 'janesmith',
-          facebook: 'janesmith',
-          tiktok: '@janesmith',
-          instagram: 'janesmith',
-          createdAt: new Date(),
-        };
-        setCurrentUser(regularUser);
-        setIsAuthenticated(true);
-        localStorage.setItem('currentUser', JSON.stringify(regularUser));
-      } else {
-        throw new Error('Invalid email or password');
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
+    // DEMO: hardcoded user objects as previously
+    let user: User | null = null;
+
+    if (email === 'admin@mocopng.com') {
+      user = {
+        id: 'user-1',
+        firstName: 'John',
+        lastName: 'Doe',
+        email: 'admin@mocopng.com',
+        phoneNumber: '123-456-7890',
+        businessName: 'Doe Consulting',
+        industry: 'Consulting',
+        bio: 'Experienced consultant specializing in business strategy.',
+        tags: ['strategy', 'management', 'leadership'],
+        profilePicture: '/images/avatars/avatar-1.png',
+        isAdmin: false, // ignore this, infer from roles
+        website: 'https://www.example.com',
+        linkedin: 'john.doe',
+        facebook: 'johndoe',
+        tiktok: '@johndoe',
+        instagram: 'johndoe',
+        createdAt: new Date(),
+      };
+    } else if (email === 'plumber@example.com') {
+      user = {
+        id: 'user-2',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        email: 'plumber@example.com',
+        phoneNumber: '987-654-3210',
+        businessName: 'Smith Plumbing',
+        industry: 'Home Services',
+        bio: 'Professional plumber with over 10 years of experience.',
+        tags: ['plumbing', 'home repair', 'local business'],
+        profilePicture: '/images/avatars/avatar-2.png',
+        isAdmin: false,
+        website: 'https://www.example.com',
+        linkedin: 'janesmith',
+        facebook: 'janesmith',
+        tiktok: '@janesmith',
+        instagram: 'janesmith',
+        createdAt: new Date(),
+      };
+    } else {
+      throw new Error('Invalid email or password');
+    }
+
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+
+    if (user.id) {
+      await fetchRoles(user.id);
     }
   };
 
   const logout = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
+    setRoles([]);
     localStorage.removeItem('currentUser');
   };
 
   const updateCurrentUser = async (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('currentUser', JSON.stringify(user));
+    if (user.id) {
+      await fetchRoles(user.id);
+    }
     return Promise.resolve();
   };
 
+  // Infer admin from roles
+  const isAdmin = roles.includes('admin');
+
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated, isLoading, login, logout, updateCurrentUser }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, isLoading, roles, isAdmin, login, logout, updateCurrentUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
 export default AuthContext;
+
