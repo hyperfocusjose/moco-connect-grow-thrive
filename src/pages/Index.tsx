@@ -1,4 +1,6 @@
 
+// We remove all signup references (if any) from the Index page
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';

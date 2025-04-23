@@ -1,3 +1,6 @@
+
+// We remove signup link from the login page
+
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
 const formSchema = z.object({
   email: z.string().email({
     message: 'Please enter a valid email address'
@@ -19,6 +23,7 @@ const formSchema = z.object({
   })
 });
 type FormValues = z.infer<typeof formSchema>;
+
 const Login = () => {
   const {
     login
@@ -96,21 +101,12 @@ const Login = () => {
               </Link>
             </div>
             <div className="text-sm text-center w-full">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-maroon hover:text-maroon-dark font-medium">
-                Sign up
-              </Link>
+              {/* Removed signup link */}
             </div>
           </CardFooter>
         </Card>
-
-        {/* Demo Credentials */}
-        <div className="text-center text-xs text-gray-500 mt-4">
-          <p>Demo Credentials:</p>
-          <p>Admin: admin@mocopng.com (any password)</p>
-          <p>Member: plumber@example.com (any password)</p>
-        </div>
       </div>
     </div>;
 };
+
 export default Login;
