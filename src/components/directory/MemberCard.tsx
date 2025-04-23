@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, Mail, Globe, Linkedin, Twitter, Instagram, Edit } from 'lucide-react';
+import { Phone, Mail, Globe, Linkedin, Instagram, Facebook, Edit } from 'lucide-react';
 
 interface MemberCardProps {
   member: User;
@@ -85,9 +85,18 @@ export const MemberCard: React.FC<MemberCardProps> = ({
               <Linkedin className="h-4 w-4 text-gray-600" />
             </Button>
           )}
-          {member.twitter && (
+          {member.facebook && (
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-              <Twitter className="h-4 w-4 text-gray-600" />
+              <Facebook className="h-4 w-4 text-gray-600" />
+            </Button>
+          )}
+          {member.tiktok && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+              <svg className="h-4 w-4 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 12a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" />
+                <path d="M15 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                <path d="M15 2v10c0 4.418-3.582 8-8 8" />
+              </svg>
             </Button>
           )}
           {member.instagram && (

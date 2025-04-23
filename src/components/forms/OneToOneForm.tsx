@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -87,10 +86,27 @@ export const OneToOneForm: React.FC<{
     }
 
     try {
+      const member1Id = showMemberOneSelect ? data.memberOneId! : currentUser!.id;
+      const member1 = users.find(u => u.id === member1Id);
+      const member2 = users.find(u => u.id === data.memberTwoId);
+      
+      if (!member1 || !member2) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not find member information",
+        });
+        return;
+      }
+      
       await addOneToOne({
-        memberOneId: showMemberOneSelect ? data.memberOneId : currentUser.id,
-        memberTwoId: data.memberTwoId,
-        meetingDate: new Date(data.meetingDate),
+        id: `onetoone-${Date.now()}`,
+        member1Id,
+        member1Name: `${member1.firstName} ${member1.lastName}`,
+        member2Id: data.memberTwoId,
+        member2Name: `${member2.firstName} ${member2.lastName}`,
+        date: new Date(data.meetingDate),
+        createdAt: new Date()
       });
 
       toast({

@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -108,12 +107,29 @@ export const TYFCBForm: React.FC<{
         return;
       }
 
+      const fromMemberId = showMemberOneSelect ? data.thankingMemberId! : currentUser!.id;
+      const fromMember = users.find(u => u.id === fromMemberId);
+      const toMember = users.find(u => u.id === data.thankedMemberId);
+      
+      if (!fromMember || !toMember) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not find member information",
+        });
+        return;
+      }
+      
       await addTYFCB({
-        thankingMemberId: showMemberOneSelect ? data.thankingMemberId! : currentUser.id,
-        thankedMemberId: data.thankedMemberId,
+        id: `tyfcb-${Date.now()}`,
+        fromMemberId,
+        fromMemberName: `${fromMember.firstName} ${fromMember.lastName}`,
+        toMemberId: data.thankedMemberId,
+        toMemberName: `${toMember.firstName} ${toMember.lastName}`,
         amount,
         description: data.description,
         date: new Date(data.date),
+        createdAt: new Date()
       });
 
       toast({

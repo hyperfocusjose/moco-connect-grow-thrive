@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -93,11 +92,28 @@ export const ReferralForm: React.FC<{
     }
 
     try {
+      const fromMemberId = showMemberOneSelect ? data.referringMemberId! : currentUser!.id;
+      const fromMember = users.find(u => u.id === fromMemberId);
+      const toMember = users.find(u => u.id === data.referredToMemberId);
+      
+      if (!fromMember || !toMember) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not find member information",
+        });
+        return;
+      }
+      
       await addReferral({
-        referringMemberId: showMemberOneSelect ? data.referringMemberId! : currentUser.id,
-        referredToMemberId: data.referredToMemberId,
+        id: `referral-${Date.now()}`,
+        fromMemberId,
+        fromMemberName: `${fromMember.firstName} ${fromMember.lastName}`,
+        toMemberId: data.referredToMemberId,
+        toMemberName: `${toMember.firstName} ${toMember.lastName}`,
         description: data.description,
         date: new Date(data.date),
+        createdAt: new Date()
       });
 
       toast({

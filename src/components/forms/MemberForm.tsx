@@ -47,7 +47,7 @@ interface MemberFormProps {
 }
 
 export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) => {
-  const { addUser, updateUser } = useData();
+  const { users, setUsers } = useData();
   const { toast } = useToast();
   const [tags, setTags] = useState<string[]>(member?.tags || []);
   const [tagInput, setTagInput] = useState("");
@@ -72,6 +72,15 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
       instagram: member?.instagram || "",
     },
   });
+
+  // Helper functions to update users
+  const addUser = (user: User) => {
+    setUsers([...users, user]);
+  };
+
+  const updateUser = (id: string, updatedUser: User) => {
+    setUsers(users.map(u => u.id === id ? updatedUser : u));
+  };
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -106,15 +115,28 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
         description: "Member information has been updated successfully",
       });
     } else {
-      // Create new member
-      await addUser({
-        ...data,
+      // Create new member with required fields (ensures all required User properties exist)
+      const newUser: User = {
         id: `user-${Date.now()}`,
-        tags,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phoneNumber: data.phoneNumber,
+        businessName: data.businessName,
+        industry: data.industry,
+        bio: data.bio,
+        tags: tags,
         profilePicture: profileImage || "",
         isAdmin: false,
+        website: data.website,
+        linkedin: data.linkedin,
+        facebook: data.facebook,
+        tiktok: data.tiktok,
+        instagram: data.instagram,
         createdAt: new Date(),
-      });
+      };
+      
+      await addUser(newUser);
       
       toast({
         title: "Member added",
