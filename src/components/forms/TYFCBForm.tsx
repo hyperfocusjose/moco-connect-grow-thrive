@@ -28,8 +28,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
 
 const formSchema = z.object({
-  memberOneId: z.string().optional(),
-  memberTwoId: z.string({
+  thankingMemberId: z.string().optional(),
+  thankedMemberId: z.string({
     required_error: "Please select the member",
   }),
   amount: z.string().min(1, {
@@ -62,17 +62,17 @@ export const TYFCBForm: React.FC<{
 
   // Get other users (for member selection)
   // For non-admin, filter out the current user from possible selections
-  const memberOneId = showMemberOneSelect ? undefined : currentUser?.id;
-  const otherUsers = users.filter(user => user.id !== memberOneId);
+  const thankingMemberId = showMemberOneSelect ? undefined : currentUser?.id;
+  const otherUsers = users.filter(user => user.id !== thankingMemberId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      memberTwoId: "",
+      thankedMemberId: "",
       amount: "",
       description: "",
       date: new Date().toISOString().substring(0, 10),
-      ...(showMemberOneSelect ? { memberOneId: "" } : { memberOneId: currentUser?.id ?? "" })
+      ...(showMemberOneSelect ? { thankingMemberId: "" } : { thankingMemberId: currentUser?.id ?? "" })
     },
   });
 
@@ -99,8 +99,8 @@ export const TYFCBForm: React.FC<{
       }
 
       await addTYFCB({
-        memberOneId: showMemberOneSelect ? data.memberOneId! : currentUser.id,
-        memberTwoId: data.memberTwoId,
+        thankingMemberId: showMemberOneSelect ? data.thankingMemberId! : currentUser.id,
+        thankedMemberId: data.thankedMemberId,
         amount,
         description: data.description,
         date: new Date(data.date),
@@ -112,11 +112,11 @@ export const TYFCBForm: React.FC<{
       });
 
       form.reset({
-        memberTwoId: "",
+        thankedMemberId: "",
         amount: "",
         description: "",
         date: new Date().toISOString().substring(0, 10),
-        ...(showMemberOneSelect ? { memberOneId: "" } : {})
+        ...(showMemberOneSelect ? { thankingMemberId: "" } : {})
       });
 
       if (onComplete) {
@@ -138,7 +138,7 @@ export const TYFCBForm: React.FC<{
           {showMemberOneSelect && (
             <FormField
               control={form.control}
-              name="memberOneId"
+              name="thankingMemberId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Who is entering?</FormLabel>
@@ -170,7 +170,7 @@ export const TYFCBForm: React.FC<{
 
           <FormField
             control={form.control}
-            name="memberTwoId"
+            name="thankedMemberId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Thank You To</FormLabel>
