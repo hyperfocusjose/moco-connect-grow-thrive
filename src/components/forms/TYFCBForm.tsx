@@ -23,17 +23,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { DialogFooter } from '@/components/ui/dialog';
 
 const formSchema = z.object({
-  thankedMemberId: z.string({
-    required_error: "Please select the member you are thanking",
+  memberOneId: z.string().optional(),
+  memberTwoId: z.string({
+    required_error: "Please select the member",
   }),
   amount: z.string().min(1, {
     message: "Amount is required",
-  }).refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Amount must be a positive number",
+  }),
+  description: z.string().min(5, {
+    message: "Description must be at least 5 characters.",
   }),
   date: z.string().min(1, {
     message: "Date is required",
@@ -42,25 +45,39 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
+export const TYFCBForm: React.FC<{ 
+  onComplete?: () => void; 
+  forceShowInputMemberSelect?: boolean 
+}> = ({
+  onComplete,
+  forceShowInputMemberSelect = false
+}) => {
   const { currentUser } = useAuth();
   const { users, addTYFCB } = useData();
   const { toast } = useToast();
 
-  // Get other users excluding current user
-  const otherUsers = users.filter(user => user.id !== currentUser?.id);
+  // For admin, allow selecting the reporting member; otherwise, pre-select current
+  const showMemberOneSelect = forceShowInputMemberSelect;
+  const allUsers = users;
+
+  // Get other users (for member selection)
+  // For non-admin, filter out the current user from possible selections
+  const memberOneId = showMemberOneSelect ? undefined : currentUser?.id;
+  const otherUsers = users.filter(user => user.id !== memberOneId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      thankedMemberId: "",
+      memberTwoId: "",
       amount: "",
+      description: "",
       date: new Date().toISOString().substring(0, 10),
+      ...(showMemberOneSelect ? { memberOneId: "" } : { memberOneId: currentUser?.id ?? "" })
     },
   });
 
   const onSubmit = async (data: FormValues) => {
-    if (!currentUser) {
+    if (!currentUser && !showMemberOneSelect) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -70,26 +87,38 @@ export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete })
     }
 
     try {
+      const amount = parseFloat(data.amount);
+      
+      if (isNaN(amount)) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please enter a valid amount",
+        });
+        return;
+      }
+
       await addTYFCB({
-        thankingMemberId: currentUser.id,
-        thankedMemberId: data.thankedMemberId,
-        amount: Number(data.amount),
+        memberOneId: showMemberOneSelect ? data.memberOneId! : currentUser.id,
+        memberTwoId: data.memberTwoId,
+        amount,
+        description: data.description,
         date: new Date(data.date),
       });
 
       toast({
         title: "Thank You For Closed Business recorded",
-        description: "Your closed business has been recorded successfully",
+        description: "The closed business has been recorded successfully",
       });
 
-      // Reset form
       form.reset({
-        thankedMemberId: "",
+        memberTwoId: "",
         amount: "",
+        description: "",
         date: new Date().toISOString().substring(0, 10),
+        ...(showMemberOneSelect ? { memberOneId: "" } : {})
       });
 
-      // Call onComplete callback if provided
       if (onComplete) {
         onComplete();
       }
@@ -97,7 +126,7 @@ export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete })
       toast({
         variant: "destructive",
         title: "Error",
-        description: "There was a problem recording your closed business",
+        description: "There was a problem recording the closed business",
       });
     }
   };
@@ -106,12 +135,45 @@ export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete })
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-4">
+          {showMemberOneSelect && (
+            <FormField
+              control={form.control}
+              name="memberOneId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Who is entering?</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select member" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {allUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName} - {user.businessName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    The member recording this closed business
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
-            name="thankedMemberId"
+            name="memberTwoId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Thanking Member</FormLabel>
+                <FormLabel>Thank You To</FormLabel>
                 <Select 
                   onValueChange={field.onChange} 
                   defaultValue={field.value}
@@ -130,7 +192,7 @@ export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete })
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  The member who referred you business that you're now thanking
+                  The member you're thanking for closed business
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -144,16 +206,31 @@ export const TYFCBForm: React.FC<{ onComplete?: () => void }> = ({ onComplete })
               <FormItem>
                 <FormLabel>Amount ($)</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    min="0" 
-                    step="0.01" 
-                    placeholder="1000.00"
-                    {...field} 
+                  <Input type="number" min="0" step="0.01" placeholder="0.00" {...field} />
+                </FormControl>
+                <FormDescription>
+                  The dollar amount of the closed business
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Describe the closed business"
+                    className="resize-none"
+                    {...field}
                   />
                 </FormControl>
                 <FormDescription>
-                  The dollar amount of closed business
+                  A brief description of the closed business
                 </FormDescription>
                 <FormMessage />
               </FormItem>
