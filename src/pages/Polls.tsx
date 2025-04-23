@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -936,3 +937,48 @@ const PollResultCard: React.FC<PollResultCardProps> = ({
                 onClick={() => onActivate(poll)}
               >
                 Activate
+              </Button>
+            )}
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this poll?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the poll and all its data. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => onDelete(poll.id)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Delete Poll
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+        
+        {!isAdmin && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            {showDetails ? "Hide Results" : "View Results"}
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+};
+
+export default Polls;
