@@ -62,6 +62,7 @@ export interface Event {
   isApproved: boolean;
   isFeatured: boolean;
   isPresentationMeeting: boolean;
+  isCancelled?: boolean;
   presenter?: string;
   createdAt: Date;
 }
@@ -75,6 +76,7 @@ export interface Poll {
   endDate: Date;
   createdBy: string;
   isActive: boolean;
+  isArchived?: boolean;
   createdAt: Date;
 }
 

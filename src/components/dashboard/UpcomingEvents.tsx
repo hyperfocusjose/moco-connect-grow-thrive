@@ -13,26 +13,35 @@ export const UpcomingEvents: React.FC = () => {
   const { events, getUser } = useData();
   const navigate = useNavigate();
   
-  // Get approved, featured events that haven't happened yet
+  // Get today's date
   const today = startOfToday();
+  
+  // Get all upcoming approved events that aren't cancelled
   const upcomingEvents = events
     .filter(event => 
       event.isApproved && 
-      event.isFeatured && 
+      !event.isCancelled &&
       isAfter(new Date(event.date), today)
     )
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Get the next Tuesday meeting that isn't cancelled
+  const nextTuesdayMeeting = upcomingEvents
+    .find(event => 
+      event.name.toLowerCase().includes('tuesday meeting')
+    );
+
+  // Get other upcoming events (not Tuesday meetings)
+  const otherUpcomingEvents = upcomingEvents
+    .filter(event => 
+      !event.name.toLowerCase().includes('tuesday meeting')
+    )
+    .slice(0, 5);
+  
+  // Combine and sort all events for display
+  const displayEvents = [...(nextTuesdayMeeting ? [nextTuesdayMeeting] : []), ...otherUpcomingEvents]
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
-
-  // Get the next Tuesday meeting
-  const nextTuesdayMeeting = events
-    .filter(event => 
-      event.isApproved && 
-      event.name.toLowerCase().includes('tuesday meeting') &&
-      isAfter(new Date(event.date), today)
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    [0];
 
   const formatDate = (date: Date) => {
     return format(date, 'EEEE, MMMM d');
@@ -74,11 +83,10 @@ export const UpcomingEvents: React.FC = () => {
         )}
 
         <div className="space-y-4">
-          {upcomingEvents.length > 0 ? (
-            upcomingEvents
+          {displayEvents.length > 0 ? (
+            displayEvents
               .filter(event => 
-                !event.name.toLowerCase().includes('tuesday meeting') || 
-                (event.id !== nextTuesdayMeeting?.id)
+                event.id !== nextTuesdayMeeting?.id
               )
               .map((event) => (
                 <div key={event.id} className="border-b pb-3 last:border-0">

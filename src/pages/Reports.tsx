@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,24 +23,32 @@ import {
   startOfDay,
   endOfDay,
   isSameDay,
-  addDays
+  addDays,
+  startOfTuesday,
+  previousTuesday
 } from 'date-fns';
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, FileText } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Reports = () => {
-  const { referrals, visitors, oneToOnes, tyfcbs, users, activities, getTopPerformers } = useData();
+  const { referrals, visitors, oneToOnes, tyfcbs, users, activities, getTopPerformers, getUserMetrics } = useData();
+  const { currentUser } = useAuth();
   const [timeFrame, setTimeFrame] = useState('3months');
   const [viewMode, setViewMode] = useState('monthly');
   const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
     to: undefined
   });
+  const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
   
   const topPerformers = getTopPerformers();
+  const isAdmin = currentUser?.isAdmin;
 
   const getCurrentDateRange = () => {
     const now = new Date();
@@ -253,6 +262,77 @@ const Reports = () => {
     setViewMode('monthly');
   };
 
+  // Get data since last Tuesday
+  const getDataSinceLastTuesday = () => {
+    const now = new Date();
+    const lastTuesday = previousTuesday(now);
+    lastTuesday.setHours(0, 0, 0, 0); // Start of last Tuesday
+    
+    const recentReferrals = referrals.filter(item => {
+      const itemDate = new Date(item.date);
+      return isAfter(itemDate, lastTuesday);
+    });
+    
+    const recentVisitors = visitors.filter(item => {
+      const itemDate = new Date(item.visitDate);
+      return isAfter(itemDate, lastTuesday);
+    });
+    
+    const recentOneToOnes = oneToOnes.filter(item => {
+      const itemDate = new Date(item.meetingDate);
+      return isAfter(itemDate, lastTuesday);
+    });
+    
+    const recentTYFCBs = tyfcbs.filter(item => {
+      const itemDate = new Date(item.date);
+      return isAfter(itemDate, lastTuesday);
+    });
+    
+    // Calculate per-member metrics
+    const memberMetrics = users.map(user => {
+      const userReferrals = recentReferrals.filter(item => item.referringMemberId === user.id);
+      const userVisitors = recentVisitors.filter(item => item.hostMemberId === user.id);
+      const userOneToOnes = recentOneToOnes.filter(item => 
+        item.memberOneId === user.id || item.memberTwoId === user.id
+      );
+      const userTYFCBs = recentTYFCBs.filter(item => item.thankingMemberId === user.id);
+      
+      return {
+        user,
+        referrals: userReferrals.length,
+        visitors: userVisitors.length,
+        oneToOnes: userOneToOnes.length,
+        tyfcb: userTYFCBs.reduce((sum, item) => sum + item.amount, 0)
+      };
+    }).filter(metric => 
+      metric.referrals > 0 || metric.visitors > 0 || metric.oneToOnes > 0 || metric.tyfcb > 0
+    );
+    
+    // Calculate top performers
+    const topReferrals = [...memberMetrics].sort((a, b) => b.referrals - a.referrals)[0];
+    const topVisitors = [...memberMetrics].sort((a, b) => b.visitors - a.visitors)[0];
+    const topOneToOnes = [...memberMetrics].sort((a, b) => b.oneToOnes - a.oneToOnes)[0];
+    const topTYFCB = [...memberMetrics].sort((a, b) => b.tyfcb - a.tyfcb)[0];
+    
+    return {
+      total: {
+        referrals: recentReferrals.length,
+        visitors: recentVisitors.length,
+        oneToOnes: recentOneToOnes.length,
+        tyfcb: recentTYFCBs.reduce((sum, item) => sum + item.amount, 0)
+      },
+      memberMetrics,
+      topPerformers: {
+        topReferrals,
+        topVisitors,
+        topOneToOnes,
+        topTYFCB
+      },
+      startDate: lastTuesday,
+      endDate: now
+    };
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -262,6 +342,33 @@ const Reports = () => {
         </div>
         
         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+          {isAdmin && (
+            <Dialog open={weeklyReportOpen} onOpenChange={setWeeklyReportOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-maroon hover:bg-maroon/90 mb-2 sm:mb-0">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Weekly Report
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>Weekly Report</DialogTitle>
+                  <DialogDescription>
+                    Activity since {format(getDataSinceLastTuesday().startDate, "EEEE, MMMM d")} at 12:00 AM
+                  </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh] pr-4">
+                  <WeeklyReport data={getDataSinceLastTuesday()} />
+                </ScrollArea>
+                <div className="flex justify-end mt-4">
+                  <DialogClose asChild>
+                    <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
+                  </DialogClose>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+          
           <div>
             <Label htmlFor="timeframe">Time Frame</Label>
             <Select 
@@ -400,7 +507,6 @@ const Reports = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activities">Activity Trends</TabsTrigger>
           <TabsTrigger value="tyfcb">Closed Business</TabsTrigger>
-          <TabsTrigger value="allstars">AllStars</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -472,6 +578,174 @@ const Reports = () => {
               </CardContent>
             </Card>
           </div>
+
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold mb-4">Top Performers</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {topPerformers.topReferrals && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top Referrals</CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-2">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={topPerformers.topReferrals.user.profilePicture} alt="Profile" />
+                        <AvatarFallback>
+                          {topPerformers.topReferrals.user.firstName.charAt(0)}
+                          {topPerformers.topReferrals.user.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">
+                          {topPerformers.topReferrals.user.firstName} {topPerformers.topReferrals.user.lastName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{topPerformers.topReferrals.count} referrals</p>
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+
+              {topPerformers.topVisitors && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top Visitors</CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-2">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={topPerformers.topVisitors.user.profilePicture} alt="Profile" />
+                        <AvatarFallback>
+                          {topPerformers.topVisitors.user.firstName.charAt(0)}
+                          {topPerformers.topVisitors.user.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">
+                          {topPerformers.topVisitors.user.firstName} {topPerformers.topVisitors.user.lastName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{topPerformers.topVisitors.count} visitors</p>
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+
+              {topPerformers.topOneToOnes && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top One-to-Ones</CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-2">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={topPerformers.topOneToOnes.user.profilePicture} alt="Profile" />
+                        <AvatarFallback>
+                          {topPerformers.topOneToOnes.user.firstName.charAt(0)}
+                          {topPerformers.topOneToOnes.user.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">
+                          {topPerformers.topOneToOnes.user.firstName} {topPerformers.topOneToOnes.user.lastName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{topPerformers.topOneToOnes.count} one-to-ones</p>
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+
+              {topPerformers.topTYFCB && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Top TYFCB</CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-2">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={topPerformers.topTYFCB.user.profilePicture} alt="Profile" />
+                        <AvatarFallback>
+                          {topPerformers.topTYFCB.user.firstName.charAt(0)}
+                          {topPerformers.topTYFCB.user.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">
+                          {topPerformers.topTYFCB.user.firstName} {topPerformers.topTYFCB.user.lastName}
+                        </p>
+                        <p className="text-sm text-muted-foreground">${topPerformers.topTYFCB.amount.toLocaleString()}</p>
+                      </div>
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <h3 className="text-xl font-semibold mb-4">Member Performance</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">Member</th>
+                    <th className="text-center py-2 px-4">Referrals</th>
+                    <th className="text-center py-2 px-4">Visitors</th>
+                    <th className="text-center py-2 px-4">One-to-Ones</th>
+                    <th className="text-center py-2 px-4">TYFCB</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => {
+                    const metrics = getUserMetrics(user.id);
+                    
+                    if (metrics.referrals === 0 && metrics.visitors === 0 && 
+                        metrics.oneToOnes === 0 && metrics.tyfcb.amount === 0) {
+                      return null;
+                    }
+                    
+                    return (
+                      <tr key={user.id} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-4">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={user.profilePicture} alt="Profile" />
+                              <AvatarFallback>
+                                {user.firstName.charAt(0)}
+                                {user.lastName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{user.firstName} {user.lastName}</p>
+                              <p className="text-sm text-muted-foreground">{user.businessName}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-center py-2 px-4">
+                          {metrics.referrals}
+                          {metrics.referrals > 0 && topPerformers.topReferrals?.user.id === user.id && (
+                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                          )}
+                        </td>
+                        <td className="text-center py-2 px-4">
+                          {metrics.visitors}
+                          {metrics.visitors > 0 && topPerformers.topVisitors?.user.id === user.id && (
+                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                          )}
+                        </td>
+                        <td className="text-center py-2 px-4">
+                          {metrics.oneToOnes}
+                          {metrics.oneToOnes > 0 && topPerformers.topOneToOnes?.user.id === user.id && (
+                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                          )}
+                        </td>
+                        <td className="text-center py-2 px-4">
+                          ${metrics.tyfcb.amount.toLocaleString()}
+                          {metrics.tyfcb.amount > 0 && topPerformers.topTYFCB?.user.id === user.id && (
+                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </TabsContent>
         
         <TabsContent value="activities">
@@ -535,174 +809,267 @@ const Reports = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="allstars">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {topPerformers.topReferrals && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Top Referrals</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={topPerformers.topReferrals.user.profilePicture} alt="Profile" />
-                      <AvatarFallback>
-                        {topPerformers.topReferrals.user.firstName.charAt(0)}
-                        {topPerformers.topReferrals.user.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold">
-                        {topPerformers.topReferrals.user.firstName} {topPerformers.topReferrals.user.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{topPerformers.topReferrals.count} referrals</p>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-
-            {topPerformers.topVisitors && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Top Visitors</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={topPerformers.topVisitors.user.profilePicture} alt="Profile" />
-                      <AvatarFallback>
-                        {topPerformers.topVisitors.user.firstName.charAt(0)}
-                        {topPerformers.topVisitors.user.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold">
-                        {topPerformers.topVisitors.user.firstName} {topPerformers.topVisitors.user.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{topPerformers.topVisitors.count} visitors</p>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-
-            {topPerformers.topOneToOnes && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Top One-to-Ones</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={topPerformers.topOneToOnes.user.profilePicture} alt="Profile" />
-                      <AvatarFallback>
-                        {topPerformers.topOneToOnes.user.firstName.charAt(0)}
-                        {topPerformers.topOneToOnes.user.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold">
-                        {topPerformers.topOneToOnes.user.firstName} {topPerformers.topOneToOnes.user.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{topPerformers.topOneToOnes.count} one-to-ones</p>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-
-            {topPerformers.topTYFCB && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Top TYFCB</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-2">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={topPerformers.topTYFCB.user.profilePicture} alt="Profile" />
-                      <AvatarFallback>
-                        {topPerformers.topTYFCB.user.firstName.charAt(0)}
-                        {topPerformers.topTYFCB.user.lastName.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold">
-                        {topPerformers.topTYFCB.user.firstName} {topPerformers.topTYFCB.user.lastName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">${topPerformers.topTYFCB.amount.toLocaleString()}</p>
-                    </div>
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-          </div>
-          
-          <div className="mt-8">
-            <h3 className="text-xl font-semibold mb-4">Member Performance</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-4">Member</th>
-                    <th className="text-center py-2 px-4">Referrals</th>
-                    <th className="text-center py-2 px-4">Visitors</th>
-                    <th className="text-center py-2 px-4">One-to-Ones</th>
-                    <th className="text-center py-2 px-4">TYFCB</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => {
-                    const metrics = useData().getUserMetrics(user.id);
-                    
-                    if (metrics.referrals === 0 && metrics.visitors === 0 && 
-                        metrics.oneToOnes === 0 && metrics.tyfcb.amount === 0) {
-                      return null;
-                    }
-                    
-                    return (
-                      <tr key={user.id} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-4">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={user.profilePicture} alt="Profile" />
-                              <AvatarFallback>
-                                {user.firstName.charAt(0)}
-                                {user.lastName.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{user.firstName} {user.lastName}</p>
-                              <p className="text-sm text-muted-foreground">{user.businessName}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="text-center py-2 px-4">
-                          {metrics.referrals}
-                          {metrics.referrals > 0 && topPerformers.topReferrals?.user.id === user.id && (
-                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
-                          )}
-                        </td>
-                        <td className="text-center py-2 px-4">
-                          {metrics.visitors}
-                          {metrics.visitors > 0 && topPerformers.topVisitors?.user.id === user.id && (
-                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
-                          )}
-                        </td>
-                        <td className="text-center py-2 px-4">
-                          {metrics.oneToOnes}
-                          {metrics.oneToOnes > 0 && topPerformers.topOneToOnes?.user.id === user.id && (
-                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
-                          )}
-                        </td>
-                        <td className="text-center py-2 px-4">
-                          ${metrics.tyfcb.amount.toLocaleString()}
-                          {metrics.tyfcb.amount > 0 && topPerformers.topTYFCB?.user.id === user.id && (
-                            <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </TabsContent>
       </Tabs>
+    </div>
+  );
+};
+
+interface WeeklyReportProps {
+  data: {
+    total: {
+      referrals: number;
+      visitors: number;
+      oneToOnes: number;
+      tyfcb: number;
+    };
+    memberMetrics: Array<{
+      user: any;
+      referrals: number;
+      visitors: number;
+      oneToOnes: number;
+      tyfcb: number;
+    }>;
+    topPerformers: {
+      topReferrals?: {
+        user: any;
+        referrals: number;
+      };
+      topVisitors?: {
+        user: any;
+        visitors: number;
+      };
+      topOneToOnes?: {
+        user: any;
+        oneToOnes: number;
+      };
+      topTYFCB?: {
+        user: any;
+        tyfcb: number;
+      };
+    };
+    startDate: Date;
+    endDate: Date;
+  };
+}
+
+const WeeklyReport: React.FC<WeeklyReportProps> = ({ data }) => {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Report Period</h3>
+        <p className="text-gray-600">
+          From {format(data.startDate, "EEEE, MMMM d, yyyy")} at 12:00 AM<br />
+          To {format(data.endDate, "EEEE, MMMM d, yyyy")} at {format(data.endDate, "h:mm a")}
+        </p>
+      </div>
+      
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Totals</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Referrals</CardTitle>
+              <CardDescription className="text-2xl font-bold">
+                {data.total.referrals}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Visitors</CardTitle>
+              <CardDescription className="text-2xl font-bold">
+                {data.total.visitors}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">One-to-Ones</CardTitle>
+              <CardDescription className="text-2xl font-bold">
+                {data.total.oneToOnes}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">TYFCB</CardTitle>
+              <CardDescription className="text-2xl font-bold">
+                ${data.total.tyfcb.toLocaleString()}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Top Performers</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {data.topPerformers.topReferrals && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Top Referrals</CardTitle>
+                <CardDescription className="flex items-center gap-2 mt-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={data.topPerformers.topReferrals.user.profilePicture} alt="Profile" />
+                    <AvatarFallback>
+                      {data.topPerformers.topReferrals.user.firstName.charAt(0)}
+                      {data.topPerformers.topReferrals.user.lastName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">
+                      {data.topPerformers.topReferrals.user.firstName} {data.topPerformers.topReferrals.user.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{data.topPerformers.topReferrals.referrals} referrals</p>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {data.topPerformers.topVisitors && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Top Visitors</CardTitle>
+                <CardDescription className="flex items-center gap-2 mt-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={data.topPerformers.topVisitors.user.profilePicture} alt="Profile" />
+                    <AvatarFallback>
+                      {data.topPerformers.topVisitors.user.firstName.charAt(0)}
+                      {data.topPerformers.topVisitors.user.lastName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">
+                      {data.topPerformers.topVisitors.user.firstName} {data.topPerformers.topVisitors.user.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{data.topPerformers.topVisitors.visitors} visitors</p>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {data.topPerformers.topOneToOnes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Top One-to-Ones</CardTitle>
+                <CardDescription className="flex items-center gap-2 mt-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={data.topPerformers.topOneToOnes.user.profilePicture} alt="Profile" />
+                    <AvatarFallback>
+                      {data.topPerformers.topOneToOnes.user.firstName.charAt(0)}
+                      {data.topPerformers.topOneToOnes.user.lastName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">
+                      {data.topPerformers.topOneToOnes.user.firstName} {data.topPerformers.topOneToOnes.user.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{data.topPerformers.topOneToOnes.oneToOnes} one-to-ones</p>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
+          {data.topPerformers.topTYFCB && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Top TYFCB</CardTitle>
+                <CardDescription className="flex items-center gap-2 mt-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={data.topPerformers.topTYFCB.user.profilePicture} alt="Profile" />
+                    <AvatarFallback>
+                      {data.topPerformers.topTYFCB.user.firstName.charAt(0)}
+                      {data.topPerformers.topTYFCB.user.lastName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold">
+                      {data.topPerformers.topTYFCB.user.firstName} {data.topPerformers.topTYFCB.user.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">${data.topPerformers.topTYFCB.tyfcb.toLocaleString()}</p>
+                  </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-lg font-semibold mb-2">Member Activity</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-2 px-4">Member</th>
+                <th className="text-center py-2 px-4">Referrals</th>
+                <th className="text-center py-2 px-4">Visitors</th>
+                <th className="text-center py-2 px-4">One-to-Ones</th>
+                <th className="text-center py-2 px-4">TYFCB</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.memberMetrics.map(metric => (
+                <tr key={metric.user.id} className="border-b hover:bg-gray-50">
+                  <td className="py-2 px-4">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={metric.user.profilePicture} alt="Profile" />
+                        <AvatarFallback>
+                          {metric.user.firstName.charAt(0)}
+                          {metric.user.lastName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{metric.user.firstName} {metric.user.lastName}</p>
+                        <p className="text-sm text-muted-foreground">{metric.user.businessName}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-center py-2 px-4">
+                    {metric.referrals}
+                    {data.topPerformers.topReferrals && 
+                      metric.referrals > 0 && 
+                      data.topPerformers.topReferrals.user.id === metric.user.id && (
+                      <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                    )}
+                  </td>
+                  <td className="text-center py-2 px-4">
+                    {metric.visitors}
+                    {data.topPerformers.topVisitors && 
+                      metric.visitors > 0 && 
+                      data.topPerformers.topVisitors.user.id === metric.user.id && (
+                      <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                    )}
+                  </td>
+                  <td className="text-center py-2 px-4">
+                    {metric.oneToOnes}
+                    {data.topPerformers.topOneToOnes && 
+                      metric.oneToOnes > 0 && 
+                      data.topPerformers.topOneToOnes.user.id === metric.user.id && (
+                      <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                    )}
+                  </td>
+                  <td className="text-center py-2 px-4">
+                    ${metric.tyfcb.toLocaleString()}
+                    {data.topPerformers.topTYFCB && 
+                      metric.tyfcb > 0 && 
+                      data.topPerformers.topTYFCB.user.id === metric.user.id && (
+                      <Badge className="ml-2 bg-amber-100 text-amber-800 hover:bg-amber-100">Top</Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
