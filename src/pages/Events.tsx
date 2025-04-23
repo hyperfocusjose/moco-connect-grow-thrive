@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
@@ -63,6 +64,166 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
+// Components for the event list views (these would typically be in separate files)
+const EventsList = ({ 
+  events, 
+  getUser, 
+  currentUser, 
+  onView, 
+  onManageTuesdayMeeting, 
+  onCancel, 
+  onDelete, 
+  formatTime,
+  isAdmin,
+  isCancelled = false
+}) => {
+  return (
+    <div className="space-y-4">
+      {events.length > 0 ? (
+        events.map(event => (
+          <Card key={event.id} className={`overflow-hidden ${event.isCancelled ? 'opacity-60' : ''}`}>
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg">{event.name}</CardTitle>
+                  <CardDescription>
+                    {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
+                  </CardDescription>
+                </div>
+                {event.name.toLowerCase().includes('tuesday meeting') && isAdmin && !isCancelled && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onManageTuesdayMeeting(event)}
+                  >
+                    {event.isPresentationMeeting ? "Edit Presenter" : "Add Presenter"}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex items-center text-sm text-muted-foreground mb-2">
+                <Clock className="mr-1 h-4 w-4" />
+                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MapPin className="mr-1 h-4 w-4" />
+                <span>{event.location}</span>
+              </div>
+              {event.isPresentationMeeting && event.presenter && (
+                <div className="flex items-center text-sm text-muted-foreground mt-2">
+                  <User className="mr-1 h-4 w-4" />
+                  <span>Presenter: {
+                    getUser(event.presenter) 
+                      ? `${getUser(event.presenter).firstName} ${getUser(event.presenter).lastName}`
+                      : 'Unknown'
+                  }</span>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="pt-2 flex justify-between">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onView(event)}
+              >
+                View Details
+              </Button>
+              {isAdmin && !isCancelled && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => event.name.toLowerCase().includes('tuesday meeting') ? onCancel(event) : onDelete(event.id)}
+                >
+                  {event.name.toLowerCase().includes('tuesday meeting') ? 'Cancel Meeting' : 'Delete'}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        ))
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          {isCancelled ? 'No cancelled events found.' : 'No events found.'}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PendingEventsList = ({ events, getUser, onApprove, onDisapprove, onView, formatTime }) => {
+  return (
+    <div className="space-y-4">
+      {events.length > 0 ? (
+        events.map(event => (
+          <Card key={event.id}>
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg">{event.name}</CardTitle>
+                  <CardDescription>
+                    {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">Pending</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="flex items-center text-sm text-muted-foreground mb-2">
+                <Clock className="mr-1 h-4 w-4" />
+                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground mb-2">
+                <MapPin className="mr-1 h-4 w-4" />
+                <span>{event.location}</span>
+              </div>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <User className="mr-1 h-4 w-4" />
+                <span>Created by: {
+                  getUser(event.createdBy) 
+                    ? `${getUser(event.createdBy).firstName} ${getUser(event.createdBy).lastName}`
+                    : 'Unknown'
+                }</span>
+              </div>
+            </CardContent>
+            <CardFooter className="pt-2">
+              <div className="flex space-x-2 w-full">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => onView(event)}
+                >
+                  View Details
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={() => onApprove(event)}
+                >
+                  Approve
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => onDisapprove(event)}
+                >
+                  Reject
+                </Button>
+              </div>
+            </CardFooter>
+          </Card>
+        ))
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          No pending events found.
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Events = () => {
   const { events, createEvent, updateEvent, deleteEvent, getUser, users } = useData();
@@ -878,3 +1039,7 @@ const Events = () => {
         </DialogContent>
       </Dialog>
     </div>
+  );
+};
+
+export default Events;
