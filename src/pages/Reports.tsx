@@ -48,6 +48,76 @@ import {
   Line
 } from 'recharts';
 
+export const getDataSinceLastTuesday = () => {
+  const { referrals, visitors, oneToOnes, tyfcbs, users } = useData();
+  
+  const now = new Date();
+  const lastTuesday = previousTuesday(now);
+  lastTuesday.setHours(0, 0, 0, 0); // Start of last Tuesday
+  
+  const recentReferrals = referrals.filter(item => {
+    const itemDate = new Date(item.date);
+    return isAfter(itemDate, lastTuesday);
+  });
+  
+  const recentVisitors = visitors.filter(item => {
+    const itemDate = new Date(item.visitDate);
+    return isAfter(itemDate, lastTuesday);
+  });
+  
+  const recentOneToOnes = oneToOnes.filter(item => {
+    const itemDate = new Date(item.date);
+    return isAfter(itemDate, lastTuesday);
+  });
+  
+  const recentTYFCBs = tyfcbs.filter(item => {
+    const itemDate = new Date(item.date);
+    return isAfter(itemDate, lastTuesday);
+  });
+  
+  const memberMetrics = users.map(user => {
+    const userReferrals = recentReferrals.filter(item => item.fromMemberId === user.id);
+    const userVisitors = recentVisitors.filter(item => item.hostMemberId === user.id);
+    const userOneToOnes = recentOneToOnes.filter(item => 
+      item.member1Id === user.id || item.member2Id === user.id
+    );
+    const userTYFCBs = recentTYFCBs.filter(item => item.fromMemberId === user.id);
+    
+    return {
+      user,
+      referrals: userReferrals.length,
+      visitors: userVisitors.length,
+      oneToOnes: userOneToOnes.length,
+      tyfcb: userTYFCBs.reduce((sum, item) => sum + item.amount, 0)
+    };
+  }).filter(metric => 
+    metric.referrals > 0 || metric.visitors > 0 || metric.oneToOnes > 0 || metric.tyfcb > 0
+  );
+  
+  const topReferrals = [...memberMetrics].sort((a, b) => b.referrals - a.referrals)[0];
+  const topVisitors = [...memberMetrics].sort((a, b) => b.visitors - a.visitors)[0];
+  const topOneToOnes = [...memberMetrics].sort((a, b) => b.oneToOnes - a.oneToOnes)[0];
+  const topTYFCB = [...memberMetrics].sort((a, b) => b.tyfcb - a.tyfcb)[0];
+  
+  return {
+    total: {
+      referrals: recentReferrals.length,
+      visitors: recentVisitors.length,
+      oneToOnes: recentOneToOnes.length,
+      tyfcb: recentTYFCBs.reduce((sum, item) => sum + item.amount, 0)
+    },
+    memberMetrics,
+    topPerformers: {
+      topReferrals,
+      topVisitors,
+      topOneToOnes,
+      topTYFCB
+    },
+    startDate: lastTuesday,
+    endDate: now
+  };
+};
+
 const Reports = () => {
   const { referrals, visitors, oneToOnes, tyfcbs, users, activities, getTopPerformers, getUserMetrics } = useData();
   const { currentUser } = useAuth();
@@ -272,74 +342,6 @@ const Reports = () => {
     });
     setTimeFrame('3months');
     setViewMode('monthly');
-  };
-
-  const getDataSinceLastTuesday = () => {
-    const now = new Date();
-    const lastTuesday = previousTuesday(now);
-    lastTuesday.setHours(0, 0, 0, 0); // Start of last Tuesday
-    
-    const recentReferrals = referrals.filter(item => {
-      const itemDate = new Date(item.date);
-      return isAfter(itemDate, lastTuesday);
-    });
-    
-    const recentVisitors = visitors.filter(item => {
-      const itemDate = new Date(item.visitDate);
-      return isAfter(itemDate, lastTuesday);
-    });
-    
-    const recentOneToOnes = oneToOnes.filter(item => {
-      const itemDate = new Date(item.date);
-      return isAfter(itemDate, lastTuesday);
-    });
-    
-    const recentTYFCBs = tyfcbs.filter(item => {
-      const itemDate = new Date(item.date);
-      return isAfter(itemDate, lastTuesday);
-    });
-    
-    const memberMetrics = users.map(user => {
-      const userReferrals = recentReferrals.filter(item => item.fromMemberId === user.id);
-      const userVisitors = recentVisitors.filter(item => item.hostMemberId === user.id);
-      const userOneToOnes = recentOneToOnes.filter(item => 
-        item.member1Id === user.id || item.member2Id === user.id
-      );
-      const userTYFCBs = recentTYFCBs.filter(item => item.fromMemberId === user.id);
-      
-      return {
-        user,
-        referrals: userReferrals.length,
-        visitors: userVisitors.length,
-        oneToOnes: userOneToOnes.length,
-        tyfcb: userTYFCBs.reduce((sum, item) => sum + item.amount, 0)
-      };
-    }).filter(metric => 
-      metric.referrals > 0 || metric.visitors > 0 || metric.oneToOnes > 0 || metric.tyfcb > 0
-    );
-    
-    const topReferrals = [...memberMetrics].sort((a, b) => b.referrals - a.referrals)[0];
-    const topVisitors = [...memberMetrics].sort((a, b) => b.visitors - a.visitors)[0];
-    const topOneToOnes = [...memberMetrics].sort((a, b) => b.oneToOnes - a.oneToOnes)[0];
-    const topTYFCB = [...memberMetrics].sort((a, b) => b.tyfcb - a.tyfcb)[0];
-    
-    return {
-      total: {
-        referrals: recentReferrals.length,
-        visitors: recentVisitors.length,
-        oneToOnes: recentOneToOnes.length,
-        tyfcb: recentTYFCBs.reduce((sum, item) => sum + item.amount, 0)
-      },
-      memberMetrics,
-      topPerformers: {
-        topReferrals,
-        topVisitors,
-        topOneToOnes,
-        topTYFCB
-      },
-      startDate: lastTuesday,
-      endDate: now
-    };
   };
 
   return (

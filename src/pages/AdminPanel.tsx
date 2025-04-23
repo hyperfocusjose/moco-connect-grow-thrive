@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
@@ -12,7 +13,7 @@ import { ApproveEventsOverlay } from "@/components/admin/ApproveEventsOverlay";
 import PresenterHistoryDialog from "@/components/events/PresenterHistoryDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import WeeklyReport from "./Reports";
+import { getDataSinceLastTuesday } from "./Reports";
 import { MemberForm } from "@/components/forms/MemberForm";
 import { Badge } from "@/components/ui/badge";
 
