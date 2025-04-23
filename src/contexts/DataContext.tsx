@@ -1,17 +1,9 @@
 import React, { createContext, useContext, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { User, Event, Visitor } from '@/types';
+import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
 
-interface DefaultUsers {
-  [key: string]: User;
-}
-
-interface DefaultEvents {
-  [key: string]: Event;
-}
-
-const defaultUsers: DefaultUsers = {
-  'user-1': {
+const defaultUsers: User[] = [
+  {
     id: 'user-1',
     firstName: 'John',
     lastName: 'Doe',
@@ -27,8 +19,9 @@ const defaultUsers: DefaultUsers = {
     linkedin: 'john.doe',
     twitter: '@johndoe',
     instagram: 'johndoe',
+    createdAt: new Date(),
   },
-  'user-2': {
+  {
     id: 'user-2',
     firstName: 'Jane',
     lastName: 'Smith',
@@ -44,8 +37,9 @@ const defaultUsers: DefaultUsers = {
     linkedin: 'janesmith',
     twitter: '@janesmith',
     instagram: 'janesmith',
+    createdAt: new Date(),
   },
-  'user-3': {
+  {
     id: 'user-3',
     firstName: 'Alice',
     lastName: 'Johnson',
@@ -61,11 +55,12 @@ const defaultUsers: DefaultUsers = {
     linkedin: 'alicejohnson',
     twitter: '@alicejohnson',
     instagram: 'alicejohnson',
+    createdAt: new Date(),
   },
-};
+];
 
-const defaultEvents: DefaultEvents = {
-  'event-1': {
+const defaultEvents: Event[] = [
+  {
     id: 'event-1',
     name: 'Networking Mixer',
     date: new Date('2024-08-15'),
@@ -79,7 +74,7 @@ const defaultEvents: DefaultEvents = {
     isPresentationMeeting: false,
     createdAt: new Date(),
   },
-  'event-2': {
+  {
     id: 'event-2',
     name: 'Marketing Workshop',
     date: new Date('2024-09-01'),
@@ -93,7 +88,7 @@ const defaultEvents: DefaultEvents = {
     isPresentationMeeting: false,
     createdAt: new Date(),
   },
-  'event-3': {
+  {
     id: 'event-3',
     name: 'Tuesday Meeting',
     date: new Date('2024-07-09'),
@@ -108,7 +103,7 @@ const defaultEvents: DefaultEvents = {
     presenter: 'user-3',
     createdAt: new Date(),
   },
-  'event-4': {
+  {
     id: 'event-4',
     name: 'Tuesday Meeting',
     date: new Date('2024-07-16'),
@@ -122,7 +117,7 @@ const defaultEvents: DefaultEvents = {
     isPresentationMeeting: false,
     createdAt: new Date(),
   },
-  'event-5': {
+  {
     id: 'event-5',
     name: 'Tuesday Meeting',
     date: new Date('2024-07-23'),
@@ -136,12 +131,17 @@ const defaultEvents: DefaultEvents = {
     isPresentationMeeting: false,
     createdAt: new Date(),
   },
-};
+];
 
 export interface DataContextType {
   users: User[];
   events: Event[];
   visitors: Visitor[];
+  activities: Activity[];
+  referrals: Referral[];
+  oneToOnes: OneToOne[];
+  tyfcbs: TYFCB[];
+  polls: Poll[];
   getUser: (userId: string) => User | undefined;
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, event: Partial<Event>) => Promise<void>;
@@ -149,12 +149,25 @@ export interface DataContextType {
   getUserMetrics: (userId: string) => any;
   addVisitor: (visitor: Partial<Visitor>) => Promise<void>;
   updateVisitor: (id: string, visitor: Partial<Visitor>) => Promise<void>;
+  addReferral: (referral: Partial<Referral>) => Promise<void>;
+  addOneToOne: (oneToOne: Partial<OneToOne>) => Promise<void>;
+  addTYFCB: (tyfcb: Partial<TYFCB>) => Promise<void>;
+  createPoll: (poll: Partial<Poll>) => Promise<void>;
+  updatePoll: (id: string, poll: Partial<Poll>) => Promise<void>;
+  deletePoll: (id: string) => Promise<void>;
+  votePoll: (pollId: string, optionId: string) => Promise<void>;
+  hasVoted: (pollId: string, userId: string) => boolean;
 }
 
 const DataContext = createContext<DataContextType>({
   users: [],
   events: [],
   visitors: [],
+  activities: [],
+  referrals: [],
+  oneToOnes: [],
+  tyfcbs: [],
+  polls: [],
   getUser: () => undefined,
   createEvent: async () => {},
   updateEvent: async () => {},
@@ -162,14 +175,27 @@ const DataContext = createContext<DataContextType>({
   getUserMetrics: () => ({}),
   addVisitor: async () => {},
   updateVisitor: async () => {},
+  addReferral: async () => {},
+  addOneToOne: async () => {},
+  addTYFCB: async () => {},
+  createPoll: async () => {},
+  updatePoll: async () => {},
+  deletePoll: async () => {},
+  votePoll: async () => {},
+  hasVoted: () => false,
 });
 
 export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [users, setUsers] = useState<User[]>(Object.values(defaultUsers));
-  const [events, setEvents] = useState<Event[]>(Object.values(defaultEvents));
+  const [users, setUsers] = useState<User[]>(defaultUsers);
+  const [events, setEvents] = useState<Event[]>(defaultEvents);
   const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [oneToOnes, setOneToOnes] = useState<OneToOne[]>([]);
+  const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
+  const [polls, setPolls] = useState<Poll[]>([]);
 
   const getUser = (userId: string) => {
     return users.find(user => user.id === userId);
@@ -210,7 +236,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getUserMetrics = (userId: string) => {
-    // In a real application, this data would likely come from a database.
     return {
       referrals: 15,
       visitors: 8,
@@ -246,18 +271,63 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve();
   };
 
+  const addReferral = async (referral: Partial<Referral>) => {
+    return Promise.resolve();
+  };
+
+  const addOneToOne = async (oneToOne: Partial<OneToOne>) => {
+    return Promise.resolve();
+  };
+
+  const addTYFCB = async (tyfcb: Partial<TYFCB>) => {
+    return Promise.resolve();
+  };
+
+  const createPoll = async (poll: Partial<Poll>) => {
+    return Promise.resolve();
+  };
+
+  const updatePoll = async (id: string, poll: Partial<Poll>) => {
+    return Promise.resolve();
+  };
+
+  const deletePoll = async (id: string) => {
+    return Promise.resolve();
+  };
+
+  const votePoll = async (pollId: string, optionId: string) => {
+    return Promise.resolve();
+  };
+
+  const hasVoted = (pollId: string, userId: string) => {
+    return false;
+  };
+
   return (
     <DataContext.Provider value={{
       users,
       events,
+      visitors,
+      activities,
+      referrals,
+      oneToOnes,
+      tyfcbs,
+      polls,
       getUser,
       createEvent,
       updateEvent,
       deleteEvent,
       getUserMetrics,
-      visitors,
       addVisitor,
       updateVisitor,
+      addReferral,
+      addOneToOne,
+      addTYFCB,
+      createPoll,
+      updatePoll,
+      deletePoll,
+      votePoll,
+      hasVoted,
     }}>
       {children}
     </DataContext.Provider>
