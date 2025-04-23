@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -18,7 +17,8 @@ const defaultUsers: User[] = [
     isAdmin: true,
     website: 'https://www.example.com',
     linkedin: 'john.doe',
-    twitter: '@johndoe',
+    facebook: 'johndoe',
+    tiktok: '@johndoe',
     instagram: 'johndoe',
     createdAt: new Date(),
   },
@@ -36,7 +36,8 @@ const defaultUsers: User[] = [
     isAdmin: false,
     website: 'https://www.example.com',
     linkedin: 'janesmith',
-    twitter: '@janesmith',
+    facebook: 'janesmith',
+    tiktok: '@janesmith',
     instagram: 'janesmith',
     createdAt: new Date(),
   },
@@ -54,7 +55,8 @@ const defaultUsers: User[] = [
     isAdmin: false,
     website: 'https://www.example.com',
     linkedin: 'alicejohnson',
-    twitter: '@alicejohnson',
+    facebook: 'alicejohnson',
+    tiktok: '@alicejohnson',
     instagram: 'alicejohnson',
     createdAt: new Date(),
   },
@@ -143,6 +145,7 @@ export interface DataContextType {
   oneToOnes: OneToOne[];
   tyfcbs: TYFCB[];
   polls: Poll[];
+  stats: Record<string, any>;
   getUser: (userId: string) => User | undefined;
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, event: Partial<Event>) => Promise<void>;
@@ -159,6 +162,8 @@ export interface DataContextType {
   votePoll: (pollId: string, optionId: string) => Promise<void>;
   hasVoted: (pollId: string, userId: string) => boolean;
   getTopPerformers: () => any;
+  addUser: (user: User) => Promise<void>;
+  updateUser: (id: string, user: Partial<User>) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -170,6 +175,7 @@ const DataContext = createContext<DataContextType>({
   oneToOnes: [],
   tyfcbs: [],
   polls: [],
+  stats: {},
   getUser: () => undefined,
   createEvent: async () => {},
   updateEvent: async () => {},
@@ -186,6 +192,8 @@ const DataContext = createContext<DataContextType>({
   votePoll: async () => {},
   hasVoted: () => false,
   getTopPerformers: () => ({}),
+  addUser: async () => {},
+  updateUser: async () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -200,8 +208,41 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
 
+  const stats = {
+    'user-1': {
+      referralsGiven: 5,
+      referralsReceived: 3,
+      oneToOnesDone: 10,
+      tyfcbTotal: 1500
+    },
+    'user-2': {
+      referralsGiven: 2,
+      referralsReceived: 4,
+      oneToOnesDone: 8,
+      tyfcbTotal: 800
+    },
+    'user-3': {
+      referralsGiven: 7,
+      referralsReceived: 2,
+      oneToOnesDone: 12,
+      tyfcbTotal: 2200
+    }
+  };
+
   const getUser = (userId: string) => {
     return users.find(user => user.id === userId);
+  };
+
+  const addUser = async (user: User) => {
+    setUsers(prev => [...prev, user]);
+    return Promise.resolve();
+  };
+
+  const updateUser = async (id: string, updatedUserData: Partial<User>) => {
+    setUsers(prev => 
+      prev.map(user => user.id === id ? { ...user, ...updatedUserData } : user)
+    );
+    return Promise.resolve();
   };
 
   const createEvent = async (event: Partial<Event>) => {
@@ -261,7 +302,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phoneNumber: visitor.phoneNumber,
       email: visitor.email,
       industry: visitor.industry,
-      createdAt: new Date(), // Adding the missing createdAt property
+      createdAt: new Date(),
     };
 
     setVisitors(prev => [...prev, newVisitor]);
@@ -307,7 +348,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  // Add the missing getTopPerformers function
   const getTopPerformers = () => {
     return {
       topReferrals: {
@@ -339,6 +379,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       oneToOnes,
       tyfcbs,
       polls,
+      stats,
       getUser,
       createEvent,
       updateEvent,
@@ -355,6 +396,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       votePoll,
       hasVoted,
       getTopPerformers,
+      addUser,
+      updateUser,
     }}>
       {children}
     </DataContext.Provider>

@@ -8,7 +8,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/
 import { ReferralForm } from '@/components/forms/ReferralForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
-import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Twitter, Instagram, Edit } from 'lucide-react';
+import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Facebook, Instagram, Edit } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,7 +70,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
         </div>
 
         {/* Social Media Links */}
-        {(member.website || member.linkedin || member.twitter || member.instagram) && (
+        {(member.website || member.linkedin || member.facebook || member.tiktok || member.instagram) && (
           <div className="flex justify-center space-x-3 mb-6">
             {member.website && (
               <a href={ensureHttps(member.website)} target="_blank" rel="noopener noreferrer">
@@ -86,10 +86,21 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
                 </Button>
               </a>
             )}
-            {member.twitter && (
-              <a href={getTwitterUrl(member.twitter)} target="_blank" rel="noopener noreferrer">
+            {member.facebook && (
+              <a href={getFacebookUrl(member.facebook)} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="icon" className="rounded-full">
-                  <Twitter className="h-4 w-4 text-blue-400" />
+                  <Facebook className="h-4 w-4 text-blue-600" />
+                </Button>
+              </a>
+            )}
+            {member.tiktok && (
+              <a href={getTikTokUrl(member.tiktok)} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="icon" className="rounded-full">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 12a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" />
+                    <path d="M15 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                    <path d="M15 2v10c0 4.418-3.582 8-8 8" />
+                  </svg>
                 </Button>
               </a>
             )}
@@ -256,8 +267,12 @@ function getLinkedInUrl(username: string): string {
   return username.startsWith('http') ? username : `https://linkedin.com/in/${username.replace(/^@/, '')}`;
 }
 
-function getTwitterUrl(username: string): string {
-  return username.startsWith('http') ? username : `https://twitter.com/${username.replace(/^@/, '')}`;
+function getFacebookUrl(username: string): string {
+  return username.startsWith('http') ? username : `https://facebook.com/${username.replace(/^@/, '')}`;
+}
+
+function getTikTokUrl(username: string): string {
+  return username.startsWith('http') ? username : `https://tiktok.com/@${username.replace(/^@/, '')}`;
 }
 
 function getInstagramUrl(username: string): string {

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,23 +11,31 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export const UpcomingEvents = () => {
   const { events } = useData();
-  const today = startOfToday();
-  const in14Days = addDays(today, 14);
+  const today = useMemo(() => startOfToday(), []);
+  const in14Days = useMemo(() => addDays(today, 14), [today]);
   
   // Get upcoming approved events in the next 14 days
-  const upcomingEvents = events.filter(event => 
-    event.isApproved && 
-    !event.isCancelled && 
-    isAfter(new Date(event.date), today) && 
-    isBefore(new Date(event.date), in14Days)
-  ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const upcomingEvents = useMemo(() => {
+    return events
+      .filter(event => 
+        event.isApproved && 
+        !event.isCancelled && 
+        isAfter(new Date(event.date), today) && 
+        isBefore(new Date(event.date), in14Days)
+      )
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [events, today, in14Days]);
 
   // Get today's events
-  const todayEvents = events.filter(event => 
-    event.isApproved && 
-    !event.isCancelled && 
-    isSameDay(new Date(event.date), today)
-  );
+  const todayEvents = useMemo(() => {
+    return events.filter(event => 
+      event.isApproved && 
+      !event.isCancelled && 
+      isSameDay(new Date(event.date), today)
+    );
+  }, [events, today]);
+
+  const hasEvents = upcomingEvents.length > 0 || todayEvents.length > 0;
 
   return (
     <Card className="h-full">
@@ -98,14 +106,16 @@ export const UpcomingEvents = () => {
         ) : null}
       </CardContent>
       
-      <CardFooter>
-        <Button variant="outline" className="w-full" asChild>
-          <Link to="/events">
-            <Calendar className="mr-2 h-4 w-4" />
-            View Calendar
-          </Link>
-        </Button>
-      </CardFooter>
+      {hasEvents && (
+        <CardFooter>
+          <Button variant="outline" className="w-full" asChild>
+            <Link to="/events">
+              <Calendar className="mr-2 h-4 w-4" />
+              View Calendar
+            </Link>
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 };

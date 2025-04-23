@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -15,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { X, Phone, Mail, User as UserIcon, Briefcase, Settings, Globe, Linkedin, Twitter, Instagram } from 'lucide-react';
+import { X, Phone, Mail, User as UserIcon, Briefcase, Settings, Globe, Linkedin, Facebook, Instagram, Edit, Save } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -26,6 +27,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
@@ -37,7 +40,8 @@ const formSchema = z.object({
   industry: z.string().min(2, { message: "Industry is required" }),
   website: z.string().optional(),
   linkedin: z.string().optional(),
-  twitter: z.string().optional(),
+  facebook: z.string().optional(),
+  tiktok: z.string().optional(),
   instagram: z.string().optional(),
 });
 
@@ -50,6 +54,8 @@ const Profile = () => {
   const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePicture || null);
   const [tags, setTags] = useState<string[]>(currentUser?.tags || []);
   const [tagInput, setTagInput] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -63,7 +69,8 @@ const Profile = () => {
       industry: currentUser?.industry || "",
       website: currentUser?.website || "",
       linkedin: currentUser?.linkedin || "",
-      twitter: currentUser?.twitter || "",
+      facebook: currentUser?.facebook || "",
+      tiktok: currentUser?.tiktok || "",
       instagram: currentUser?.instagram || "",
     },
   });
@@ -80,7 +87,8 @@ const Profile = () => {
         industry: currentUser.industry || "",
         website: currentUser.website || "",
         linkedin: currentUser.linkedin || "",
-        twitter: currentUser.twitter || "",
+        facebook: currentUser.facebook || "",
+        tiktok: currentUser.tiktok || "",
         instagram: currentUser.instagram || "",
       });
       setProfileImage(currentUser.profilePicture || null);
@@ -130,6 +138,7 @@ const Profile = () => {
       };
       
       await updateCurrentUser(updatedUser);
+      setIsEditDialogOpen(false);
       
       toast({
         title: "Profile updated",
@@ -157,9 +166,14 @@ const Profile = () => {
     return username.startsWith('http') ? username : `https://linkedin.com/in/${username.replace(/^@/, '')}`;
   };
 
-  const getTwitterUrl = (username: string): string => {
+  const getFacebookUrl = (username: string): string => {
     if (!username) return '';
-    return username.startsWith('http') ? username : `https://twitter.com/${username.replace(/^@/, '')}`;
+    return username.startsWith('http') ? username : `https://facebook.com/${username.replace(/^@/, '')}`;
+  };
+
+  const getTikTokUrl = (username: string): string => {
+    if (!username) return '';
+    return username.startsWith('http') ? username : `https://tiktok.com/@${username.replace(/^@/, '')}`;
   };
 
   const getInstagramUrl = (username: string): string => {
@@ -191,7 +205,15 @@ const Profile = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-4 right-4"
+              onClick={() => setIsEditDialogOpen(true)}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
             <div className="flex flex-col items-center mb-6">
               <Avatar className="h-32 w-32 mb-4">
                 <AvatarImage src={currentUser.profilePicture} />
@@ -249,7 +271,7 @@ const Profile = () => {
                 </div>
               )}
               
-              {(currentUser.linkedin || currentUser.twitter || currentUser.instagram) && (
+              {(currentUser.linkedin || currentUser.facebook || currentUser.tiktok || currentUser.instagram) && (
                 <div className="flex space-x-3 mt-4">
                   {currentUser.linkedin && (
                     <a 
@@ -261,14 +283,28 @@ const Profile = () => {
                       <Linkedin className="h-5 w-5" />
                     </a>
                   )}
-                  {currentUser.twitter && (
+                  {currentUser.facebook && (
                     <a 
-                      href={getTwitterUrl(currentUser.twitter)}
+                      href={getFacebookUrl(currentUser.facebook)}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-blue-600"
+                    >
+                      <Facebook className="h-5 w-5" />
+                    </a>
+                  )}
+                  {currentUser.tiktok && (
+                    <a 
+                      href={getTikTokUrl(currentUser.tiktok)}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-gray-600 hover:text-blue-400"
                     >
-                      <Twitter className="h-5 w-5" />
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 12a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" />
+                        <path d="M15 8a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                        <path d="M15 2v10c0 4.418-3.582 8-8 8" />
+                      </svg>
                     </a>
                   )}
                   {currentUser.instagram && (
@@ -330,13 +366,121 @@ const Profile = () => {
         </div>
         
         <div className="lg:col-span-2">
-          <Tabs defaultValue="edit" className="w-full">
+          <Tabs defaultValue="activity" className="w-full">
             <TabsList>
-              <TabsTrigger value="edit">Edit Profile</TabsTrigger>
               <TabsTrigger value="activity">Recent Activity</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="edit" className="bg-white rounded-lg shadow p-6 mt-4">
+            <TabsContent value="activity" className="bg-white rounded-lg shadow p-6 mt-4">
+              <h3 className="font-semibold text-lg mb-4">Recent Activity</h3>
+              
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">Recent Referrals</h4>
+                {userReferrals && userReferrals.length > 0 ? (
+                  <div className="space-y-3">
+                    {userReferrals.map(referral => (
+                      <div key={referral.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {referral.fromMemberId === currentUser.id ? 
+                                `You gave a referral to ${referral.toMemberName}` : 
+                                `${referral.fromMemberName} gave you a referral`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(referral.date), "MMMM d, yyyy")}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            Referral
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No recent referrals to show.</p>
+                )}
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">Recent One-to-Ones</h4>
+                {userOneToOnes && userOneToOnes.length > 0 ? (
+                  <div className="space-y-3">
+                    {userOneToOnes.map(oneToOne => (
+                      <div key={oneToOne.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {`One-to-one with ${oneToOne.member1Id === currentUser.id ? 
+                                oneToOne.member2Name : 
+                                oneToOne.member1Name}`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(oneToOne.date), "MMMM d, yyyy")}
+                            </p>
+                            {oneToOne.notes && (
+                              <p className="text-sm mt-1">{oneToOne.notes}</p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-amber-600 border-amber-600">
+                            One-to-One
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No recent one-to-ones to show.</p>
+                )}
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Recent Closed Business</h4>
+                {userClosedBusiness && userClosedBusiness.length > 0 ? (
+                  <div className="space-y-3">
+                    {userClosedBusiness.map(tyfcb => (
+                      <div key={tyfcb.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {tyfcb.fromMemberId === currentUser.id ? 
+                                `You thanked ${tyfcb.toMemberName} for closed business` : 
+                                `${tyfcb.fromMemberName} thanked you for closed business`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(tyfcb.date), "MMMM d, yyyy")}
+                            </p>
+                            <p className="font-medium text-green-600 mt-1">
+                              Amount: ${Number(tyfcb.amount).toLocaleString()}
+                            </p>
+                            {tyfcb.description && (
+                              <p className="text-sm mt-1">{tyfcb.description}</p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-purple-600 border-purple-600">
+                            Closed Business
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No recent closed business to show.</p>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+      
+      {/* Edit Profile Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md p-0">
+          <ScrollArea className="h-[80vh]">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Edit Profile</h2>
+              
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="flex justify-center mb-6">
@@ -502,7 +646,7 @@ const Profile = () => {
                       )}
                     />
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                       <FormField
                         control={form.control}
                         name="linkedin"
@@ -519,10 +663,26 @@ const Profile = () => {
                       
                       <FormField
                         control={form.control}
-                        name="twitter"
+                        name="facebook"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Twitter</FormLabel>
+                            <FormLabel>Facebook</FormLabel>
+                            <FormControl>
+                              <Input placeholder="username or URL" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                      <FormField
+                        control={form.control}
+                        name="tiktok"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>TikTok</FormLabel>
                             <FormControl>
                               <Input placeholder="username or URL" {...field} />
                             </FormControl>
@@ -555,115 +715,20 @@ const Profile = () => {
                     >
                       {form.formState.isSubmitting ? (
                         <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-                      ) : "Save Changes"}
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Changes
+                        </>
+                      )}
                     </Button>
                   </div>
                 </form>
               </Form>
-            </TabsContent>
-            
-            <TabsContent value="activity" className="bg-white rounded-lg shadow p-6 mt-4">
-              <h3 className="font-semibold text-lg mb-4">Recent Activity</h3>
-              
-              <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Recent Referrals</h4>
-                {userReferrals && userReferrals.length > 0 ? (
-                  <div className="space-y-3">
-                    {userReferrals.map(referral => (
-                      <div key={referral.id} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">
-                              {referral.fromMemberId === currentUser.id ? 
-                                `You gave a referral to ${referral.toMemberName}` : 
-                                `${referral.fromMemberName} gave you a referral`}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {format(new Date(referral.date), "MMMM d, yyyy")}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            Referral
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No recent referrals to show.</p>
-                )}
-              </div>
-              
-              <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Recent One-to-Ones</h4>
-                {userOneToOnes && userOneToOnes.length > 0 ? (
-                  <div className="space-y-3">
-                    {userOneToOnes.map(oneToOne => (
-                      <div key={oneToOne.id} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">
-                              {`One-to-one with ${oneToOne.member1Id === currentUser.id ? 
-                                oneToOne.member2Name : 
-                                oneToOne.member1Name}`}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {format(new Date(oneToOne.date), "MMMM d, yyyy")}
-                            </p>
-                            {oneToOne.notes && (
-                              <p className="text-sm mt-1">{oneToOne.notes}</p>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-amber-600 border-amber-600">
-                            One-to-One
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No recent one-to-ones to show.</p>
-                )}
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-gray-700 mb-2">Recent Closed Business</h4>
-                {userClosedBusiness && userClosedBusiness.length > 0 ? (
-                  <div className="space-y-3">
-                    {userClosedBusiness.map(tyfcb => (
-                      <div key={tyfcb.id} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium">
-                              {tyfcb.fromMemberId === currentUser.id ? 
-                                `You thanked ${tyfcb.toMemberName} for closed business` : 
-                                `${tyfcb.fromMemberName} thanked you for closed business`}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {format(new Date(tyfcb.date), "MMMM d, yyyy")}
-                            </p>
-                            <p className="font-medium text-green-600 mt-1">
-                              Amount: ${Number(tyfcb.amount).toLocaleString()}
-                            </p>
-                            {tyfcb.description && (
-                              <p className="text-sm mt-1">{tyfcb.description}</p>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-purple-600 border-purple-600">
-                            Closed Business
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No recent closed business to show.</p>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

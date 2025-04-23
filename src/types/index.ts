@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -12,15 +13,18 @@ export interface User {
   isAdmin: boolean;
   website?: string;
   linkedin?: string;
-  twitter?: string;
+  facebook?: string;
+  tiktok?: string;
   instagram?: string;
   createdAt: Date;
 }
 
 export interface Referral {
   id: string;
-  referringMemberId: string;
-  referredToMemberId: string;
+  fromMemberId: string;
+  fromMemberName: string;
+  toMemberId: string;
+  toMemberName: string;
   description: string;
   date: Date;
   createdAt: Date;
@@ -41,16 +45,21 @@ export interface Visitor {
 
 export interface OneToOne {
   id: string;
-  memberOneId: string;
-  memberTwoId: string;
-  meetingDate: Date;
+  member1Id: string;
+  member1Name: string;
+  member2Id: string;
+  member2Name: string;
+  date: Date;
+  notes?: string;
   createdAt: Date;
 }
 
 export interface TYFCB {
   id: string;
-  thankingMemberId: string;
-  thankedMemberId: string;
+  fromMemberId: string;
+  fromMemberName: string;
+  toMemberId: string;
+  toMemberName: string;
   amount: number;
   description: string;
   date: Date;
@@ -109,4 +118,8 @@ export interface Activity {
   userId: string;
   relatedUserId?: string;
   referenceId: string; // ID of the related item (referral, visitor, etc.)
+}
+
+export interface ProfilePicUploadProps {
+  onImageUploaded: (imageUrl: string) => void;
 }
