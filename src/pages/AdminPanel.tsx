@@ -2,42 +2,44 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const adminFeatures = [
   {
-    title: "Manage Users",
-    description: "View, edit, or remove group members.",
+    title: "Add New User",
+    description: "Create a new account for a group member.",
     icon: Users,
-    link: "#", // Replace with your user management route
+    link: "/signup", // Link to signup page for new user creation
   },
   {
-    title: "Review Events",
-    description: "Approve, edit, or remove event submissions.",
+    title: "Approve Events",
+    description: "Review and approve pending event submissions.",
     icon: Calendar,
-    link: "#", // Replace with your events admin route
+    link: "/events?filter=pending", // Link to events page with pending filter
   },
   {
-    title: "Advanced Reports",
-    description: "Get insights and detailed group statistics.",
+    title: "Weekly Reports",
+    description: "View and generate standard group reports.",
     icon: BarChart,
-    link: "#", // Replace with your reports admin route
+    link: "/reports", // Link to reports page
   },
   {
-    title: "Polls & Surveys",
-    description: "Manage or create community polls.",
+    title: "Create Poll",
+    description: "Create a new poll or survey for members.",
     icon: ClipboardList,
-    link: "#", // Replace with your polls admin route
+    link: "/polls/create", // Link to poll creation
   },
   {
     title: "Settings",
     description: "Edit application or group-level settings.",
     icon: Settings,
-    link: "#", // Replace with your settings admin route
+    link: "/settings", // Link to settings page
   },
 ];
 
 const AdminPanel: React.FC = () => {
+  const navigate = useNavigate();
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="mb-8">
@@ -46,10 +48,10 @@ const AdminPanel: React.FC = () => {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-2">
-            Welcome! Here you can manage critical aspects of your group.
+            Welcome! Here you can access quick admin functions for your group.
           </p>
           <p className="text-sm text-gray-500">
-            Click a tile below to access admin functions.
+            Click a tile below to perform common administrative tasks.
           </p>
         </CardContent>
       </Card>

@@ -57,7 +57,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <img 
-            src="/moco-png-logo.png" 
+            src="moco-png-logo.png" 
             alt="MocoPNG Logo" 
             className="mx-auto h-24 w-auto mb-4"
           />
