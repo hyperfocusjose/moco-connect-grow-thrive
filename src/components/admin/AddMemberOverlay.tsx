@@ -1,7 +1,6 @@
-
 import React from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { MemberForm } from "@/components/forms/MemberForm";
+import { MemberForm } from "@/components/forms/member/MemberForm";
 
 interface AddMemberOverlayProps {
   open: boolean;
