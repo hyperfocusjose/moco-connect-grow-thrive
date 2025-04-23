@@ -146,7 +146,7 @@ export const ReferralForm: React.FC<{
                     </FormControl>
                     <SelectContent>
                       {allUsers.map(user => (
-                        <SelectItem key={user.id} value={user.id}>
+                        <SelectItem key={user.id} value={user.id || `user-${user.firstName}`}>
                           {user.firstName} {user.lastName} - {user.businessName}
                         </SelectItem>
                       ))}
@@ -178,7 +178,7 @@ export const ReferralForm: React.FC<{
                   </FormControl>
                   <SelectContent>
                     {otherUsers.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
+                      <SelectItem key={user.id} value={user.id || `user-${user.firstName}`}>
                         {user.firstName} {user.lastName} - {user.businessName}
                       </SelectItem>
                     ))}

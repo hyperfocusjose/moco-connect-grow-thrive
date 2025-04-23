@@ -232,7 +232,7 @@ export const VisitorSignupForm: React.FC<{ onComplete?: () => void }> = ({ onCom
                   </FormControl>
                   <SelectContent>
                     {upcomingMeetings.map(meeting => (
-                      <SelectItem key={meeting.id} value={meeting.id}>
+                      <SelectItem key={meeting.id} value={meeting.id || `meeting-${meeting.date}`}>
                         {format(new Date(meeting.date), "EEEE, MMMM d, yyyy")} - {meeting.name}
                       </SelectItem>
                     ))}

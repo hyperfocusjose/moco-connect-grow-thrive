@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -137,7 +138,7 @@ export const OneToOneForm: React.FC<{
                     </FormControl>
                     <SelectContent>
                       {allUsers.map(user => (
-                        <SelectItem key={user.id} value={user.id}>
+                        <SelectItem key={user.id} value={user.id || `user-${user.firstName}`}>
                           {user.firstName} {user.lastName} - {user.businessName}
                         </SelectItem>
                       ))}
@@ -169,7 +170,7 @@ export const OneToOneForm: React.FC<{
                   </FormControl>
                   <SelectContent>
                     {otherUsers.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
+                      <SelectItem key={user.id} value={user.id || `user-${user.firstName}`}>
                         {user.firstName} {user.lastName} - {user.businessName}
                       </SelectItem>
                     ))}
