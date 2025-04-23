@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,12 +117,6 @@ export const Navbar = () => {
                   <Link to="/login">
                     <LogIn className="mr-2 h-4 w-4" />
                     Login
-                  </Link>
-                </Button>
-                <Button asChild variant="secondary" className="text-maroon">
-                  <Link to="/signup">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Sign Up
                   </Link>
                 </Button>
               </>

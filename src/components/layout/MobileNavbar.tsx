@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -144,12 +143,6 @@ export const MobileNavbar = () => {
                 <Link to="/login" onClick={() => setOpen(false)}>
                   <LogIn className="mr-2 h-4 w-4" />
                   Login
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link to="/signup" onClick={() => setOpen(false)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Sign Up
                 </Link>
               </Button>
             </div>

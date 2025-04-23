@@ -31,7 +31,6 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
               
-              {/* Protected routes with AppLayout */}
               <Route element={<AppLayout requireAuth />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/directory" element={<Directory />} />
@@ -39,16 +38,12 @@ const App = () => (
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/polls" element={<Polls />} />
                 <Route path="/profile" element={<Profile />} />
-                {/* Other protected routes will be added here */}
               </Route>
               
-              {/* Admin routes with AppLayout */}
               <Route element={<AppLayout requireAuth requireAdmin />}>
                 <Route path="/admin" element={<AdminPanel />} />
-                {/* Admin routes will be added here */}
               </Route>
 
-              {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
