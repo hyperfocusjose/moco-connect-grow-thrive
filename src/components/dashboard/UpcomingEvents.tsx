@@ -1,121 +1,111 @@
 
 import React from 'react';
-import { useData } from '@/contexts/DataContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { format, isAfter, startOfToday } from 'date-fns';
-import { Calendar } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Calendar } from 'lucide-react';
+import { useData } from '@/contexts/DataContext';
+import { format, isSameDay, startOfToday, addDays, isAfter, isBefore } from 'date-fns';
+import { Link } from 'react-router-dom';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-export const UpcomingEvents: React.FC = () => {
-  const { events, getUser } = useData();
-  const navigate = useNavigate();
-
-  // Get today's date
+export const UpcomingEvents = () => {
+  const { events } = useData();
   const today = startOfToday();
+  const in14Days = addDays(today, 14);
+  
+  // Get upcoming approved events in the next 14 days
+  const upcomingEvents = events.filter(event => 
+    event.isApproved && 
+    !event.isCancelled && 
+    isAfter(new Date(event.date), today) && 
+    isBefore(new Date(event.date), in14Days)
+  ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Get upcoming, uncancelled, approved Tuesday meetings (case-insensitive)
-  const upcomingTuesdayMeetings = events
-    .filter(
-      event =>
-        event.isApproved &&
-        !event.isCancelled &&
-        event.name.toLowerCase().includes('tuesday meeting') &&
-        isAfter(new Date(event.date), today)
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 2);
-
-  // Get the next upcoming non-Tuesday meeting event
-  const nextNonTuesdayEvent = events
-    .filter(
-      event =>
-        event.isApproved &&
-        !event.isCancelled &&
-        !event.name.toLowerCase().includes('tuesday meeting') &&
-        isAfter(new Date(event.date), today)
-    )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0];
-
-  // Combine and sort all events to display
-  const eventsToDisplay = [...upcomingTuesdayMeetings];
-  if (nextNonTuesdayEvent) {
-    eventsToDisplay.push(nextNonTuesdayEvent);
-  }
-  eventsToDisplay.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  // Format date/time helpers
-  const formatDate = (date: Date) => {
-    return format(date, 'EEEE, MMMM d');
-  };
-
-  const formatTime = (startTime: string, endTime: string) => {
-    // Convert 24hr to 12hr format
-    const format12Hour = (time: string) => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hour12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
-      return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-    };
-    
-    return `${format12Hour(startTime)} - ${format12Hour(endTime)}`;
-  };
+  // Get today's events
+  const todayEvents = events.filter(event => 
+    event.isApproved && 
+    !event.isCancelled && 
+    isSameDay(new Date(event.date), today)
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Calendar className="mr-2 h-5 w-5 text-maroon" />
-          Upcoming Events
-        </CardTitle>
-        <CardDescription>Next events scheduled for the group</CardDescription>
+    <Card className="h-full">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Upcoming Events</CardTitle>
+            <CardDescription>Next 14 days</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/events">View all</Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {eventsToDisplay.length > 0 ? (
-            eventsToDisplay.map(event => (
-              <div key={event.id} className="mb-6 bg-muted/50 p-4 rounded-lg border">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{event.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {formatDate(new Date(event.date))}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatTime(event.startTime, event.endTime)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">{event.location}</p>
+        {todayEvents.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Today</h3>
+            <div className="space-y-3">
+              {todayEvents.map(event => (
+                <div key={event.id} className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <div className="flex justify-between">
+                    <h4 className="font-medium text-blue-800">{event.name}</h4>
+                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                      Today
+                    </Badge>
                   </div>
-                  {event.isPresentationMeeting && event.presenter && (
-                    <div className="bg-maroon/10 p-2 rounded text-xs">
-                      <p className="font-medium text-maroon">Presenter:</p>
-                      <p>
-                        {getUser(event.presenter)?.firstName}{' '}
-                        {getUser(event.presenter)?.lastName}
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-sm text-gray-600 mt-1">
+                    {format(new Date(event.date), "h:mm a")} • {event.location}
+                  </p>
                 </div>
-                {event.name.toLowerCase().includes('tuesday meeting') && !event.isPresentationMeeting && (
-                  <div className="mt-2 text-xs text-muted-foreground italic">
-                    No presentation scheduled
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {upcomingEvents.length > 0 ? (
+          <ScrollArea className="h-[260px] pr-4">
+            <div className="space-y-3">
+              {upcomingEvents.map(event => (
+                <div key={event.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex gap-3">
+                  <div className="flex-shrink-0 w-12 h-12 flex flex-col items-center justify-center bg-white rounded border border-gray-200">
+                    <span className="text-xs font-medium text-gray-500">
+                      {format(new Date(event.date), "MMM")}
+                    </span>
+                    <span className="text-lg font-bold">
+                      {format(new Date(event.date), "d")}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          className="w-full mt-4"
-          onClick={() => navigate('/events')}
-        >
-          View All Events
-        </Button>
+                  <div className="flex-grow">
+                    <h4 className="font-medium">{event.name}</h4>
+                    <p className="text-sm text-gray-600">
+                      {format(new Date(event.date), "h:mm a")} • {event.location}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        ) : todayEvents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[200px] text-center">
+            <Calendar className="h-12 w-12 text-gray-300 mb-2" />
+            <p className="text-gray-500">No upcoming events in the next 14 days</p>
+            <Button variant="link" asChild className="mt-2">
+              <Link to="/events">Add an Event</Link>
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
+      
+      <CardFooter>
+        <Button variant="outline" className="w-full" asChild>
+          <Link to="/events">
+            <Calendar className="mr-2 h-4 w-4" />
+            View Calendar
+          </Link>
+        </Button>
+      </CardFooter>
     </Card>
   );
 };

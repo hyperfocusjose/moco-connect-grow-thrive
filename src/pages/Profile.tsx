@@ -1,634 +1,669 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { User } from '@/types';
+import { format } from 'date-fns';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { ProfilePicUpload } from '@/components/profile/ProfilePicUpload';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Calendar, Phone, Mail, Users, CheckCircle, BarChart, Medal, Clock } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { X, Phone, Mail, User as UserIcon, Briefcase, Settings, Globe, Linkedin, Twitter, Instagram } from 'lucide-react';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
+
+const formSchema = z.object({
+  firstName: z.string().min(2, { message: "First name is required" }),
+  lastName: z.string().min(2, { message: "Last name is required" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  phoneNumber: z.string().min(10, { message: "Valid phone number is required" }),
+  businessName: z.string().min(2, { message: "Business name is required" }),
+  bio: z.string().optional(),
+  industry: z.string().min(2, { message: "Industry is required" }),
+  website: z.string().optional(),
+  linkedin: z.string().optional(),
+  twitter: z.string().optional(),
+  instagram: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 const Profile = () => {
-  const { currentUser } = useAuth();
-  const { getUserMetrics, referrals, visitors, oneToOnes, tyfcbs } = useData();
+  const { currentUser, updateCurrentUser } = useAuth();
+  const { stats, referrals, oneToOnes, tyfcbs } = useData();
   const { toast } = useToast();
-  
-  const [profileData, setProfileData] = useState({
-    firstName: currentUser?.firstName || '',
-    lastName: currentUser?.lastName || '',
-    email: currentUser?.email || '',
-    phoneNumber: currentUser?.phoneNumber || '',
-    businessName: currentUser?.businessName || '',
-    industry: currentUser?.industry || '',
-    bio: currentUser?.bio || '',
-    tags: currentUser?.tags || [],
+  const [profileImage, setProfileImage] = useState<string | null>(currentUser?.profilePicture || null);
+  const [tags, setTags] = useState<string[]>(currentUser?.tags || []);
+  const [tagInput, setTagInput] = useState("");
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      firstName: currentUser?.firstName || "",
+      lastName: currentUser?.lastName || "",
+      email: currentUser?.email || "",
+      phoneNumber: currentUser?.phoneNumber || "",
+      businessName: currentUser?.businessName || "",
+      bio: currentUser?.bio || "",
+      industry: currentUser?.industry || "",
+      website: currentUser?.website || "",
+      linkedin: currentUser?.linkedin || "",
+      twitter: currentUser?.twitter || "",
+      instagram: currentUser?.instagram || "",
+    },
   });
-  
-  const [newTag, setNewTag] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Get user metrics
-  const metrics = currentUser ? getUserMetrics(currentUser.id) : null;
-  
-  // Calculate membership duration
-  const getMembershipDuration = () => {
-    if (!currentUser?.createdAt) return 'N/A';
-    
-    const joinDate = new Date(currentUser.createdAt);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - joinDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 30) {
-      return `${diffDays} days`;
-    } else if (diffDays < 365) {
-      const months = Math.floor(diffDays / 30);
-      return `${months} month${months !== 1 ? 's' : ''}`;
-    } else {
-      const years = Math.floor(diffDays / 365);
-      const remainingMonths = Math.floor((diffDays % 365) / 30);
-      return `${years} year${years !== 1 ? 's' : ''}${remainingMonths > 0 ? `, ${remainingMonths} month${remainingMonths !== 1 ? 's' : ''}` : ''}`;
-    }
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setProfileData({
-      ...profileData,
-      [name]: value,
-    });
-  };
-  
-  const handleAddTag = () => {
-    if (newTag.trim() && !profileData.tags.includes(newTag.trim())) {
-      setProfileData({
-        ...profileData,
-        tags: [...profileData.tags, newTag.trim()],
+
+  useEffect(() => {
+    if (currentUser) {
+      form.reset({
+        firstName: currentUser.firstName || "",
+        lastName: currentUser.lastName || "",
+        email: currentUser.email || "",
+        phoneNumber: currentUser.phoneNumber || "",
+        businessName: currentUser.businessName || "",
+        bio: currentUser.bio || "",
+        industry: currentUser.industry || "",
+        website: currentUser.website || "",
+        linkedin: currentUser.linkedin || "",
+        twitter: currentUser.twitter || "",
+        instagram: currentUser.instagram || "",
       });
-      setNewTag('');
+      setProfileImage(currentUser.profilePicture || null);
+      setTags(currentUser.tags || []);
     }
-  };
-  
-  const handleRemoveTag = (tag: string) => {
-    setProfileData({
-      ...profileData,
-      tags: profileData.tags.filter(t => t !== tag),
-    });
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: "Profile Updated",
-        description: "Your profile information has been updated successfully.",
-      });
-    }, 1000);
-  };
-  
-  // Get initials for avatar fallback
+  }, [currentUser, form]);
+
+  if (!currentUser) {
+    return <div className="p-6">Loading profile...</div>;
+  }
+
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
 
-  if (!currentUser) {
-    return (
-      <div className="container mx-auto py-12 text-center">
-        <h1 className="text-2xl font-bold">You must be logged in to view your profile</h1>
-      </div>
-    );
-  }
+  const handleAddTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      setTags([...tags, tagInput.trim()]);
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  const handleImageUpload = (imageUrl: string) => {
+    setProfileImage(imageUrl);
+  };
+
+  const onSubmit = async (data: FormValues) => {
+    if (!currentUser) return;
+    
+    try {
+      const updatedUser: User = {
+        ...currentUser,
+        ...data,
+        tags,
+        profilePicture: profileImage || currentUser.profilePicture
+      };
+      
+      await updateCurrentUser(updatedUser);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const ensureHttps = (url: string): string => {
+    if (!url) return '';
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      return `https://${url}`;
+    }
+    return url;
+  };
+
+  const getLinkedInUrl = (username: string): string => {
+    if (!username) return '';
+    return username.startsWith('http') ? username : `https://linkedin.com/in/${username.replace(/^@/, '')}`;
+  };
+
+  const getTwitterUrl = (username: string): string => {
+    if (!username) return '';
+    return username.startsWith('http') ? username : `https://twitter.com/${username.replace(/^@/, '')}`;
+  };
+
+  const getInstagramUrl = (username: string): string => {
+    if (!username) return '';
+    return username.startsWith('http') ? username : `https://instagram.com/${username.replace(/^@/, '')}`;
+  };
+
+  const userStats = stats ? stats[currentUser.id] : null;
+  const referralsGiven = userStats?.referralsGiven || 0;
+  const referralsReceived = userStats?.referralsReceived || 0;
+  const oneToOnesDone = userStats?.oneToOnesDone || 0;
+  const closedBusiness = userStats?.tyfcbTotal || 0;
+
+  const userReferrals = referrals?.filter(ref => 
+    ref.fromMemberId === currentUser.id || ref.toMemberId === currentUser.id
+  ).slice(0, 5);
+  
+  const userOneToOnes = oneToOnes?.filter(oneToOne => 
+    oneToOne.member1Id === currentUser.id || oneToOne.member2Id === currentUser.id
+  ).slice(0, 5);
+  
+  const userClosedBusiness = tyfcbs?.filter(tyfcb => 
+    tyfcb.fromMemberId === currentUser.id || tyfcb.toMemberId === currentUser.id
+  ).slice(0, 5);
 
   return (
     <div className="container mx-auto py-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-500 mt-1">View and manage your account information</p>
-        </div>
-      </div>
-
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="edit">Edit Profile</TabsTrigger>
-          <TabsTrigger value="metrics">My Metrics</TabsTrigger>
-          <TabsTrigger value="activity">My Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <div className="flex justify-center">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={currentUser.profilePicture} alt={currentUser.firstName} />
-                    <AvatarFallback className="bg-maroon text-white text-xl">
-                      {getInitials(currentUser.firstName, currentUser.lastName)}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <CardTitle className="text-2xl text-center mt-4">
-                  {currentUser.firstName} {currentUser.lastName}
-                </CardTitle>
-                <CardDescription className="text-center text-base">
-                  {currentUser.businessName}
-                </CardDescription>
-                <div className="flex justify-center mt-2">
-                  <Badge variant="outline" className="text-xs border-maroon text-maroon">
-                    {currentUser.industry}
+      <h1 className="text-3xl font-bold mb-6">My Profile</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex flex-col items-center mb-6">
+              <Avatar className="h-32 w-32 mb-4">
+                <AvatarImage src={currentUser.profilePicture} />
+                <AvatarFallback className="bg-maroon text-white text-3xl">
+                  {getInitials(currentUser.firstName, currentUser.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <h2 className="text-2xl font-bold text-center">
+                {currentUser.firstName} {currentUser.lastName}
+              </h2>
+              <p className="text-gray-500 text-center">{currentUser.businessName}</p>
+              <div className="mt-2">
+                <Badge variant="outline" className="border-maroon text-maroon">
+                  {currentUser.industry}
+                </Badge>
+                {currentUser.isAdmin && (
+                  <Badge variant="outline" className="ml-2 border-maroon text-maroon">
+                    Admin
                   </Badge>
-                  {currentUser.isAdmin && (
-                    <Badge variant="outline" className="ml-2 text-xs border-maroon text-maroon">
-                      Admin
-                    </Badge>
+                )}
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <Phone className="h-5 w-5 text-gray-500 mr-3" />
+                <div>
+                  <div className="text-sm text-gray-500">Phone</div>
+                  <div>{currentUser.phoneNumber}</div>
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                <Mail className="h-5 w-5 text-gray-500 mr-3" />
+                <div>
+                  <div className="text-sm text-gray-500">Email</div>
+                  <div>{currentUser.email}</div>
+                </div>
+              </div>
+              
+              {currentUser.website && (
+                <div className="flex items-center">
+                  <Globe className="h-5 w-5 text-gray-500 mr-3" />
+                  <div>
+                    <div className="text-sm text-gray-500">Website</div>
+                    <a 
+                      href={ensureHttps(currentUser.website)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {currentUser.website}
+                    </a>
+                  </div>
+                </div>
+              )}
+              
+              {(currentUser.linkedin || currentUser.twitter || currentUser.instagram) && (
+                <div className="flex space-x-3 mt-4">
+                  {currentUser.linkedin && (
+                    <a 
+                      href={getLinkedInUrl(currentUser.linkedin)}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-blue-600"
+                    >
+                      <Linkedin className="h-5 w-5" />
+                    </a>
+                  )}
+                  {currentUser.twitter && (
+                    <a 
+                      href={getTwitterUrl(currentUser.twitter)}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-blue-400"
+                    >
+                      <Twitter className="h-5 w-5" />
+                    </a>
+                  )}
+                  {currentUser.instagram && (
+                    <a 
+                      href={getInstagramUrl(currentUser.instagram)}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-pink-600"
+                    >
+                      <Instagram className="h-5 w-5" />
+                    </a>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-3 text-gray-500" />
-                    <span>{currentUser.phoneNumber}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-3 text-gray-500" />
-                    <span>{currentUser.email}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-3 text-gray-500" />
-                    <span>Member for {getMembershipDuration()}</span>
-                  </div>
+              )}
+            </div>
+            
+            {currentUser.bio && (
+              <div className="mt-6">
+                <h3 className="font-medium mb-2">About Me</h3>
+                <p className="text-gray-600">{currentUser.bio}</p>
+              </div>
+            )}
+            
+            {currentUser.tags && currentUser.tags.length > 0 && (
+              <div className="mt-6">
+                <h3 className="font-medium mb-2">Services Offered</h3>
+                <div className="flex flex-wrap gap-1">
+                  {currentUser.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>About Me</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700">
-                  {currentUser.bio || "No bio provided. Add a bio in the Edit Profile tab."}
-                </p>
-
-                {currentUser.tags && currentUser.tags.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-lg font-medium mb-2">Services Offered</h3>
-                    <div className="flex flex-wrap gap-1">
-                      {currentUser.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-sm">
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6 mt-6">
+            <h3 className="font-semibold text-lg mb-4">My Statistics</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-green-50 rounded-lg">
+                <div className="text-sm text-gray-500">Referrals Given</div>
+                <div className="text-xl font-bold text-green-600">{referralsGiven}</div>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm text-gray-500">Referrals Received</div>
+                <div className="text-xl font-bold text-blue-600">{referralsReceived}</div>
+              </div>
+              <div className="p-3 bg-amber-50 rounded-lg">
+                <div className="text-sm text-gray-500">One-to-Ones</div>
+                <div className="text-xl font-bold text-amber-600">{oneToOnesDone}</div>
+              </div>
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <div className="text-sm text-gray-500">Closed Business</div>
+                <div className="text-xl font-bold text-purple-600">${closedBusiness.toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="lg:col-span-2">
+          <Tabs defaultValue="edit" className="w-full">
+            <TabsList>
+              <TabsTrigger value="edit">Edit Profile</TabsTrigger>
+              <TabsTrigger value="activity">Recent Activity</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="edit" className="bg-white rounded-lg shadow p-6 mt-4">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="flex justify-center mb-6">
+                    <div className="flex flex-col items-center">
+                      <Avatar className="h-24 w-24 mb-2">
+                        <AvatarImage src={profileImage || ""} />
+                        <AvatarFallback className="bg-maroon text-white text-xl">
+                          {getInitials(currentUser.firstName, currentUser.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <ProfilePicUpload onImageUploaded={handleImageUpload} />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="firstName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="lastName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="email" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="tel" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="businessName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="industry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Industry</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="bio"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bio</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Write a brief description about you or your business" 
+                            className="min-h-[100px]" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div>
+                    <Label>Services Offered</Label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
                           {tag}
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => handleRemoveTag(tag)}
+                          />
                         </Badge>
                       ))}
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="md:col-span-3">
-              <CardHeader>
-                <CardTitle>Activity Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="flex flex-col items-center">
-                    <div className="bg-blue-100 p-3 rounded-full mb-2">
-                      <Users className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <h3 className="text-3xl font-bold">{metrics?.referrals || 0}</h3>
-                    <p className="text-gray-500">Referrals Given</p>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="bg-green-100 p-3 rounded-full mb-2">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                    <h3 className="text-3xl font-bold">{metrics?.visitors || 0}</h3>
-                    <p className="text-gray-500">Visitors Invited</p>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="bg-purple-100 p-3 rounded-full mb-2">
-                      <Users className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <h3 className="text-3xl font-bold">{metrics?.oneToOnes || 0}</h3>
-                    <p className="text-gray-500">One-to-Ones</p>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="bg-amber-100 p-3 rounded-full mb-2">
-                      <BarChart className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <h3 className="text-3xl font-bold">${metrics?.tyfcb.amount.toLocaleString()}</h3>
-                    <p className="text-gray-500">Closed Business</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="edit">
-          <Card>
-            <form onSubmit={handleSubmit}>
-              <CardHeader>
-                <CardTitle>Edit Profile</CardTitle>
-                <CardDescription>
-                  Update your profile information and settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="firstName">First Name</Label>
+                    <div className="flex gap-2">
                       <Input
-                        id="firstName"
-                        name="firstName"
-                        value={profileData.firstName}
-                        onChange={handleInputChange}
-                        required
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Add a service or skill tag"
+                        className="flex-1"
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        name="lastName"
-                        value={profileData.lastName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={profileData.email}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phoneNumber">Phone Number</Label>
-                      <Input
-                        id="phoneNumber"
-                        name="phoneNumber"
-                        value={profileData.phoneNumber}
-                        onChange={handleInputChange}
-                        required
-                      />
+                      <Button type="button" onClick={handleAddTag} variant="outline">Add</Button>
                     </div>
                   </div>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="businessName">Business Name</Label>
-                      <Input
-                        id="businessName"
-                        name="businessName"
-                        value={profileData.businessName}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="industry">Industry</Label>
-                      <Input
-                        id="industry"
-                        name="industry"
-                        value={profileData.industry}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bio">Bio</Label>
-                      <Textarea
-                        id="bio"
-                        name="bio"
-                        rows={4}
-                        value={profileData.bio}
-                        onChange={handleInputChange}
-                        placeholder="Tell the group about yourself and your business..."
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-6">
-                  <Label>Services Offered (Tags)</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {profileData.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="text-sm">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 text-gray-400 hover:text-gray-600"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex mt-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      placeholder="Add a service tag"
-                      className="mr-2"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddTag();
-                        }
-                      }}
+                  
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-lg font-medium mb-4">Website & Social Media</h3>
+                    
+                    <FormField
+                      control={form.control}
+                      name="website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Website</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://example.com" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Full URL including https://
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleAddTag}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                      <FormField
+                        control={form.control}
+                        name="linkedin"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>LinkedIn</FormLabel>
+                            <FormControl>
+                              <Input placeholder="username or URL" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="twitter"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Twitter</FormLabel>
+                            <FormControl>
+                              <Input placeholder="username or URL" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="instagram"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Instagram</FormLabel>
+                            <FormControl>
+                              <Input placeholder="username or URL" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-maroon hover:bg-maroon/90"
+                      disabled={form.formState.isSubmitting}
                     >
-                      Add
+                      {form.formState.isSubmitting ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                      ) : "Save Changes"}
                     </Button>
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button 
-                  type="submit" 
-                  className="bg-maroon hover:bg-maroon/90"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Saving..." : "Save Changes"}
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="metrics">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity Metrics</CardTitle>
-                <CardDescription>Your activity metrics over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <Users className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Referrals</p>
-                      <h4 className="text-2xl font-bold">{metrics?.referrals || 0}</h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Visitors</p>
-                      <h4 className="text-2xl font-bold">{metrics?.visitors || 0}</h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-purple-100 rounded-full">
-                      <Users className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">One-to-Ones</p>
-                      <h4 className="text-2xl font-bold">{metrics?.oneToOnes || 0}</h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-amber-100 rounded-full">
-                      <Medal className="h-5 w-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">TYFCB Count</p>
-                      <h4 className="text-2xl font-bold">{metrics?.tyfcb.count || 0}</h4>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="my-6" />
-
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium">Closed Business</h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-amber-100 rounded-full">
-                      <BarChart className="h-5 w-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Total TYFCB Amount</p>
-                      <h4 className="text-2xl font-bold">${metrics?.tyfcb.amount.toLocaleString() || 0}</h4>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Targets</CardTitle>
-                <CardDescription>Your progress towards group goals</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label>Referrals Goal (Monthly)</Label>
-                      <span className="text-sm font-medium">
-                        {metrics?.referrals || 0}/4
-                      </span>
-                    </div>
-                    <Progress value={(metrics?.referrals || 0) / 4 * 100} max={100} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label>Visitors Goal (Monthly)</Label>
-                      <span className="text-sm font-medium">
-                        {metrics?.visitors || 0}/2
-                      </span>
-                    </div>
-                    <Progress value={(metrics?.visitors || 0) / 2 * 100} max={100} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label>One-to-Ones Goal (Monthly)</Label>
-                      <span className="text-sm font-medium">
-                        {metrics?.oneToOnes || 0}/3
-                      </span>
-                    </div>
-                    <Progress value={(metrics?.oneToOnes || 0) / 3 * 100} max={100} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label>Closed Business Goal (Quarterly)</Label>
-                      <span className="text-sm font-medium">
-                        ${metrics?.tyfcb.amount.toLocaleString() || 0}/$5,000
-                      </span>
-                    </div>
-                    <Progress value={(metrics?.tyfcb.amount || 0) / 5000 * 100} max={100} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="activity">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Referrals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {referrals.filter(r => r.referringMemberId === currentUser.id).length > 0 ? (
-                  <div className="divide-y">
-                    {referrals
-                      .filter(r => r.referringMemberId === currentUser.id)
-                      .slice(0, 5)
-                      .map((referral) => {
-                        const referredTo = referral.referredToMemberId ? 
-                          `${referral.referredToMemberId}` : 'Unknown';
-                        return (
-                          <div key={referral.id} className="py-4 flex justify-between items-center">
-                            <div>
-                              <p className="font-medium">{referral.description}</p>
-                              <p className="text-sm text-gray-500">
-                                Referred to: {referredTo}
-                              </p>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {new Date(referral.date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No referrals yet</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Visitors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {visitors.filter(v => v.hostMemberId === currentUser.id).length > 0 ? (
-                  <div className="divide-y">
-                    {visitors
-                      .filter(v => v.hostMemberId === currentUser.id)
-                      .slice(0, 5)
-                      .map((visitor) => (
-                        <div key={visitor.id} className="py-4 flex justify-between items-center">
+                </form>
+              </Form>
+            </TabsContent>
+            
+            <TabsContent value="activity" className="bg-white rounded-lg shadow p-6 mt-4">
+              <h3 className="font-semibold text-lg mb-4">Recent Activity</h3>
+              
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">Recent Referrals</h4>
+                {userReferrals && userReferrals.length > 0 ? (
+                  <div className="space-y-3">
+                    {userReferrals.map(referral => (
+                      <div key={referral.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-medium">{visitor.visitorName}</p>
-                            <p className="text-sm text-gray-500">{visitor.visitorBusiness}</p>
+                            <p className="font-medium">
+                              {referral.fromMemberId === currentUser.id ? 
+                                `You gave a referral to ${referral.toMemberName}` : 
+                                `${referral.fromMemberName} gave you a referral`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(referral.date), "MMMM d, yyyy")}
+                            </p>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(visitor.visitDate).toLocaleDateString()}
-                          </div>
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            Referral
+                          </Badge>
                         </div>
-                      ))}
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No visitors yet</p>
+                  <p className="text-gray-500">No recent referrals to show.</p>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent One-to-Ones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {oneToOnes.filter(o => o.memberOneId === currentUser.id || o.memberTwoId === currentUser.id).length > 0 ? (
-                  <div className="divide-y">
-                    {oneToOnes
-                      .filter(o => o.memberOneId === currentUser.id || o.memberTwoId === currentUser.id)
-                      .slice(0, 5)
-                      .map((oneToOne) => {
-                        const otherMemberId = oneToOne.memberOneId === currentUser.id ? 
-                          oneToOne.memberTwoId : oneToOne.memberOneId;
-                        return (
-                          <div key={oneToOne.id} className="py-4 flex justify-between items-center">
-                            <div>
-                              <p className="font-medium">One-to-One with {otherMemberId}</p>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {new Date(oneToOne.meetingDate).toLocaleDateString()}
-                            </div>
+              </div>
+              
+              <div className="mb-6">
+                <h4 className="font-medium text-gray-700 mb-2">Recent One-to-Ones</h4>
+                {userOneToOnes && userOneToOnes.length > 0 ? (
+                  <div className="space-y-3">
+                    {userOneToOnes.map(oneToOne => (
+                      <div key={oneToOne.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {`One-to-one with ${oneToOne.member1Id === currentUser.id ? 
+                                oneToOne.member2Name : 
+                                oneToOne.member1Name}`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(oneToOne.date), "MMMM d, yyyy")}
+                            </p>
+                            {oneToOne.notes && (
+                              <p className="text-sm mt-1">{oneToOne.notes}</p>
+                            )}
                           </div>
-                        );
-                      })}
+                          <Badge variant="outline" className="text-amber-600 border-amber-600">
+                            One-to-One
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No one-to-ones yet</p>
+                  <p className="text-gray-500">No recent one-to-ones to show.</p>
                 )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Closed Business</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {tyfcbs.filter(t => t.thankingMemberId === currentUser.id).length > 0 ? (
-                  <div className="divide-y">
-                    {tyfcbs
-                      .filter(t => t.thankingMemberId === currentUser.id)
-                      .slice(0, 5)
-                      .map((tyfcb) => {
-                        const thankedMember = tyfcb.thankedMemberId ? 
-                          `${tyfcb.thankedMemberId}` : 'Unknown';
-                        return (
-                          <div key={tyfcb.id} className="py-4 flex justify-between items-center">
-                            <div>
-                              <p className="font-medium">{tyfcb.description}</p>
-                              <p className="text-sm text-gray-500">
-                                Thanked: {thankedMember}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-right">${tyfcb.amount.toLocaleString()}</p>
-                              <p className="text-sm text-gray-500">
-                                {new Date(tyfcb.date).toLocaleDateString()}
-                              </p>
-                            </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-gray-700 mb-2">Recent Closed Business</h4>
+                {userClosedBusiness && userClosedBusiness.length > 0 ? (
+                  <div className="space-y-3">
+                    {userClosedBusiness.map(tyfcb => (
+                      <div key={tyfcb.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">
+                              {tyfcb.fromMemberId === currentUser.id ? 
+                                `You thanked ${tyfcb.toMemberName} for closed business` : 
+                                `${tyfcb.fromMemberName} thanked you for closed business`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {format(new Date(tyfcb.date), "MMMM d, yyyy")}
+                            </p>
+                            <p className="font-medium text-green-600 mt-1">
+                              Amount: ${Number(tyfcb.amount).toLocaleString()}
+                            </p>
+                            {tyfcb.description && (
+                              <p className="text-sm mt-1">{tyfcb.description}</p>
+                            )}
                           </div>
-                        );
-                      })}
+                          <Badge variant="outline" className="text-purple-600 border-purple-600">
+                            Closed Business
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No closed business yet</p>
+                  <p className="text-gray-500">No recent closed business to show.</p>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
     </div>
   );
 };

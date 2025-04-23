@@ -90,7 +90,13 @@ export const VisitorSignupForm: React.FC<{ onComplete?: () => void }> = ({ onCom
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 4);
       
-    setUpcomingMeetings(upcomingTuesdayMeetings);
+    // Make sure each meeting has a valid ID
+    const meetingsWithValidIds = upcomingTuesdayMeetings.map(meeting => ({
+      ...meeting,
+      id: meeting.id || `meeting-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+    
+    setUpcomingMeetings(meetingsWithValidIds);
   }, [events]);
 
   const onSubmit = async (data: FormValues) => {
@@ -232,7 +238,7 @@ export const VisitorSignupForm: React.FC<{ onComplete?: () => void }> = ({ onCom
                   </FormControl>
                   <SelectContent>
                     {upcomingMeetings.map(meeting => (
-                      <SelectItem key={meeting.id} value={meeting.id || `meeting-${meeting.date}`}>
+                      <SelectItem key={meeting.id} value={meeting.id}>
                         {format(new Date(meeting.date), "EEEE, MMMM d, yyyy")} - {meeting.name}
                       </SelectItem>
                     ))}

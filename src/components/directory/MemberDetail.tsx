@@ -8,7 +8,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/
 import { ReferralForm } from '@/components/forms/ReferralForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
-import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Twitter, Instagram } from 'lucide-react';
+import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Twitter, Instagram, Edit } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,9 +16,10 @@ import { useAuth } from '@/contexts/AuthContext';
 interface MemberDetailProps {
   member: User;
   onClose: () => void;
+  onEdit?: () => void;
 }
 
-export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) => {
+export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onEdit }) => {
   const [openForm, setOpenForm] = useState<null | 'referral' | '1to1' | 'tyfcb'>(null);
   const { currentUser } = useAuth();
   const isAdmin = !!currentUser?.isAdmin;
@@ -33,7 +34,18 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
   return (
     <div className="p-6 max-w-md mx-auto">
       <ScrollArea className="h-[80vh] pr-4">
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-6 relative">
+          {isAdmin && onEdit && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="absolute top-0 right-0 h-8 w-8 rounded-full bg-white/80 hover:bg-white"
+              onClick={onEdit}
+            >
+              <Edit className="h-4 w-4 text-gray-600" />
+            </Button>
+          )}
+          
           <Avatar className="h-24 w-24 mb-4">
             <AvatarImage src={member.profilePicture} alt={member.firstName} />
             <AvatarFallback className="bg-maroon text-white text-xl">

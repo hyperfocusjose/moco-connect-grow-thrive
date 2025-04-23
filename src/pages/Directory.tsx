@@ -6,10 +6,11 @@ import { MemberCard } from '@/components/directory/MemberCard';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { MemberForm } from '@/components/forms/MemberForm';
 
 const Directory: React.FC = () => {
   const { users, visitors } = useData();
@@ -18,6 +19,9 @@ const Directory: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('members');
+  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [memberToEdit, setMemberToEdit] = useState<User | null>(null);
   
   const isAdmin = currentUser?.isAdmin;
 
@@ -56,6 +60,17 @@ const Directory: React.FC = () => {
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
   };
+  
+  // Handle edit member button click
+  const handleEditMember = (member: User) => {
+    setMemberToEdit(member);
+    setIsEditFormOpen(true);
+  };
+  
+  // Handle add new member button click
+  const handleAddMember = () => {
+    setIsAddFormOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -64,8 +79,9 @@ const Directory: React.FC = () => {
         {isAdmin && (
           <Button 
             className="bg-maroon hover:bg-maroon/90"
-            onClick={() => {/* Add New Member functionality */}}
+            onClick={handleAddMember}
           >
+            <Plus className="mr-2 h-4 w-4" />
             Add New Member
           </Button>
         )}
@@ -102,6 +118,7 @@ const Directory: React.FC = () => {
                 member={member} 
                 onClick={() => handleSelectMember(member)}
                 showEditButton={isAdmin}
+                onEdit={() => handleEditMember(member)}
               />
             ))}
             {filteredMembers.length === 0 && (
@@ -142,8 +159,33 @@ const Directory: React.FC = () => {
             <MemberDetail 
               member={selectedMember}
               onClose={handleCloseDetail}
+              onEdit={() => {
+                handleCloseDetail();
+                handleEditMember(selectedMember);
+              }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Member Dialog */}
+      <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
+        <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
+          {memberToEdit && (
+            <MemberForm 
+              member={memberToEdit}
+              onComplete={() => setIsEditFormOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Member Dialog */}
+      <Dialog open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
+        <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
+          <MemberForm 
+            onComplete={() => setIsAddFormOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

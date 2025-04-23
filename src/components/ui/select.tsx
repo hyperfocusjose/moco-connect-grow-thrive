@@ -115,7 +115,7 @@ const SelectItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, ...props }, ref) => {
   // Ensure we don't render items with empty values
-  if (props.value === '') {
+  if (!props.value || props.value === '') {
     console.warn('SelectItem received an empty value prop, which is not allowed');
     return null;
   }
