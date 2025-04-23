@@ -1,45 +1,56 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { useData } from "@/contexts/DataContext";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
+import WeeklyReport from "./Reports"; // Import the existing WeeklyReport component
 
 const adminFeatures = [
   {
     title: "Add New User",
     description: "Create a new account for a group member.",
     icon: Users,
-    link: "/signup", // Link to signup page for new user creation
+    link: "/signup", 
   },
   {
     title: "Approve Events",
     description: "Review and approve pending event submissions.",
     icon: Calendar,
-    link: "/events?filter=pending", // Link to events page with pending filter
+    link: "/events?filter=pending", 
   },
   {
     title: "Weekly Reports",
-    description: "View and generate standard group reports.",
+    description: "View the latest weekly group performance report.",
     icon: BarChart,
-    link: "/reports", // Link to reports page
+    isModal: true,
   },
   {
     title: "Create Poll",
     description: "Create a new poll or survey for members.",
     icon: ClipboardList,
-    link: "/polls/create", // Link to poll creation
+    link: "/polls/create", 
   },
   {
     title: "Settings",
     description: "Edit application or group-level settings.",
     icon: Settings,
-    link: "/settings", // Link to settings page
+    link: "/settings", 
   },
 ];
 
 const AdminPanel: React.FC = () => {
-  const navigate = useNavigate();
-  
+  const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
+  const { getDataSinceLastTuesday } = useData();
+
+  const handleWeeklyReportClick = () => {
+    setWeeklyReportOpen(true);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="mb-8">
@@ -58,19 +69,52 @@ const AdminPanel: React.FC = () => {
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {adminFeatures.map((feature) => (
-          <Link to={feature.link} key={feature.title} className="group">
-            <Card className="h-full hover:shadow-lg hover:border-maroon transition">
-              <CardHeader className="flex-row items-center space-y-0 gap-4">
-                <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
-                <CardTitle>{feature.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{feature.description}</p>
-              </CardContent>
-            </Card>
-          </Link>
+          feature.isModal ? (
+            <div key={feature.title} onClick={handleWeeklyReportClick} className="group cursor-pointer">
+              <Card className="h-full hover:shadow-lg hover:border-maroon transition">
+                <CardHeader className="flex-row items-center space-y-0 gap-4">
+                  <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
+                  <CardTitle>{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Link to={feature.link} key={feature.title} className="group">
+              <Card className="h-full hover:shadow-lg hover:border-maroon transition">
+                <CardHeader className="flex-row items-center space-y-0 gap-4">
+                  <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
+                  <CardTitle>{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
+            </Link>
+          )
         ))}
       </div>
+
+      <Dialog open={weeklyReportOpen} onOpenChange={setWeeklyReportOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Weekly Report</DialogTitle>
+            <DialogDescription>
+              Activity since {format(getDataSinceLastTuesday().startDate, "EEEE, MMMM d")} at 12:00 AM
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh] pr-4">
+            <WeeklyReport data={getDataSinceLastTuesday()} />
+          </ScrollArea>
+          <div className="flex justify-end mt-4">
+            <DialogClose asChild>
+              <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
