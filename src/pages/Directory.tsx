@@ -1,9 +1,9 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { User } from '@/types';
+import { User, Visitor } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
 import { MemberDetail } from '@/components/directory/MemberDetail';
+import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Search, Plus, X } from 'lucide-react';
@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { MemberForm } from '@/components/forms/MemberForm';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 const Directory: React.FC = () => {
@@ -25,10 +27,11 @@ const Directory: React.FC = () => {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<User | null>(null);
-  
+  const [includeNoShows, setIncludeNoShows] = useState(false);
+  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
+  const [isVisitorDetailOpen, setIsVisitorDetailOpen] = useState(false);
   const isAdmin = currentUser?.isAdmin;
 
-  // Filter members based on search term
   const filteredMembers = users.filter(member => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -39,43 +42,45 @@ const Directory: React.FC = () => {
       member.tags.some(tag => tag.toLowerCase().includes(searchLower))
     );
   });
-  
-  // Filter past visitors
+
   const filteredVisitors = visitors ? visitors.filter(visitor => {
+    if (!includeNoShows && visitor.didNotShow) {
+      return false;
+    }
+    
     const searchLower = searchTerm.toLowerCase();
     const visitorName = visitor.visitorName || '';
     const visitorBusiness = visitor.visitorBusiness || '';
+    const hostMemberName = visitor.hostMemberName || '';
+    const didNotShowMatch = visitor.didNotShow && 'no show'.includes(searchLower);
     
     return (
       visitorName.toLowerCase().includes(searchLower) ||
       visitorBusiness.toLowerCase().includes(searchLower) ||
-      new Date(visitor.visitDate).toLocaleDateString().includes(searchLower)
+      hostMemberName.toLowerCase().includes(searchLower) ||
+      new Date(visitor.visitDate).toLocaleDateString().includes(searchLower) ||
+      didNotShowMatch
     );
   }) : [];
 
-  // Open member detail dialog
   const handleSelectMember = (member: User) => {
     setSelectedMember(member);
     setIsDetailOpen(true);
   };
 
-  // Close member detail dialog
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
   };
-  
-  // Handle edit member button click
+
   const handleEditMember = (member: User) => {
     setMemberToEdit(member);
     setIsEditFormOpen(true);
   };
-  
-  // Handle add new member button click
+
   const handleAddMember = () => {
     setIsAddFormOpen(true);
   };
-  
-  // Handle marking a visitor as no-show
+
   const handleMarkNoShow = async (visitorId: string) => {
     try {
       await markVisitorNoShow(visitorId);
@@ -84,6 +89,11 @@ const Directory: React.FC = () => {
       console.error('Error marking visitor as no-show:', error);
       toast.error('Failed to mark visitor as no-show');
     }
+  };
+
+  const handleSelectVisitor = (visitor: Visitor) => {
+    setSelectedVisitor(visitor);
+    setIsVisitorDetailOpen(true);
   };
 
   return (
@@ -113,7 +123,6 @@ const Directory: React.FC = () => {
         </TabsList>
         
         <TabsContent value="members">
-          {/* Search input */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -124,7 +133,6 @@ const Directory: React.FC = () => {
             />
           </div>
 
-          {/* Members grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredMembers.map((member) => (
               <MemberCard 
@@ -144,61 +152,80 @@ const Directory: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="visitors">
-          {/* Search input for visitors */}
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search past visitors by name, business, or date..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          {/* Visitors grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredVisitors.map((visitor) => (
-              <div key={visitor.id} className="border rounded-lg p-4 bg-white shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{visitor.visitorName}</h3>
-                    <p className="text-sm text-muted-foreground">{visitor.visitorBusiness}</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="include-no-shows"
+                  checked={includeNoShows}
+                  onCheckedChange={setIncludeNoShows}
+                />
+                <Label htmlFor="include-no-shows">Include no-shows</Label>
+              </div>
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, business, host member, date, or 'no show'..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredVisitors.map((visitor) => (
+                <div 
+                  key={visitor.id} 
+                  className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleSelectVisitor(visitor)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">{visitor.visitorName}</h3>
+                      <p className="text-sm text-muted-foreground">{visitor.visitorBusiness}</p>
+                      {visitor.hostMemberName && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Invited by: {visitor.hostMemberName}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      {visitor.didNotShow ? (
+                        <Badge variant="destructive">No Show</Badge>
+                      ) : isAdmin && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkNoShow(visitor.id);
+                          }}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Mark No-Show
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    {visitor.didNotShow ? (
-                      <Badge variant="destructive">No Show</Badge>
-                    ) : isAdmin && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => handleMarkNoShow(visitor.id)}
-                      >
-                        <X className="h-3 w-3 mr-1" /> Mark No-Show
-                      </Button>
-                    )}
+                  <div className="mt-2">
+                    <div className="text-xs text-gray-500">
+                      Visit date: {format(new Date(visitor.visitDate), 'MMM dd, yyyy')}
+                    </div>
                   </div>
                 </div>
-                <div className="mt-2">
-                  <div className="text-xs text-gray-500 flex flex-col gap-1">
-                    <div>Visit date: {format(new Date(visitor.visitDate), 'MMM dd, yyyy')}</div>
-                    {visitor.email && <div>Email: {visitor.email}</div>}
-                    {visitor.phoneNumber && <div>Phone: {visitor.phoneNumber}</div>}
-                    {visitor.industry && <div>Industry: {visitor.industry}</div>}
-                  </div>
+              ))}
+              {filteredVisitors.length === 0 && (
+                <div className="col-span-full text-center py-10 text-muted-foreground">
+                  No past visitors found matching your search criteria.
                 </div>
-              </div>
-            ))}
-            {filteredVisitors.length === 0 && (
-              <div className="col-span-full text-center py-10 text-muted-foreground">
-                No past visitors found matching your search criteria.
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>
 
-      {/* Member detail dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-md p-0" onInteractOutside={(e) => e.preventDefault()}>
           {selectedMember && (
@@ -214,7 +241,6 @@ const Directory: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Edit Member Dialog */}
       <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
           {memberToEdit && (
@@ -226,12 +252,22 @@ const Directory: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Add Member Dialog */}
       <Dialog open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
           <MemberForm 
             onComplete={() => setIsAddFormOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVisitorDetailOpen} onOpenChange={setIsVisitorDetailOpen}>
+        <DialogContent className="sm:max-w-md p-0" onInteractOutside={(e) => e.preventDefault()}>
+          {selectedVisitor && (
+            <VisitorDetail
+              visitor={selectedVisitor}
+              onClose={() => setIsVisitorDetailOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

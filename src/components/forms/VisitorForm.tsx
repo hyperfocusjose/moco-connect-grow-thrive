@@ -1,162 +1,198 @@
-
 import React from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useAuth } from '@/contexts/AuthContext';
-import { useData } from '@/contexts/DataContext';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { DialogFooter } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import { toast } from 'sonner';
+import { useData } from '@/contexts/DataContext';
 
-const formSchema = z.object({
+interface VisitorFormProps {
+  onComplete: () => void;
+}
+
+const visitorFormSchema = z.object({
   visitorName: z.string().min(2, {
-    message: "Visitor name must be at least 2 characters.",
+    message: 'Visitor name must be at least 2 characters.',
   }),
   visitorBusiness: z.string().min(2, {
-    message: "Business name or industry must be at least 2 characters.",
+    message: 'Business name must be at least 2 characters.',
   }),
-  visitDate: z.string().min(1, {
-    message: "Visit date is required",
-  }),
+  visitDate: z.date(),
+  email: z.string().email({
+    message: 'Please enter a valid email.',
+  }).optional(),
+  phoneNumber: z.string().optional(),
+  industry: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
-
-export const VisitorForm: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
-  const { currentUser } = useAuth();
-  const { addVisitor } = useData();
-  const { toast } = useToast();
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+export const VisitorForm: React.FC<VisitorFormProps> = ({ onComplete }) => {
+  const form = useForm<z.infer<typeof visitorFormSchema>>({
+    resolver: zodResolver(visitorFormSchema),
     defaultValues: {
-      visitorName: "",
-      visitorBusiness: "",
-      visitDate: new Date().toISOString().substring(0, 10),
+      visitorName: '',
+      visitorBusiness: '',
+      visitDate: new Date(),
+      email: '',
+      phoneNumber: '',
+      industry: '',
     },
   });
 
-  const onSubmit = async (data: FormValues) => {
-    if (!currentUser) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "You must be logged in to add a visitor",
-      });
+  const { email, phoneNumber } = form.watch();
+  
+  // Validate that at least email or phone is provided
+  const hasContactInfo = !!email || !!phoneNumber;
+  
+  const { addVisitor } = useData();
+
+  const onSubmit = async (data: z.infer<typeof visitorFormSchema>) => {
+    if (!hasContactInfo) {
+      toast.error('Please provide either an email or phone number');
       return;
     }
 
     try {
-      await addVisitor({
-        hostMemberId: currentUser.id,
-        visitorName: data.visitorName,
-        visitorBusiness: data.visitorBusiness,
-        visitDate: new Date(data.visitDate),
-      });
-
-      toast({
-        title: "Visitor added",
-        description: "Your visitor has been recorded successfully",
-      });
-
-      // Reset form
-      form.reset({
-        visitorName: "",
-        visitorBusiness: "",
-        visitDate: new Date().toISOString().substring(0, 10),
-      });
-
-      // Call onComplete callback if provided
-      if (onComplete) {
-        onComplete();
-      }
+      await addVisitor(data);
+      toast.success('Visitor added successfully!');
+      onComplete();
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "There was a problem adding your visitor",
-      });
+      console.error('Error adding visitor:', error);
+      toast.error('Failed to add visitor. Please try again.');
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4">
-          <FormField
-            control={form.control}
-            name="visitorName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Visitor Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Jane Doe" {...field} />
-                </FormControl>
-                <FormDescription>
-                  The name of the visitor you're bringing
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-6">
+        <FormField
+          control={form.control}
+          name="visitorName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Visitor Name</FormLabel>
+              <FormControl>
+                <Input placeholder="John Doe" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="visitorBusiness"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Business or Industry</FormLabel>
-                <FormControl>
-                  <Input placeholder="ABC Consulting / Marketing" {...field} />
-                </FormControl>
-                <FormDescription>
-                  The visitor's business name or industry
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <FormField
+          control={form.control}
+          name="visitorBusiness"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Business Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Acme Corp" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="visitDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Visit Date</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormDescription>
-                  When the visitor will attend
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <FormField
+          control={form.control}
+          name="visitDate"
+          render={({ field }) => (
+            <FormItem className="flex flex-col space-y-2">
+              <FormLabel>Visit Date</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-[240px] pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value ? (
+                        format(field.value, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    disabled={(date) =>
+                      date > new Date()
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Contact Information (provide at least one)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="email" placeholder="visitor@example.com" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="tel" placeholder="(555) 555-5555" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          {!hasContactInfo && (
+            <p className="text-sm text-destructive">Please provide either an email or phone number</p>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button 
-            type="submit"
-            disabled={form.formState.isSubmitting}
-            className="bg-maroon hover:bg-maroon-light"
-          >
-            {form.formState.isSubmitting ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-            ) : "Add Visitor"}
-          </Button>
-        </DialogFooter>
+        <FormField
+          control={form.control}
+          name="industry"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Industry</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Technology" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" disabled={!hasContactInfo}>
+          Add Visitor
+        </Button>
       </form>
     </Form>
   );

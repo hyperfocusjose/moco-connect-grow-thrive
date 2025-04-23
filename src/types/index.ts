@@ -36,6 +36,7 @@ export interface Visitor {
   visitorBusiness: string;
   visitDate: Date;
   hostMemberId?: string;
+  hostMemberName?: string;
   isSelfEntered?: boolean;
   phoneNumber?: string;
   email?: string;
