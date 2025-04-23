@@ -48,11 +48,12 @@ interface MemberFormProps {
 }
 
 export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) => {
-  const { addUser, updateUser } = useData();
+  const { addUser, updateUser, fetchUsers } = useData();
   const { toast } = useToast();
   const [tags, setTags] = useState<string[]>(member?.tags || []);
   const [tagInput, setTagInput] = useState("");
   const [profileImage, setProfileImage] = useState<string | null>(member?.profilePicture || null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const isEditing = !!member;
 
@@ -103,6 +104,7 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
   };
 
   const onSubmit = async (data: FormValues) => {
+    setIsSubmitting(true);
     try {
       if (isEditing && member) {
         await updateUser(member.id, {
@@ -121,79 +123,106 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
         
         const { data: sessionData } = await supabase.auth.getSession();
         
-        const response = await fetch("https://fermfvwyoqewedrzgben.functions.supabase.co/create-user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${sessionData.session?.access_token || ""}`,
-          },
-          body: JSON.stringify({
-            email: data.email,
-            password: password,
-            userData: {
-              firstName: data.firstName,
-              lastName: data.lastName,
-              businessName: data.businessName,
-              industry: data.industry,
-              bio: data.bio || "",
-              phoneNumber: data.phoneNumber,
-              profilePicture: profileImage || "",
-              website: data.website || "",
-              linkedin: data.linkedin || "",
-              facebook: data.facebook || "",
-              tiktok: data.tiktok || "",
-              instagram: data.instagram || "",
-              tags: tags,
+        try {
+          const response = await fetch("https://fermfvwyoqewedrzgben.functions.supabase.co/create-user", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${sessionData.session?.access_token || ""}`,
+            },
+            body: JSON.stringify({
+              email: data.email,
+              password: password,
+              userData: {
+                firstName: data.firstName,
+                lastName: data.lastName,
+                businessName: data.businessName,
+                industry: data.industry,
+                bio: data.bio || "",
+                phoneNumber: data.phoneNumber,
+                profilePicture: profileImage || "",
+                website: data.website || "",
+                linkedin: data.linkedin || "",
+                facebook: data.facebook || "",
+                tiktok: data.tiktok || "",
+                instagram: data.instagram || "",
+                tags: tags,
+              }
+            }),
+          });
+
+          const result = await response.json();
+          
+          if (result.error) {
+            if (result.error.includes("already been registered")) {
+              toast({
+                title: "Email already exists",
+                description: "A user with this email already exists. Try a different email or update the existing user.",
+                variant: "destructive",
+              });
+              return;
             }
-          }),
-        });
+            throw new Error(result.error);
+          }
 
-        const result = await response.json();
-        
-        if (result.error) {
-          throw new Error(result.error);
+          if (!result.user?.user) {
+            throw new Error('Failed to create user');
+          }
+
+          const newUser: User = {
+            id: result.user.user.id,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            phoneNumber: data.phoneNumber,
+            businessName: data.businessName,
+            industry: data.industry,
+            bio: data.bio || "",
+            tags: tags,
+            profilePicture: profileImage || "",
+            isAdmin: false,
+            website: data.website || "",
+            linkedin: data.linkedin || "",
+            facebook: data.facebook || "",
+            tiktok: data.tiktok || "",
+            instagram: data.instagram || "",
+            createdAt: new Date(),
+          };
+          
+          await addUser(newUser);
+          
+          toast({
+            title: "Member added",
+            description: `New member has been added successfully. Their temporary password is: ${password}`,
+          });
+          
+          await fetchUsers();
+        } catch (error: any) {
+          console.error('Error in member form:', error);
+          
+          if (error.message && error.message.includes("already been registered")) {
+            toast({
+              title: "Email already exists",
+              description: "A user with this email already exists. Try a different email or update the existing user.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          throw error;
         }
-
-        if (!result.user?.user) {
-          throw new Error('Failed to create user');
-        }
-
-        const newUser: User = {
-          id: result.user.user.id,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          phoneNumber: data.phoneNumber,
-          businessName: data.businessName,
-          industry: data.industry,
-          bio: data.bio || "",
-          tags: tags,
-          profilePicture: profileImage || "",
-          isAdmin: false,
-          website: data.website || "",
-          linkedin: data.linkedin || "",
-          facebook: data.facebook || "",
-          tiktok: data.tiktok || "",
-          instagram: data.instagram || "",
-          createdAt: new Date(),
-        };
-        
-        await addUser(newUser);
-        
-        toast({
-          title: "Member added",
-          description: `New member has been added successfully. Their temporary password is: ${password}`,
-        });
       }
       
       onComplete();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in member form:', error);
       toast({
         title: "Error",
         description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -453,9 +482,9 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
               <Button 
                 type="submit" 
                 className="bg-maroon hover:bg-maroon/90"
-                disabled={form.formState.isSubmitting}
+                disabled={isSubmitting}
               >
-                {form.formState.isSubmitting ? (
+                {isSubmitting ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
                 ) : isEditing ? "Update Member" : "Add Member"}
               </Button>

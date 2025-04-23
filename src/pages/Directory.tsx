@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 const Directory: React.FC = () => {
-  const { users, visitors, markVisitorNoShow } = useData();
+  const { users, visitors, markVisitorNoShow, fetchUsers } = useData();
   const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -31,6 +31,10 @@ const Directory: React.FC = () => {
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [isVisitorDetailOpen, setIsVisitorDetailOpen] = useState(false);
   const isAdmin = currentUser?.isAdmin;
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const filteredMembers = users.filter(member => {
     const searchLower = searchTerm.toLowerCase();

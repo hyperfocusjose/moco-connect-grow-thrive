@@ -4,7 +4,7 @@ import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Initialize with empty data arrays, removing all demo data.
+// Initialize with empty data arrays
 const defaultUsers: User[] = [];
 const defaultEvents: Event[] = [];
 
@@ -38,6 +38,7 @@ export interface DataContextType {
   updateUser: (id: string, user: Partial<User>) => Promise<void>;
   markVisitorNoShow: (id: string) => Promise<void>;
   getActivityForAllMembers: () => Record<string, any>[];
+  fetchUsers: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType>({
@@ -70,6 +71,7 @@ const DataContext = createContext<DataContextType>({
   updateUser: async () => {},
   markVisitorNoShow: async () => {},
   getActivityForAllMembers: () => [],
+  fetchUsers: async () => {},
 });
 
 export const useData = () => useContext(DataContext);
@@ -85,80 +87,138 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
 
-  // Fetch events from Supabase on component mount
+  // Fetch users from Supabase on component mount
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, member_tags(tag)');
+      
+      if (error) {
+        console.error('Error fetching users:', error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.log('No user profiles found');
+        return;
+      }
+
+      // Transform the data to match the User type
+      const transformedUsers: User[] = data.map(profile => {
+        // Extract tags from the member_tags relation
+        const tags = profile.member_tags ? 
+          profile.member_tags.map((tagObj: any) => tagObj.tag) : 
+          [];
+        
+        return {
+          id: profile.id,
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          email: profile.email || '',
+          phoneNumber: profile.phone_number || '',
+          businessName: profile.business_name || '',
+          industry: profile.industry || '',
+          bio: profile.bio || '',
+          tags: tags,
+          profilePicture: profile.profile_picture || '',
+          isAdmin: false, // We'll need to handle admin status elsewhere
+          website: profile.website || '',
+          linkedin: profile.linkedin || '',
+          facebook: profile.facebook || '',
+          tiktok: profile.tiktok || '',
+          instagram: profile.instagram || '',
+          createdAt: new Date(profile.created_at),
+        };
+      });
+      
+      setUsers(transformedUsers);
+    } catch (error) {
+      console.error('Error in fetchUsers:', error);
+    }
+  };
+
+  // Fetch data on component mount
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select('*')
-          .order('date', { ascending: true });
-        
-        if (error) {
-          console.error('Error fetching events:', error);
-          return;
+    const fetchData = async () => {
+      await fetchUsers();
+      
+      // Fetch events from Supabase on component mount
+      const fetchEvents = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .order('date', { ascending: true });
+          
+          if (error) {
+            console.error('Error fetching events:', error);
+            return;
+          }
+          
+          // Transform the data to match the Event type
+          const transformedEvents: Event[] = data.map(event => ({
+            id: event.id,
+            name: event.name,
+            date: new Date(event.date),
+            startTime: event.start_time,
+            endTime: event.end_time,
+            location: event.location,
+            description: event.description || '',
+            createdBy: event.created_by || '',
+            isApproved: event.is_approved || false,
+            isFeatured: event.is_featured || false,
+            isPresentationMeeting: event.is_presentation_meeting || false,
+            presenter: event.presenter || undefined,
+            createdAt: new Date(event.created_at),
+            isCancelled: event.is_cancelled || false,
+          }));
+          
+          setEvents(transformedEvents);
+        } catch (error) {
+          console.error('Error in fetchEvents:', error);
         }
-        
-        // Transform the data to match the Event type
-        const transformedEvents: Event[] = data.map(event => ({
-          id: event.id,
-          name: event.name,
-          date: new Date(event.date),
-          startTime: event.start_time,
-          endTime: event.end_time,
-          location: event.location,
-          description: event.description || '',
-          createdBy: event.created_by || '',
-          isApproved: event.is_approved || false,
-          isFeatured: event.is_featured || false,
-          isPresentationMeeting: event.is_presentation_meeting || false,
-          presenter: event.presenter || undefined,
-          createdAt: new Date(event.created_at),
-          isCancelled: event.is_cancelled || false,
-        }));
-        
-        setEvents(transformedEvents);
-      } catch (error) {
-        console.error('Error in fetchEvents:', error);
-      }
+      };
+      
+      // Fetch visitors
+      const fetchVisitors = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('visitors')
+            .select('*')
+            .order('visit_date', { ascending: false });
+          
+          if (error) {
+            console.error('Error fetching visitors:', error);
+            return;
+          }
+          
+          // Transform the data to match the Visitor type
+          const transformedVisitors: Visitor[] = data.map(visitor => ({
+            id: visitor.id,
+            visitorName: visitor.visitor_name,
+            visitorBusiness: visitor.visitor_business,
+            visitDate: new Date(visitor.visit_date),
+            hostMemberId: visitor.host_member_id || undefined,
+            isSelfEntered: visitor.is_self_entered || false,
+            phoneNumber: visitor.phone_number || undefined,
+            email: visitor.email || undefined,
+            industry: visitor.industry || undefined,
+            createdAt: new Date(visitor.created_at),
+            didNotShow: visitor.did_not_show || false,
+          }));
+          
+          setVisitors(transformedVisitors);
+        } catch (error) {
+          console.error('Error in fetchVisitors:', error);
+        }
+      };
+      
+      fetchEvents();
+      fetchVisitors();
     };
     
-    // Fetch visitors
-    const fetchVisitors = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('visitors')
-          .select('*')
-          .order('visit_date', { ascending: false });
-        
-        if (error) {
-          console.error('Error fetching visitors:', error);
-          return;
-        }
-        
-        // Transform the data to match the Visitor type
-        const transformedVisitors: Visitor[] = data.map(visitor => ({
-          id: visitor.id,
-          visitorName: visitor.visitor_name,
-          visitorBusiness: visitor.visitor_business,
-          visitDate: new Date(visitor.visit_date),
-          hostMemberId: visitor.host_member_id || undefined,
-          isSelfEntered: visitor.is_self_entered || false,
-          phoneNumber: visitor.phone_number || undefined,
-          email: visitor.email || undefined,
-          industry: visitor.industry || undefined,
-          createdAt: new Date(visitor.created_at),
-          didNotShow: visitor.did_not_show || false,
-        }));
-        
-        setVisitors(transformedVisitors);
-      } catch (error) {
-        console.error('Error in fetchVisitors:', error);
-      }
-    };
-    
-    fetchEvents();
-    fetchVisitors();
+    fetchData();
   }, []);
 
   // Remove demo stats; default to empty object, provide dummy implementations.
@@ -174,10 +234,72 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUser = async (id: string, updatedUserData: Partial<User>) => {
-    setUsers(prev => 
-      prev.map(user => user.id === id ? { ...user, ...updatedUserData } : user)
-    );
-    return Promise.resolve();
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: updatedUserData.firstName,
+          last_name: updatedUserData.lastName,
+          phone_number: updatedUserData.phoneNumber,
+          business_name: updatedUserData.businessName,
+          industry: updatedUserData.industry,
+          bio: updatedUserData.bio,
+          profile_picture: updatedUserData.profilePicture,
+          website: updatedUserData.website,
+          linkedin: updatedUserData.linkedin,
+          facebook: updatedUserData.facebook,
+          tiktok: updatedUserData.tiktok,
+          instagram: updatedUserData.instagram,
+        })
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Handle tags update if tags are provided
+      if (updatedUserData.tags) {
+        // First, delete all existing tags for this user
+        const { error: deleteError } = await supabase
+          .from('member_tags')
+          .delete()
+          .eq('member_id', id);
+        
+        if (deleteError) {
+          throw deleteError;
+        }
+        
+        // Then insert new tags
+        const tagInserts = updatedUserData.tags.map(tag => ({
+          member_id: id,
+          tag: tag
+        }));
+        
+        if (tagInserts.length > 0) {
+          const { error: insertError } = await supabase
+            .from('member_tags')
+            .insert(tagInserts);
+          
+          if (insertError) {
+            throw insertError;
+          }
+        }
+      }
+      
+      // Update local state
+      setUsers(prev => 
+        prev.map(user => user.id === id ? { ...user, ...updatedUserData } : user)
+      );
+      
+      // Refresh users to ensure we have the latest data
+      await fetchUsers();
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Failed to update user');
+      return Promise.reject(error);
+    }
   };
 
   const createEvent = async (event: Partial<Event>) => {
@@ -513,6 +635,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateUser,
       markVisitorNoShow,
       getActivityForAllMembers,
+      fetchUsers,
     }}>
       {children}
     </DataContext.Provider>
