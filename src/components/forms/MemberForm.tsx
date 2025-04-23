@@ -4,7 +4,13 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useData } from '@/contexts/DataContext';
 import { User } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import { ProfilePicUpload } from '@/components/profile/ProfilePicUpload';
+import { useToast } from '@/hooks/use-toast';
+import { X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Form,
   FormControl,
@@ -17,16 +23,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { X } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
   lastName: z.string().min(2, { message: "Last name is required" }),
   email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }).optional(),
   phoneNumber: z.string().min(10, { message: "Valid phone number is required" }),
   businessName: z.string().min(2, { message: "Business name is required" }),
   bio: z.string().optional(),
@@ -91,54 +93,91 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
   };
 
   const onSubmit = async (data: FormValues) => {
-    if (isEditing && member) {
-      // Update existing member
-      await updateUser(member.id, {
-        ...member,
-        ...data,
-        tags,
-        profilePicture: profileImage || member.profilePicture,
-      });
+    try {
+      if (isEditing && member) {
+        await updateUser(member.id, {
+          ...member,
+          ...data,
+          tags,
+          profilePicture: profileImage || member.profilePicture,
+        });
+        
+        toast({
+          title: "Member updated",
+          description: "Member information has been updated successfully",
+        });
+      } else {
+        const password = generateTemporaryPassword();
+        
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: data.email,
+          password: password,
+          email_confirm: true,
+          user_metadata: {
+            first_name: data.firstName,
+            last_name: data.lastName
+          }
+        });
+
+        if (authError) {
+          throw new Error(authError.message);
+        }
+
+        if (!authData.user) {
+          throw new Error('Failed to create user');
+        }
+
+        const newUser: User = {
+          id: authData.user.id,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phoneNumber: data.phoneNumber,
+          businessName: data.businessName,
+          industry: data.industry,
+          bio: data.bio || "",
+          tags: tags,
+          profilePicture: profileImage || "",
+          isAdmin: false,
+          website: data.website || "",
+          linkedin: data.linkedin || "",
+          facebook: data.facebook || "",
+          tiktok: data.tiktok || "",
+          instagram: data.instagram || "",
+          createdAt: new Date(),
+        };
+        
+        await addUser(newUser);
+        
+        toast({
+          title: "Member added",
+          description: `New member has been added successfully. Their temporary password is: ${password}`,
+        });
+      }
       
+      onComplete();
+    } catch (error) {
+      console.error('Error in member form:', error);
       toast({
-        title: "Member updated",
-        description: "Member information has been updated successfully",
-      });
-    } else {
-      // Create new member with required fields (ensures all required User properties exist)
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phoneNumber: data.phoneNumber,
-        businessName: data.businessName,
-        industry: data.industry,
-        bio: data.bio || "",
-        tags: tags,
-        profilePicture: profileImage || "",
-        isAdmin: false,
-        website: data.website || "",
-        linkedin: data.linkedin || "",
-        facebook: data.facebook || "",
-        tiktok: data.tiktok || "",
-        instagram: data.instagram || "",
-        createdAt: new Date(),
-      };
-      
-      await addUser(newUser);
-      
-      toast({
-        title: "Member added",
-        description: "New member has been added successfully",
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
       });
     }
-    
-    onComplete();
   };
 
   const handleImageUpload = (imageUrl: string) => {
     setProfileImage(imageUrl);
+  };
+
+  const generateTemporaryPassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   };
 
   return (
