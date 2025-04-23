@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -134,7 +133,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getUserMetrics = (userId: string) => {
-    return {};
+    return {
+      referrals: 0,
+      visitors: 0,
+      oneToOnes: 0,
+      tyfcb: {
+        amount: 0,
+        count: 0
+      }
+    };
   };
 
   const addVisitor = async (visitor: Partial<Visitor>) => {
@@ -234,4 +241,3 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export default DataContext;
-
