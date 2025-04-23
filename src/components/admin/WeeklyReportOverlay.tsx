@@ -1,8 +1,5 @@
 
 import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import WeeklyReport from "@/pages/Reports";
 
 interface WeeklyReportOverlayProps {
@@ -12,23 +9,23 @@ interface WeeklyReportOverlayProps {
 
 export const WeeklyReportOverlay: React.FC<WeeklyReportOverlayProps> = ({
   open, onClose
-}) => (
-  <Dialog open={open} onOpenChange={onClose}>
-    <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-      <DialogHeader>
-        <DialogTitle>Weekly Report</DialogTitle>
-        <DialogDescription>
-          Most recent weekly report below.
-        </DialogDescription>
-      </DialogHeader>
-      <ScrollArea className="h-[60vh] pr-4">
+}) => {
+  if (!open) return null;
+  
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+      <div className="bg-background p-6 rounded-lg w-[90%] max-w-[900px] max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Weekly Report</h2>
+          <button 
+            className="text-gray-500 hover:text-gray-700" 
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
         <WeeklyReport />
-      </ScrollArea>
-      <div className="flex justify-end mt-4">
-        <DialogClose asChild>
-          <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
-        </DialogClose>
       </div>
-    </DialogContent>
-  </Dialog>
-);
+    </div>
+  );
+};

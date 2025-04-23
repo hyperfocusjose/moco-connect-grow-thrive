@@ -19,27 +19,6 @@ import { Badge } from "@/components/ui/badge";
 // Define the overlay type
 type OverlayType = "addMember" | "weeklyReport" | "createPoll" | "approveEvents" | "presenterHistory" | null;
 
-const PollForm: React.FC<{ onComplete: () => void }> = ({ onComplete }) => (
-  <div className="p-6">
-    <h2 className="text-lg font-semibold mb-2">Create a New Poll</h2>
-    <form
-      className="space-y-3"
-      onSubmit={e => {
-        e.preventDefault();
-        onComplete();
-      }}
-    >
-      <input className="w-full border rounded px-2 py-1" placeholder="Poll question" required />
-      <input className="w-full border rounded px-2 py-1" placeholder="Option 1" required />
-      <input className="w-full border rounded px-2 py-1" placeholder="Option 2" required />
-      <div className="flex justify-end gap-3">
-        <Button type="button" variant="secondary" onClick={onComplete}>Cancel</Button>
-        <Button type="submit" className="bg-maroon hover:bg-maroon/90">Create Poll</Button>
-      </div>
-    </form>
-  </div>
-);
-
 const PendingEventsList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [pendingEvents, setPendingEvents] = useState([
     { id: 1, name: "Spring Social", date: "2025-05-02", requestedBy: "Alex" },
@@ -107,7 +86,7 @@ const adminFeatures = [
     title: "Weekly Reports",
     description: "View the latest weekly group performance report.",
     icon: BarChart,
-    modal: "weeklyReport" as OverlayType, // Keep as overlay
+    modal: "weeklyReport" as OverlayType,
   },
   {
     title: "Create Poll",
