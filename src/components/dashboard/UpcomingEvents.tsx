@@ -16,11 +16,7 @@ export const UpcomingEvents = () => {
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
-    // Create a Map to store unique events by date for Tuesday meetings
-    const uniqueTuesdayMeetingDates = new Map();
-    
-    // Filter and sort all upcoming events
-    const filteredEvents = events
+    return events
       .filter(event => 
         event.isApproved && 
         !event.isCancelled && 
@@ -28,49 +24,16 @@ export const UpcomingEvents = () => {
         isBefore(new Date(event.date), in14Days)
       )
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    // Process events to handle duplicate Tuesday meetings
-    return filteredEvents.filter(event => {
-      // If it's a Tuesday Meeting, apply special handling
-      if (event.name.toLowerCase().includes('tuesday meeting')) {
-        const meetingDate = formatDateForComparison(new Date(event.date));
-        
-        // If we haven't seen this date yet, or this is a presentation meeting (which takes priority)
-        if (!uniqueTuesdayMeetingDates.has(meetingDate) || event.isPresentationMeeting) {
-          uniqueTuesdayMeetingDates.set(meetingDate, true);
-          return true;
-        }
-        return false; // Skip duplicate Tuesday meetings for the same date
-      }
-      
-      // Keep all non-Tuesday meeting events
-      return true;
-    });
   }, [events, today, in14Days]);
 
-  // Get today's events with deduplication for Tuesday meetings
+  // Get today's events
   const todayEvents = useMemo(() => {
-    const uniqueTuesdayMeetingDates = new Map();
-    
     return events
       .filter(event => 
         event.isApproved && 
         !event.isCancelled && 
         isSameDay(new Date(event.date), today)
-      )
-      .filter(event => {
-        // Apply the same deduplication logic for today's events
-        if (event.name.toLowerCase().includes('tuesday meeting')) {
-          const meetingDate = formatDateForComparison(new Date(event.date));
-          
-          if (!uniqueTuesdayMeetingDates.has(meetingDate) || event.isPresentationMeeting) {
-            uniqueTuesdayMeetingDates.set(meetingDate, true);
-            return true;
-          }
-          return false;
-        }
-        return true;
-      });
+      );
   }, [events, today]);
 
   const hasEvents = upcomingEvents.length > 0 || todayEvents.length > 0;

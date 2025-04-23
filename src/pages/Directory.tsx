@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User } from '@/types';
@@ -173,30 +172,29 @@ const Directory: React.FC = () => {
                         size="sm"
                         className="h-8 text-xs"
                         onClick={() => handleMarkNoShow(visitor.id)}
-                      >
-                        <X className="h-3 w-3 mr-1" /> Mark No-Show
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <div className="text-xs text-gray-500 flex flex-col gap-1">
-                    <div>Visit date: {format(new Date(visitor.visitDate), 'MMM dd, yyyy')}</div>
-                    {visitor.email && <div>Email: {visitor.email}</div>}
-                    {visitor.phoneNumber && <div>Phone: {visitor.phoneNumber}</div>}
-                    {visitor.industry && <div>Industry: {visitor.industry}</div>}
-                  </div>
+                    >
+                      <X className="h-3 w-3 mr-1" /> Mark No-Show
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
-            {filteredVisitors.length === 0 && (
-              <div className="col-span-full text-center py-10 text-muted-foreground">
-                No past visitors found matching your search criteria.
+              <div className="mt-2">
+                <div className="text-xs text-gray-500 flex flex-col gap-1">
+                  <div>Visit date: {format(new Date(visitor.visitDate), 'MMM dd, yyyy')}</div>
+                  {visitor.email && <div>Email: {visitor.email}</div>}
+                  {visitor.phoneNumber && <div>Phone: {visitor.phoneNumber}</div>}
+                  {visitor.industry && <div>Industry: {visitor.industry}</div>}
+                </div>
               </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+            </div>
+          ))}
+          {filteredVisitors.length === 0 && (
+            <div className="col-span-full text-center py-10 text-muted-foreground">
+              No past visitors found matching your search criteria.
+            </div>
+          )}
+        </div>
+      </TabsContent>
 
       {/* Member detail dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
