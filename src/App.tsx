@@ -11,6 +11,10 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Directory from "./pages/Directory";
+import Events from "./pages/Events";
+import Reports from "./pages/Reports";
+import Polls from "./pages/Polls";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +36,10 @@ const App = () => (
               <Route element={<AppLayout requireAuth />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/directory" element={<Directory />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/polls" element={<Polls />} />
+                <Route path="/profile" element={<Profile />} />
                 {/* Other protected routes will be added here */}
               </Route>
               
