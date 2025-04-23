@@ -36,10 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
     try {
+      // Using type assertion to work around TypeScript limitations
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as { data: any[], error: any };
 
       if (error) {
         console.error('Error fetching roles:', error);
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      const roleList = data?.map((row) => row.role) || [];
+      const roleList = data?.map((row) => row.role as string) || [];
       setRoles(roleList);
       return roleList;
     } catch (error) {
@@ -93,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+          .single() as { data: any, error: any };
           
         if (profileError) {
           console.error('Error fetching profile:', profileError);
@@ -104,25 +105,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userRoles = await fetchRoles(data.user.id);
         const isAdmin = userRoles.includes('admin');
         
+        // Protect against null profile data with default values
+        const profile = profileData || {};
+        
         // Combine auth and profile data
         const newUser: User = {
           id: data.user.id,
-          firstName: profileData.first_name || '',
-          lastName: profileData.last_name || '',
-          email: profileData.email || '',
-          phoneNumber: profileData.phone_number || '',
-          businessName: profileData.business_name || '',
-          industry: profileData.industry || '',
-          bio: profileData.bio || '',
-          profilePicture: profileData.profile_picture || '',
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          email: profile.email || data.user.email || '',
+          phoneNumber: profile.phone_number || '',
+          businessName: profile.business_name || '',
+          industry: profile.industry || '',
+          bio: profile.bio || '',
+          profilePicture: profile.profile_picture || '',
           tags: [], // We'll fetch tags separately if needed
           isAdmin,
-          website: profileData.website || '',
-          linkedin: profileData.linkedin || '',
-          facebook: profileData.facebook || '',
-          tiktok: profileData.tiktok || '',
-          instagram: profileData.instagram || '',
-          createdAt: new Date(profileData.created_at),
+          website: profile.website || '',
+          linkedin: profile.linkedin || '',
+          facebook: profile.facebook || '',
+          tiktok: profile.tiktok || '',
+          instagram: profile.instagram || '',
+          createdAt: new Date(profile.created_at || data.user.created_at),
         };
         
         // Fetch member tags if needed
@@ -130,10 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data: tagsData } = await supabase
             .from('member_tags')
             .select('tag')
-            .eq('member_id', data.user.id);
+            .eq('member_id', data.user.id) as { data: any[], error: any };
             
-          if (tagsData) {
-            newUser.tags = tagsData.map(t => t.tag);
+          if (tagsData && tagsData.length > 0) {
+            newUser.tags = tagsData.map(t => t.tag as string);
           }
         } catch (tagError) {
           console.error('Error fetching member tags:', tagError);
