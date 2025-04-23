@@ -8,7 +8,6 @@ import { DataProvider } from "@/contexts/DataContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Directory from "./pages/Directory";
 import Events from "./pages/Events";
@@ -31,7 +30,6 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
               
               {/* Protected routes with AppLayout */}
               <Route element={<AppLayout requireAuth />}>

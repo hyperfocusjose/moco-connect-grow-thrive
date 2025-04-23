@@ -2,53 +2,59 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Calendar, BarChart, Settings, ClipboardList } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useData } from "@/contexts/DataContext";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import WeeklyReport from "./Reports"; // Import the existing WeeklyReport component
+import WeeklyReport from "./Reports"; // Reuse existing Reports page/component
+import { MemberForm } from "@/components/forms/MemberForm";
 
+// Admin features configuration
 const adminFeatures = [
   {
-    title: "Add New User",
-    description: "Create a new account for a group member.",
+    title: "Add New Member",
+    description: "Add a new member to the group.",
     icon: Users,
-    link: "/signup", 
+    modal: "addMember",
   },
   {
     title: "Approve Events",
     description: "Review and approve pending event submissions.",
     icon: Calendar,
-    link: "/events?filter=pending", 
+    link: "/events?filter=pending",
   },
   {
     title: "Weekly Reports",
     description: "View the latest weekly group performance report.",
     icon: BarChart,
-    isModal: true,
+    modal: "weeklyReport",
   },
   {
     title: "Create Poll",
     description: "Create a new poll or survey for members.",
     icon: ClipboardList,
-    link: "/polls/create", 
+    link: "/polls/create",
   },
   {
     title: "Settings",
     description: "Edit application or group-level settings.",
     icon: Settings,
-    link: "/settings", 
+    link: "/settings",
   },
 ];
 
 const AdminPanel: React.FC = () => {
-  const [weeklyReportOpen, setWeeklyReportOpen] = useState(false);
-  const { getDataSinceLastTuesday } = useData();
+  const [overlay, setOverlay] = useState<null | "addMember" | "weeklyReport">(null);
 
-  const handleWeeklyReportClick = () => {
-    setWeeklyReportOpen(true);
+  const handleCardClick = (feature: any) => {
+    if (feature.modal) {
+      setOverlay(feature.modal);
+    }
+  };
+
+  // Overlay close handler
+  const closeOverlay = () => {
+    setOverlay(null);
   };
 
   return (
@@ -68,9 +74,13 @@ const AdminPanel: React.FC = () => {
       </Card>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {adminFeatures.map((feature) => (
-          feature.isModal ? (
-            <div key={feature.title} onClick={handleWeeklyReportClick} className="group cursor-pointer">
+        {adminFeatures.map((feature) =>
+          feature.modal ? (
+            <div
+              key={feature.title}
+              onClick={() => handleCardClick(feature)}
+              className="group cursor-pointer"
+            >
               <Card className="h-full hover:shadow-lg hover:border-maroon transition">
                 <CardHeader className="flex-row items-center space-y-0 gap-4">
                   <feature.icon className="text-maroon group-hover:scale-110 transition h-8 w-8 shrink-0" />
@@ -94,19 +104,28 @@ const AdminPanel: React.FC = () => {
               </Card>
             </Link>
           )
-        ))}
+        )}
       </div>
 
-      <Dialog open={weeklyReportOpen} onOpenChange={setWeeklyReportOpen}>
+      {/* Add Member Modal */}
+      <Dialog open={overlay === "addMember"} onOpenChange={closeOverlay}>
+        <DialogContent className="sm:max-w-lg p-0" onInteractOutside={e => e.preventDefault()}>
+          <MemberForm onComplete={closeOverlay} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Weekly Report Modal -- just reuses the same content as /reports page */}
+      <Dialog open={overlay === "weeklyReport"} onOpenChange={closeOverlay}>
         <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Weekly Report</DialogTitle>
             <DialogDescription>
-              Activity since {format(getDataSinceLastTuesday().startDate, "EEEE, MMMM d")} at 12:00 AM
+              {/* Could update or remove this as Reports page does. Not passing data prop */}
+              Most recent weekly report below.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="h-[60vh] pr-4">
-            <WeeklyReport data={getDataSinceLastTuesday()} />
+            <WeeklyReport />
           </ScrollArea>
           <div className="flex justify-end mt-4">
             <DialogClose asChild>
