@@ -1,40 +1,49 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Bar, BarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Pie, PieChart, Cell } from 'recharts';
-import { Activity, Referral, Visitor, OneToOne, TYFCB } from '@/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   format, 
-  subMonths, 
-  subWeeks,
-  isWithinInterval, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval, 
   startOfMonth, 
-  endOfMonth, 
-  startOfWeek,
-  endOfWeek,
-  eachWeekOfInterval,
-  eachDayOfInterval,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  subWeeks, 
   startOfDay,
   endOfDay,
-  isSameDay,
+  parseISO,
   addDays,
-  startOfTuesday,
-  previousTuesday
+  isAfter,
+  isBefore,
+  isSameDay
 } from 'date-fns';
-import { Calendar as CalendarIcon, FileText } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { startOfTuesday, isAfter, isBefore, isSameDay } from '@/utils/dateUtils';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger } from '@/components/ui/dialog';
-import { useAuth } from '@/contexts/AuthContext';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, PieChart, BarChart, Trophy, Filter } from 'lucide-react';
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  Title, 
+  Tooltip, 
+  Legend, 
+  ArcElement 
+} from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 const Reports = () => {
   const { referrals, visitors, oneToOnes, tyfcbs, users, activities, getTopPerformers, getUserMetrics } = useData();
@@ -262,7 +271,6 @@ const Reports = () => {
     setViewMode('monthly');
   };
 
-  // Get data since last Tuesday
   const getDataSinceLastTuesday = () => {
     const now = new Date();
     const lastTuesday = previousTuesday(now);
@@ -288,7 +296,6 @@ const Reports = () => {
       return isAfter(itemDate, lastTuesday);
     });
     
-    // Calculate per-member metrics
     const memberMetrics = users.map(user => {
       const userReferrals = recentReferrals.filter(item => item.referringMemberId === user.id);
       const userVisitors = recentVisitors.filter(item => item.hostMemberId === user.id);
@@ -308,7 +315,6 @@ const Reports = () => {
       metric.referrals > 0 || metric.visitors > 0 || metric.oneToOnes > 0 || metric.tyfcb > 0
     );
     
-    // Calculate top performers
     const topReferrals = [...memberMetrics].sort((a, b) => b.referrals - a.referrals)[0];
     const topVisitors = [...memberMetrics].sort((a, b) => b.visitors - a.visitors)[0];
     const topOneToOnes = [...memberMetrics].sort((a, b) => b.oneToOnes - a.oneToOnes)[0];

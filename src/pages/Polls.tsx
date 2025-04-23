@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -7,7 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { format, isAfter, isBefore } from 'date-fns';
+import { format } from 'date-fns';
+import { isAfter, isBefore } from '@/utils/dateUtils';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -186,7 +186,7 @@ const Polls = () => {
 
   const handleArchivePoll = (poll: PollType) => {
     const updatedPoll = { ...poll, isArchived: true };
-    updatePoll(updatedPoll);
+    updatePoll(poll.id, updatedPoll);
     
     toast({
       title: "Poll archived",
@@ -196,7 +196,7 @@ const Polls = () => {
 
   const handleActivatePoll = (poll: PollType) => {
     const updatedPoll = { ...poll, isArchived: false, isActive: true };
-    updatePoll(updatedPoll);
+    updatePoll(poll.id, updatedPoll);
     
     toast({
       title: "Poll activated",
@@ -206,7 +206,7 @@ const Polls = () => {
 
   const handleClosePoll = (poll: PollType) => {
     const updatedPoll = { ...poll, isActive: false };
-    updatePoll(updatedPoll);
+    updatePoll(poll.id, updatedPoll);
     
     toast({
       title: "Poll closed",

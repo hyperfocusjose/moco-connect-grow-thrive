@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
@@ -16,14 +15,13 @@ import {
   startOfMonth, 
   endOfMonth, 
   eachDayOfInterval, 
-  eachTuesdayOfInterval, 
   addMonths, 
   subMonths, 
   addYears,
-  isAfter,
   isTuesday,
   startOfDay
 } from 'date-fns';
+import { eachTuesdayOfInterval, isAfter } from '@/utils/dateUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -50,6 +48,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const Events = () => {
   const { events, createEvent, updateEvent, deleteEvent, getUser, users } = useData();
@@ -73,18 +76,15 @@ const Events = () => {
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
-    // Generate Tuesday meetings for the next year if they don't exist
     if (isAdmin) {
       const today = startOfDay(new Date());
       const nextYear = addYears(today, 1);
       
-      // Get all Tuesdays in the next year
       const futureTuesdays = eachTuesdayOfInterval({
         start: today,
         end: nextYear
       });
       
-      // Check if we need to create any Tuesday meetings
       futureTuesdays.forEach(tuesday => {
         const tuesdayExists = events.some(event => 
           isSameDay(new Date(event.date), tuesday) && 
@@ -111,7 +111,6 @@ const Events = () => {
     }
   }, [currentUser, events, createEvent]);
 
-  // Filter events based on the selected tab
   const filteredEvents = events.filter(event => {
     const eventDate = new Date(event.date);
     const today = new Date();
@@ -133,20 +132,17 @@ const Events = () => {
     return false;
   });
 
-  // Sort events by date (upcoming first)
   const sortedEvents = [...filteredEvents].sort((a, b) => {
     const dateA = new Date(a.date);
     const dateB = new Date(b.date);
     return selectedTab === 'past' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
   });
 
-  // Get events for the selected month (for calendar view)
   const eventsInMonth = events.filter(event => {
     const eventDate = new Date(event.date);
     return isSameMonth(eventDate, currentDate) && event.isApproved;
   });
 
-  // Function to get events for a specific day
   const getEventsForDay = (day: Date) => {
     return eventsInMonth.filter(event => {
       const eventDate = new Date(event.date);
@@ -154,12 +150,10 @@ const Events = () => {
     });
   };
 
-  // Navigate to previous month
   const previousMonth = () => {
     setCurrentDate(prevDate => subMonths(prevDate, 1));
   };
 
-  // Navigate to next month
   const nextMonth = () => {
     setCurrentDate(prevDate => addMonths(prevDate, 1));
   };
@@ -212,7 +206,7 @@ const Events = () => {
 
   const handleCancelEvent = (event: EventType) => {
     const updatedEvent = { ...event, isCancelled: true };
-    updateEvent(updatedEvent);
+    updateEvent(event.id, updatedEvent);
     
     toast({
       title: "Event cancelled",
@@ -222,7 +216,7 @@ const Events = () => {
 
   const handleApproveEvent = (event: EventType) => {
     const updatedEvent = { ...event, isApproved: true };
-    updateEvent(updatedEvent);
+    updateEvent(event.id, updatedEvent);
     
     toast({
       title: "Event approved",
@@ -232,7 +226,7 @@ const Events = () => {
 
   const handleDisapproveEvent = (event: EventType) => {
     const updatedEvent = { ...event, isCancelled: true };
-    updateEvent(updatedEvent);
+    updateEvent(event.id, updatedEvent);
     
     toast({
       title: "Event disapproved",
@@ -583,7 +577,6 @@ const Events = () => {
         </div>
       )}
 
-      {/* Event Details Dialog */}
       <Dialog open={!!eventDetails} onOpenChange={(open) => !open && setEventDetails(null)}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
@@ -620,7 +613,6 @@ const Events = () => {
               </div>
             )}
 
-            {/* Status badges */}
             <div className="flex flex-wrap gap-2">
               {eventDetails?.isFeatured && (
                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100">

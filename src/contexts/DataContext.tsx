@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Referral, Visitor, OneToOne, TYFCB, Event, Poll, Activity, User } from '@/types';
 import { useAuth } from './AuthContext';
@@ -38,6 +37,12 @@ interface DataContextType {
     topOneToOnes: { user: User; count: number } | null;
     topTYFCB: { user: User; amount: number } | null;
   };
+  createEvent: (event: Partial<Event>) => void;
+  deleteEvent: (eventId: string) => void;
+  createPoll: (poll: Partial<Poll>) => void;
+  deletePoll: (pollId: string) => void;
+  votePoll: (pollId: string, optionId: string, userId: string) => void;
+  hasVoted: (pollId: string, userId: string) => boolean;
 }
 
 // Mock data for development
@@ -737,6 +742,119 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
+  // Add createEvent function implementation
+  const createEvent = (event: Partial<Event>) => {
+    // Generate a unique ID if not provided
+    const id = event.id || `event-${Date.now()}`;
+    
+    const newEvent: Event = {
+      id,
+      name: event.name || 'Untitled Event',
+      date: event.date || new Date(),
+      startTime: event.startTime || '08:00',
+      endTime: event.endTime || '09:00',
+      location: event.location || 'TBD',
+      description: event.description || '',
+      createdBy: event.createdBy || currentUser?.id || '1',
+      isApproved: event.isApproved ?? false,
+      isFeatured: event.isFeatured ?? false,
+      isPresentationMeeting: event.isPresentationMeeting ?? false,
+      isCancelled: event.isCancelled ?? false,
+      presenter: event.presenter,
+      createdAt: event.createdAt || new Date(),
+    };
+    
+    setEvents(prev => {
+      // Check if this event already exists
+      const exists = prev.some(e => e.id === id);
+      if (exists) {
+        return prev.map(e => e.id === id ? newEvent : e);
+      }
+      return [...prev, newEvent];
+    });
+  };
+
+  // Add deleteEvent function implementation
+  const deleteEvent = (eventId: string) => {
+    setEvents(prev => prev.filter(event => event.id !== eventId));
+    
+    // Also remove related activities
+    setActivities(prev => prev.filter(
+      activity => !(activity.type === 'event' && activity.referenceId === eventId)
+    ));
+  };
+
+  // Add createPoll function implementation
+  const createPoll = (poll: Partial<Poll>) => {
+    const id = poll.id || `poll-${Date.now()}`;
+    
+    const newPoll: Poll = {
+      id,
+      title: poll.title || 'Untitled Poll',
+      description: poll.description || '',
+      options: poll.options || [],
+      startDate: poll.startDate || new Date(),
+      endDate: poll.endDate || new Date(),
+      createdBy: poll.createdBy || currentUser?.id || '1',
+      isActive: poll.isActive ?? true,
+      isArchived: poll.isArchived ?? false,
+      createdAt: poll.createdAt || new Date(),
+    };
+    
+    setPolls(prev => [...prev, newPoll]);
+  };
+
+  // Add deletePoll function implementation
+  const deletePoll = (pollId: string) => {
+    setPolls(prev => prev.filter(poll => poll.id !== pollId));
+    
+    // Also remove related activities
+    setActivities(prev => prev.filter(
+      activity => !(activity.type === 'poll' && activity.referenceId === pollId)
+    ));
+  };
+
+  // Add votePoll function implementation
+  const votePoll = (pollId: string, optionId: string, userId: string) => {
+    setPolls(prev => prev.map(poll => {
+      if (poll.id === pollId) {
+        // Check if user has already voted
+        const hasAlreadyVoted = poll.options.some(option => 
+          option.votes.includes(userId)
+        );
+        
+        if (hasAlreadyVoted) {
+          return poll;
+        }
+        
+        // Add vote to the selected option
+        const updatedOptions = poll.options.map(option => {
+          if (option.id === optionId) {
+            return {
+              ...option,
+              votes: [...option.votes, userId]
+            };
+          }
+          return option;
+        });
+        
+        return {
+          ...poll,
+          options: updatedOptions
+        };
+      }
+      return poll;
+    }));
+  };
+
+  // Add hasVoted function implementation
+  const hasVoted = (pollId: string, userId: string): boolean => {
+    const poll = polls.find(p => p.id === pollId);
+    if (!poll) return false;
+    
+    return poll.options.some(option => option.votes.includes(userId));
+  };
+
   return (
     <DataContext.Provider
       value={{
@@ -764,6 +882,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         getUser,
         getUserMetrics,
         getTopPerformers,
+        createEvent,
+        deleteEvent,
+        createPoll,
+        deletePoll,
+        votePoll,
+        hasVoted,
       }}
     >
       {children}
