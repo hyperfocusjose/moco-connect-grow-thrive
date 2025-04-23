@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,39 +5,35 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  email: z.string().email({
+    message: 'Please enter a valid email address'
+  }),
+  password: z.string().min(6, {
+    message: 'Password must be at least 6 characters'
+  })
 });
-
 type FormValues = z.infer<typeof formSchema>;
-
 const Login = () => {
-  const { login } = useAuth();
+  const {
+    login
+  } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
-      password: '',
-    },
+      password: ''
+    }
   });
-
   const onSubmit = async (data: FormValues) => {
     try {
       await login(data.email, data.password);
@@ -47,20 +42,14 @@ const Login = () => {
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: error instanceof Error ? error.message : 'Please check your credentials and try again',
+        description: error instanceof Error ? error.message : 'Please check your credentials and try again'
       });
     }
   };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  return <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <img 
-            src="moco-png-logo.png" 
-            alt="MocoPNG Logo" 
-            className="mx-auto h-24 w-auto mb-4"
-          />
+          <img alt="MocoPNG Logo" className="mx-auto h-24 w-auto mb-4" src="/lovable-uploads/f3117942-bcd9-44dc-a330-64d7f520984c.png" />
         </div>
 
         <Card>
@@ -73,45 +62,29 @@ const Login = () => {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
+                <FormField control={form.control} name="email" render={({
+                field
+              }) => <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
                         <Input placeholder="email@example.com" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
+                    </FormItem>} />
+                <FormField control={form.control} name="password" render={({
+                field
+              }) => <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button 
-                  type="submit" 
-                  className="w-full bg-maroon hover:bg-maroon-light"
-                  disabled={form.formState.isSubmitting}
-                >
-                  {form.formState.isSubmitting ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
-                  ) : (
-                    <>
+                    </FormItem>} />
+                <Button type="submit" className="w-full bg-maroon hover:bg-maroon-light" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting ? <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div> : <>
                       <LogIn className="mr-2 h-4 w-4" />
                       Log in
-                    </>
-                  )}
+                    </>}
                 </Button>
               </form>
             </Form>
@@ -138,8 +111,6 @@ const Login = () => {
           <p>Member: plumber@example.com (any password)</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Login;
