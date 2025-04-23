@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -41,7 +40,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const ReferralForm: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
+export const ReferralForm: React.FC<{ onComplete?: () => void; forceShowInputMemberSelect?: boolean }> = ({
+  onComplete,
+  forceShowInputMemberSelect = false
+}) => {
   const { currentUser } = useAuth();
   const { users, addReferral } = useData();
   const { toast } = useToast();
@@ -49,17 +51,24 @@ export const ReferralForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
   // Get other users excluding current user
   const otherUsers = users.filter(user => user.id !== currentUser?.id);
 
+  // For admin, allow selecting the referring member; otherwise, pre-select current
+  const showReferringMemberSelect = forceShowInputMemberSelect;
+  const allUsers = users;
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       referredToMemberId: "",
       description: "",
       date: new Date().toISOString().substring(0, 10),
+      ...(showReferringMemberSelect
+        ? {}
+        : { referringMemberId: currentUser?.id ?? "" })
     },
   });
 
   const onSubmit = async (data: FormValues) => {
-    if (!currentUser) {
+    if (!currentUser && !showReferringMemberSelect) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -70,7 +79,7 @@ export const ReferralForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
 
     try {
       await addReferral({
-        referringMemberId: currentUser.id,
+        referringMemberId: showReferringMemberSelect ? data.referringMemberId : currentUser.id,
         referredToMemberId: data.referredToMemberId,
         description: data.description,
         date: new Date(data.date),
@@ -86,6 +95,7 @@ export const ReferralForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
         referredToMemberId: "",
         description: "",
         date: new Date().toISOString().substring(0, 10),
+        ...(showReferringMemberSelect ? { referringMemberId: "" } : {})
       });
 
       // Call onComplete callback if provided
@@ -105,6 +115,39 @@ export const ReferralForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-4">
+          {showReferringMemberSelect && (
+            <FormField
+              control={form.control}
+              name="referringMemberId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referring Member</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select referring member" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {allUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName} - {user.businessName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    The member making the referral
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
             name="referredToMemberId"

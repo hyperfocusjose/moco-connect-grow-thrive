@@ -1,16 +1,16 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { ReferralForm } from '@/components/forms/ReferralForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
 import { Phone, Mail, ArrowUpRight, ListCheck, Calendar } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MemberDetailProps {
   member: User;
@@ -18,10 +18,16 @@ interface MemberDetailProps {
 }
 
 export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) => {
+  const [openForm, setOpenForm] = useState<null | 'referral' | '1to1' | 'tyfcb'>(null);
+  const { currentUser } = useAuth();
+  const isAdmin = !!currentUser?.isAdmin;
+
   // Get initials for avatar fallback
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
   };
+
+  const closeForm = () => setOpenForm(null);
 
   return (
     <div className="p-6 max-w-md mx-auto">
@@ -37,7 +43,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
             {member.firstName} {member.lastName}
           </h2>
           <p className="text-muted-foreground text-center">{member.businessName}</p>
-          
+
           <div className="flex items-center mt-2">
             <Badge variant="outline" className="text-xs border-maroon text-maroon">
               {member.industry}
@@ -108,38 +114,59 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose }) =
         {/* Actions */}
         <div className="space-y-3 mb-6">
           <h3 className="text-lg font-medium mb-2">Actions</h3>
-          
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <ArrowUpRight className="mr-2 h-4 w-4 text-green-600" />
-                Make Referral
-              </Button>
-            </DialogTrigger>
-            <ReferralForm onComplete={onClose} />
-          </Dialog>
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <ListCheck className="mr-2 h-4 w-4 text-orange-600" />
-                Record One-to-One
-              </Button>
-            </DialogTrigger>
-            <OneToOneForm onComplete={onClose} />
-          </Dialog>
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <Calendar className="mr-2 h-4 w-4 text-purple-600" />
-                Record Closed Business
-              </Button>
-            </DialogTrigger>
-            <TYFCBForm onComplete={onClose} />
-          </Dialog>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => setOpenForm('referral')}
+          >
+            <ArrowUpRight className="mr-2 h-4 w-4 text-green-600" />
+            Make Referral
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => setOpenForm('1to1')}
+          >
+            <ListCheck className="mr-2 h-4 w-4 text-orange-600" />
+            Record One-to-One
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => setOpenForm('tyfcb')}
+          >
+            <Calendar className="mr-2 h-4 w-4 text-purple-600" />
+            Record Closed Business
+          </Button>
         </div>
       </ScrollArea>
+
+      {/* Input Forms as Dialogs */}
+      <Dialog open={!!openForm} onOpenChange={val => { if (!val) closeForm(); }}>
+        <DialogContent
+          className="sm:max-w-md p-0"
+          onInteractOutside={e => e.preventDefault()}
+        >
+          {openForm === 'referral' && (
+            <ReferralForm
+              onComplete={() => { closeForm(); onClose(); }}
+              forceShowInputMemberSelect={isAdmin}
+            />
+          )}
+          {openForm === '1to1' && (
+            <OneToOneForm
+              onComplete={() => { closeForm(); onClose(); }}
+              forceShowInputMemberSelect={isAdmin}
+            />
+          )}
+          {openForm === 'tyfcb' && (
+            <TYFCBForm
+              onComplete={() => { closeForm(); onClose(); }}
+              forceShowInputMemberSelect={isAdmin}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

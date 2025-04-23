@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -37,24 +36,33 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export const OneToOneForm: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
+export const OneToOneForm: React.FC<{ onComplete?: () => void; forceShowInputMemberSelect?: boolean }> = ({
+  onComplete,
+  forceShowInputMemberSelect = false
+}) => {
   const { currentUser } = useAuth();
   const { users, addOneToOne } = useData();
   const { toast } = useToast();
 
-  // Get other users excluding current user
-  const otherUsers = users.filter(user => user.id !== currentUser?.id);
+  // For admin, allow selecting the inputting member; otherwise, pre-select current
+  const showMemberOneSelect = forceShowInputMemberSelect;
+  const allUsers = users;
 
-  const form = useForm<FormValues>({
+  // For non-admin, filter out "member one" (current user) from possible "other users"
+  const memberOneId = showMemberOneSelect ? undefined : currentUser?.id;
+  const otherUsers = users.filter(user => user.id !== memberOneId);
+
+  const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       memberTwoId: "",
       meetingDate: new Date().toISOString().substring(0, 10),
+      ...(showMemberOneSelect ? {} : { memberOneId: currentUser?.id ?? "" })
     },
   });
 
-  const onSubmit = async (data: FormValues) => {
-    if (!currentUser) {
+  const onSubmit = async (data) => {
+    if (!currentUser && !showMemberOneSelect) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -65,7 +73,7 @@ export const OneToOneForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
 
     try {
       await addOneToOne({
-        memberOneId: currentUser.id,
+        memberOneId: showMemberOneSelect ? data.memberOneId : currentUser.id,
         memberTwoId: data.memberTwoId,
         meetingDate: new Date(data.meetingDate),
       });
@@ -75,13 +83,12 @@ export const OneToOneForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
         description: "Your one-to-one meeting has been recorded successfully",
       });
 
-      // Reset form
       form.reset({
         memberTwoId: "",
         meetingDate: new Date().toISOString().substring(0, 10),
+        ...(showMemberOneSelect ? { memberOneId: "" } : {})
       });
 
-      // Call onComplete callback if provided
       if (onComplete) {
         onComplete();
       }
@@ -98,6 +105,39 @@ export const OneToOneForm: React.FC<{ onComplete?: () => void }> = ({ onComplete
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-4">
+          {showMemberOneSelect && (
+            <FormField
+              control={form.control}
+              name="memberOneId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Who is entering?</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select member" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {allUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName} - {user.businessName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    The member recording this one-to-one
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
             name="memberTwoId"
