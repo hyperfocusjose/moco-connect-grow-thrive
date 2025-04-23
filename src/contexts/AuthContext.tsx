@@ -14,11 +14,6 @@ interface AuthContextType {
   updateCurrentUser: (user: User) => Promise<void>;
 }
 
-// Utility to get human-readable role names
-function hasRole(roles: string[], role: string) {
-  return roles.includes(role);
-}
-
 const AuthContext = createContext<AuthContextType>({
   currentUser: null,
   isAuthenticated: false,
@@ -40,19 +35,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch roles from Supabase user_roles table
   const fetchRoles = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error fetching roles:', error);
+      if (error) {
+        console.error('Error fetching roles:', error);
+        setRoles([]);
+        return [];
+      }
+      
+      const roleList = data?.map((row) => row.role) || [];
+      setRoles(roleList);
+      return roleList;
+    } catch (error) {
+      console.error('Error in fetchRoles:', error);
       setRoles([]);
       return [];
     }
-    const roleList = data?.map((row) => row.role) || [];
-    setRoles(roleList);
-    return roleList;
   };
 
   useEffect(() => {
@@ -97,6 +99,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         instagram: 'johndoe',
         createdAt: new Date(),
       };
+      
+      // For demo: Ensure admin user has admin role in user_roles table
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .upsert({ user_id: user.id, role: 'admin' })
+          .select();
+          
+        if (error) {
+          console.error('Failed to ensure admin role:', error);
+        }
+      } catch (err) {
+        console.error('Error ensuring admin role:', err);
+      }
+      
     } else if (email === 'plumber@example.com') {
       user = {
         id: 'user-2',
@@ -117,6 +134,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         instagram: 'janesmith',
         createdAt: new Date(),
       };
+      
+      // For demo: Ensure regular user has user role
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .upsert({ user_id: user.id, role: 'user' })
+          .select();
+          
+        if (error) {
+          console.error('Failed to ensure user role:', error);
+        }
+      } catch (err) {
+        console.error('Error ensuring user role:', err);
+      }
     } else {
       throw new Error('Invalid email or password');
     }
@@ -157,4 +188,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export default AuthContext;
-
