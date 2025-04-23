@@ -36,6 +36,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch roles from Supabase user_roles table
   const fetchRoles = async (userId: string) => {
     try {
+      // For demo users with non-UUID IDs, we'll return hardcoded roles
+      if (userId === 'user-1') {
+        const adminRoles = ['admin'];
+        setRoles(adminRoles);
+        return adminRoles;
+      } else if (userId === 'user-2') {
+        const userRoles = ['user'];
+        setRoles(userRoles);
+        return userRoles;
+      }
+      
+      // For real Supabase users with proper UUIDs
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -100,20 +112,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date(),
       };
       
-      // For demo: Ensure admin user has admin role in user_roles table
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .upsert({ user_id: user.id, role: 'admin' })
-          .select();
-          
-        if (error) {
-          console.error('Failed to ensure admin role:', error);
-        }
-      } catch (err) {
-        console.error('Error ensuring admin role:', err);
-      }
-      
+      // No need to interact with Supabase for demo users
+      // We'll handle this in fetchRoles instead
     } else if (email === 'plumber@example.com') {
       user = {
         id: 'user-2',
@@ -135,19 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: new Date(),
       };
       
-      // For demo: Ensure regular user has user role
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .upsert({ user_id: user.id, role: 'user' })
-          .select();
-          
-        if (error) {
-          console.error('Failed to ensure user role:', error);
-        }
-      } catch (err) {
-        console.error('Error ensuring user role:', err);
-      }
+      // No need to interact with Supabase for demo users
+      // We'll handle this in fetchRoles instead
     } else {
       throw new Error('Invalid email or password');
     }
