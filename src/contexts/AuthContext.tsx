@@ -36,11 +36,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
     try {
-      // Using type assertion to work around TypeScript limitations
-      const { data, error } = await supabase
+      // Using more aggressive type assertion for Supabase query
+      const { data, error } = await (supabase
         .from('user_roles')
         .select('role')
-        .eq('user_id', userId) as { data: any[], error: any };
+        .eq('user_id', userId) as unknown as Promise<{ data: Array<{ role: string }>, error: any }>);
 
       if (error) {
         console.error('Error fetching roles:', error);
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      const roleList = data?.map((row) => row.role as string) || [];
+      const roleList = data?.map((row) => row.role) || [];
       setRoles(roleList);
       return roleList;
     } catch (error) {
@@ -89,12 +89,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (data.user) {
-        // Get user profile data from the profiles table
-        const { data: profileData, error: profileError } = await supabase
+        // Get user profile data from the profiles table with more aggressive type assertion
+        const { data: profileData, error: profileError } = await (supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single() as { data: any, error: any };
+          .single() as unknown as Promise<{ data: any, error: any }>);
           
         if (profileError) {
           console.error('Error fetching profile:', profileError);
@@ -131,13 +131,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Fetch member tags if needed
         try {
-          const { data: tagsData } = await supabase
+          const { data: tagsData } = await (supabase
             .from('member_tags')
             .select('tag')
-            .eq('member_id', data.user.id) as { data: any[], error: any };
+            .eq('member_id', data.user.id) as unknown as Promise<{ data: Array<{ tag: string }>, error: any }>);
             
           if (tagsData && tagsData.length > 0) {
-            newUser.tags = tagsData.map(t => t.tag as string);
+            newUser.tags = tagsData.map(t => t.tag);
           }
         } catch (tagError) {
           console.error('Error fetching member tags:', tagError);
