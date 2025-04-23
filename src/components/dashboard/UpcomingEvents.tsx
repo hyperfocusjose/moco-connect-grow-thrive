@@ -33,7 +33,15 @@ export const UpcomingEvents: React.FC = () => {
   };
 
   const formatTime = (startTime: string, endTime: string) => {
-    return `${startTime} - ${endTime}`;
+    // Convert 24hr to 12hr format
+    const format12Hour = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hour12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+      return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+    
+    return `${format12Hour(startTime)} - ${format12Hour(endTime)}`;
   };
 
   return (
@@ -71,6 +79,11 @@ export const UpcomingEvents: React.FC = () => {
                     </div>
                   )}
                 </div>
+                {!event.isPresentationMeeting && (
+                  <div className="mt-2 text-xs text-muted-foreground italic">
+                    No presentation scheduled
+                  </div>
+                )}
               </div>
             ))
           ) : (

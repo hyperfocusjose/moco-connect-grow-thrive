@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
-import { Calendar as CalendarIcon, MapPin, Clock, User, ChevronLeft, ChevronRight, Plus, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, MapPin, Clock, User, ChevronLeft, ChevronRight, Plus, AlertCircle, History } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -19,9 +20,10 @@ import {
   subMonths, 
   addYears,
   isTuesday,
-  startOfDay
+  startOfDay,
+  isPast
 } from 'date-fns';
-import { eachTuesdayOfInterval, isAfter } from '@/utils/dateUtils';
+import { eachTuesdayOfInterval } from '@/utils/dateUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -44,10 +46,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Popover,
   PopoverContent,
@@ -62,16 +72,18 @@ const Events = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [eventDetails, setEventDetails] = useState<EventType | null>(null);
+  const [presenterHistoryOpen, setPresenterHistoryOpen] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: '',
     date: new Date(),
-    startTime: '19:00',
-    endTime: '21:00',
+    startTime: '08:00',
+    endTime: '09:00',
     location: '',
     description: '',
-    isPresentationMeeting: false,
-    presenter: '',
   });
+  
+  // For managing Tuesday meetings
+  const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
   
   const isAdmin = currentUser?.isAdmin;
 
@@ -96,13 +108,13 @@ const Events = () => {
             id: `tuesday-meeting-${format(tuesday, 'yyyy-MM-dd')}`,
             name: 'Tuesday Meeting',
             date: tuesday,
-            startTime: '19:00',
-            endTime: '21:00',
-            location: '123 Main St, Rockville, MD',
+            startTime: '08:00',
+            endTime: '09:00',
+            location: 'Keller Williams Office, 2201 Lake Woodlands Dr, Spring, TX 77380',
             description: 'Regular weekly meeting for members',
             createdBy: currentUser?.id || 'system',
             isApproved: true,
-            isFeatured: true,
+            isFeatured: false,
             isPresentationMeeting: false,
             createdAt: new Date()
           });
@@ -115,15 +127,34 @@ const Events = () => {
     const eventDate = new Date(event.date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const isWeeklyMeeting = event.name.toLowerCase().includes('tuesday meeting');
     
     if (selectedTab === 'upcoming') {
-      return eventDate >= today && event.isApproved;
+      // For upcoming tab, show only next 2 Tuesday meetings and other future events
+      if (isWeeklyMeeting) {
+        // For Tuesday meetings, consider only the next 2 uncancelled meetings
+        const upcomingTuesdayMeetings = events
+          .filter(e => 
+            e.name.toLowerCase().includes('tuesday meeting') && 
+            !e.isCancelled && 
+            e.isApproved &&
+            new Date(e.date) >= today
+          )
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .slice(0, 2);
+        
+        return upcomingTuesdayMeetings.some(meeting => meeting.id === event.id);
+      } else {
+        // For non-Tuesday meetings, show all future approved events
+        return eventDate >= today && event.isApproved && !event.isCancelled;
+      }
     } else if (selectedTab === 'past') {
-      return eventDate < today && event.isApproved;
-    } else if (selectedTab === 'featured') {
-      return event.isFeatured && event.isApproved;
+      // For past tab, show only non-Tuesday meetings that are in the past
+      return eventDate < today && event.isApproved && !isWeeklyMeeting;
     } else if (selectedTab === 'my-events' && currentUser) {
-      return event.createdBy === currentUser.id || event.presenter === currentUser.id;
+      // For my-events, show only events created by the current user that are in the future
+      return (event.createdBy === currentUser.id || event.presenter === currentUser.id) && 
+             eventDate >= today;
     } else if (selectedTab === 'pending' && isAdmin) {
       return !event.isApproved && !event.isCancelled;
     } else if (selectedTab === 'cancelled') {
@@ -178,8 +209,7 @@ const Events = () => {
       createdBy: currentUser?.id || '',
       isApproved: isAdmin ? true : false,
       isFeatured: false,
-      isPresentationMeeting: newEvent.isPresentationMeeting,
-      presenter: newEvent.isPresentationMeeting ? newEvent.presenter : undefined,
+      isPresentationMeeting: false,
       createdAt: new Date()
     };
 
@@ -188,12 +218,10 @@ const Events = () => {
     setNewEvent({
       name: '',
       date: new Date(),
-      startTime: '19:00',
-      endTime: '21:00',
+      startTime: '08:00',
+      endTime: '09:00',
       location: '',
       description: '',
-      isPresentationMeeting: false,
-      presenter: '',
     });
 
     toast({
@@ -201,6 +229,27 @@ const Events = () => {
       description: isAdmin 
         ? "The event has been created successfully" 
         : "Your event has been submitted and is pending approval",
+    });
+  };
+
+  const handleUpdateTuesdayMeeting = (event: EventType) => {
+    if (!tuesdayMeetingDialog) return;
+    
+    const updatedEvent = { 
+      ...event,
+      isPresentationMeeting: tuesdayMeetingDialog.isPresentationMeeting,
+      presenter: tuesdayMeetingDialog.presenter
+    };
+    
+    updateEvent(event.id, updatedEvent);
+    
+    setTuesdayMeetingDialog(null);
+    
+    toast({
+      title: "Meeting updated",
+      description: updatedEvent.isPresentationMeeting 
+        ? "Presenter has been assigned to this meeting" 
+        : "Meeting has been updated",
     });
   };
 
@@ -243,6 +292,30 @@ const Events = () => {
     });
   };
 
+  // Format time from 24hr to 12hr format
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12; // Convert 0 to 12 for 12 AM
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  };
+
+  // Get presenter history for Tuesday meetings
+  const getPresenterHistory = () => {
+    return events
+      .filter(event => 
+        event.name.toLowerCase().includes('tuesday meeting') &&
+        event.isPresentationMeeting && 
+        event.presenter &&
+        isPast(new Date(event.date))
+      )
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .map(event => ({
+        date: new Date(event.date),
+        presenter: getUser(event.presenter || '')
+      }));
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -252,6 +325,16 @@ const Events = () => {
         </div>
         
         <div className="flex items-center space-x-2 mt-4 md:mt-0">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              className="mr-2"
+              onClick={() => setPresenterHistoryOpen(true)}
+            >
+              <History className="mr-1 h-4 w-4" /> Presenter History
+            </Button>
+          )}
+          
           <Dialog>
             <DialogTrigger asChild>
               <Button className="bg-maroon hover:bg-maroon/90">
@@ -350,41 +433,6 @@ const Events = () => {
                     className="col-span-3"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="isPresentationMeeting" className="text-right">
-                    Presentation?
-                  </Label>
-                  <div className="flex items-center space-x-2 col-span-3">
-                    <input
-                      type="checkbox"
-                      id="isPresentationMeeting"
-                      checked={newEvent.isPresentationMeeting}
-                      onChange={(e) => setNewEvent({ ...newEvent, isPresentationMeeting: e.target.checked })}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <Label htmlFor="isPresentationMeeting">This is a presentation meeting</Label>
-                  </div>
-                </div>
-                {newEvent.isPresentationMeeting && (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="presenter" className="text-right">
-                      Presenter
-                    </Label>
-                    <select
-                      id="presenter"
-                      value={newEvent.presenter}
-                      onChange={(e) => setNewEvent({ ...newEvent, presenter: e.target.value })}
-                      className="col-span-3 w-full rounded-md border border-input px-3 py-2"
-                    >
-                      <option value="">Select a presenter</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.firstName} {user.lastName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
               <DialogFooter>
                 <DialogClose asChild>
@@ -423,38 +471,51 @@ const Events = () => {
           <TabsList className="mb-6">
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="past">Past</TabsTrigger>
-            <TabsTrigger value="featured">Featured</TabsTrigger>
             {currentUser && <TabsTrigger value="my-events">My Events</TabsTrigger>}
             {isAdmin && <TabsTrigger value="pending">Pending Approval</TabsTrigger>}
             <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upcoming">
-            <EventsList events={sortedEvents} getUser={getUser} currentUser={currentUser} 
+            <EventsList 
+              events={sortedEvents} 
+              getUser={getUser} 
+              currentUser={currentUser} 
               onView={(event) => setEventDetails(event)} 
+              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
               onCancel={handleCancelEvent} 
-              onDelete={handleDeleteEvent} />
+              onDelete={handleDeleteEvent} 
+              formatTime={formatTime}
+              isAdmin={isAdmin}
+            />
           </TabsContent>
           
           <TabsContent value="past">
-            <EventsList events={sortedEvents} getUser={getUser} currentUser={currentUser} 
+            <EventsList 
+              events={sortedEvents} 
+              getUser={getUser} 
+              currentUser={currentUser} 
               onView={(event) => setEventDetails(event)} 
+              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
               onCancel={handleCancelEvent} 
-              onDelete={handleDeleteEvent} />
-          </TabsContent>
-          
-          <TabsContent value="featured">
-            <EventsList events={sortedEvents} getUser={getUser} currentUser={currentUser} 
-              onView={(event) => setEventDetails(event)} 
-              onCancel={handleCancelEvent} 
-              onDelete={handleDeleteEvent} />
+              onDelete={handleDeleteEvent} 
+              formatTime={formatTime}
+              isAdmin={isAdmin}
+            />
           </TabsContent>
           
           <TabsContent value="my-events">
-            <EventsList events={sortedEvents} getUser={getUser} currentUser={currentUser} 
+            <EventsList 
+              events={sortedEvents} 
+              getUser={getUser} 
+              currentUser={currentUser} 
               onView={(event) => setEventDetails(event)} 
+              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
               onCancel={handleCancelEvent} 
-              onDelete={handleDeleteEvent} />
+              onDelete={handleDeleteEvent} 
+              formatTime={formatTime}
+              isAdmin={isAdmin}
+            />
           </TabsContent>
           
           {isAdmin && (
@@ -474,6 +535,7 @@ const Events = () => {
                 onApprove={handleApproveEvent} 
                 onDisapprove={handleDisapproveEvent} 
                 onView={(event) => setEventDetails(event)} 
+                formatTime={formatTime}
               />
             </TabsContent>
           )}
@@ -488,10 +550,16 @@ const Events = () => {
                 These events have been cancelled and are not visible to members.
               </p>
             </div>
-            <EventsList events={sortedEvents} getUser={getUser} currentUser={currentUser} 
+            <EventsList 
+              events={sortedEvents} 
+              getUser={getUser} 
+              currentUser={currentUser} 
               onView={(event) => setEventDetails(event)} 
+              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
               onCancel={handleCancelEvent} 
               onDelete={handleDeleteEvent} 
+              formatTime={formatTime}
+              isAdmin={isAdmin}
               isCancelled 
             />
           </TabsContent>
@@ -570,25 +638,31 @@ const Events = () => {
               getUser={getUser} 
               currentUser={currentUser} 
               onView={(event) => setEventDetails(event)} 
+              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
               onCancel={handleCancelEvent} 
               onDelete={handleDeleteEvent} 
+              formatTime={formatTime}
+              isAdmin={isAdmin}
             />
           </div>
         </div>
       )}
 
+      {/* Event Details Dialog */}
       <Dialog open={!!eventDetails} onOpenChange={(open) => !open && setEventDetails(null)}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>{eventDetails?.name}</DialogTitle>
             <DialogDescription>
-              {format(eventDetails ? new Date(eventDetails.date) : new Date(), "EEEE, MMMM d, yyyy")}
+              {eventDetails && format(new Date(eventDetails.date), "EEEE, MMMM d, yyyy")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center">
               <Clock className="h-4 w-4 mr-2 text-gray-500" />
-              <span>{eventDetails?.startTime} - {eventDetails?.endTime}</span>
+              <span>
+                {eventDetails && formatTime(eventDetails.startTime)} - {eventDetails && formatTime(eventDetails.endTime)}
+              </span>
             </div>
             <div className="flex items-center">
               <MapPin className="h-4 w-4 mr-2 text-gray-500" />
@@ -614,11 +688,6 @@ const Events = () => {
             )}
 
             <div className="flex flex-wrap gap-2">
-              {eventDetails?.isFeatured && (
-                <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                  Featured
-                </Badge>
-              )}
               {eventDetails?.isCancelled && (
                 <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
                   Cancelled
@@ -675,6 +744,110 @@ const Events = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Tuesday Meeting Presenter Dialog */}
+      <Dialog open={!!tuesdayMeetingDialog} onOpenChange={(open) => !open && setTuesdayMeetingDialog(null)}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Manage Tuesday Meeting</DialogTitle>
+            <DialogDescription>
+              {tuesdayMeetingDialog && format(new Date(tuesdayMeetingDialog.date), "EEEE, MMMM d, yyyy")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isPresentationMeeting"
+                checked={tuesdayMeetingDialog?.isPresentationMeeting || false}
+                onChange={(e) => setTuesdayMeetingDialog(prev => 
+                  prev ? { ...prev, isPresentationMeeting: e.target.checked } : null
+                )}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="isPresentationMeeting">This is a presentation meeting</Label>
+            </div>
+            
+            {tuesdayMeetingDialog?.isPresentationMeeting && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="presenter" className="text-right">
+                  Presenter
+                </Label>
+                <Select
+                  value={tuesdayMeetingDialog.presenter || ""}
+                  onValueChange={(value) => setTuesdayMeetingDialog(prev => 
+                    prev ? { ...prev, presenter: value } : null
+                  )}
+                >
+                  <SelectTrigger id="presenter" className="col-span-3">
+                    <SelectValue placeholder="Select presenter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No presenter</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.firstName} {user.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={() => tuesdayMeetingDialog && handleUpdateTuesdayMeeting(tuesdayMeetingDialog)} 
+              className="bg-maroon hover:bg-maroon/90"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Presenter History Dialog */}
+      <Dialog open={presenterHistoryOpen} onOpenChange={setPresenterHistoryOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Presenter History</DialogTitle>
+            <DialogDescription>
+              Past presenters at Tuesday meetings
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-4">
+              {getPresenterHistory().length > 0 ? (
+                getPresenterHistory().map((item, index) => (
+                  <div key={index} className="flex justify-between items-center border-b pb-2">
+                    <div>
+                      <p className="font-medium">
+                        {item.presenter ? `${item.presenter.firstName} ${item.presenter.lastName}` : 'Unknown presenter'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.presenter?.businessName || ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p>{format(item.date, "EEEE, MMMM d, yyyy")}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center py-8 text-muted-foreground">No presentation history found</p>
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button className="bg-maroon hover:bg-maroon/90">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
@@ -684,14 +857,26 @@ interface EventsListProps {
   getUser: (userId: string) => any;
   currentUser: any;
   onView: (event: EventType) => void;
+  onManageTuesdayMeeting?: (event: EventType) => void;
   onCancel: (event: EventType) => void;
   onDelete: (eventId: string) => void;
+  formatTime: (time: string) => string;
+  isAdmin?: boolean;
   isCancelled?: boolean;
 }
 
-const EventsList: React.FC<EventsListProps> = ({ events, getUser, currentUser, onView, onCancel, onDelete, isCancelled }) => {
-  const isAdmin = currentUser?.isAdmin;
-  
+const EventsList: React.FC<EventsListProps> = ({ 
+  events, 
+  getUser, 
+  currentUser, 
+  onView, 
+  onManageTuesdayMeeting,
+  onCancel, 
+  onDelete,
+  formatTime,
+  isAdmin,
+  isCancelled 
+}) => {
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
@@ -709,8 +894,11 @@ const EventsList: React.FC<EventsListProps> = ({ events, getUser, currentUser, o
           getUser={getUser} 
           currentUser={currentUser} 
           onView={onView}
+          onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel}
           onDelete={onDelete}
+          formatTime={formatTime}
+          isAdmin={isAdmin}
           isCancelled={isCancelled}
         />
       ))}
@@ -723,16 +911,29 @@ interface EventCardProps {
   getUser: (userId: string) => any;
   currentUser: any;
   onView: (event: EventType) => void;
+  onManageTuesdayMeeting?: (event: EventType) => void;
   onCancel: (event: EventType) => void;
   onDelete: (eventId: string) => void;
+  formatTime: (time: string) => string;
+  isAdmin?: boolean;
   isCancelled?: boolean;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, getUser, currentUser, onView, onCancel, onDelete, isCancelled }) => {
+const EventCard: React.FC<EventCardProps> = ({ 
+  event, 
+  getUser, 
+  currentUser, 
+  onView, 
+  onManageTuesdayMeeting,
+  onCancel, 
+  onDelete,
+  formatTime,
+  isAdmin,
+  isCancelled 
+}) => {
   const eventDate = new Date(event.date);
   const isPast = eventDate < new Date();
   const presenter = event.presenter ? getUser(event.presenter) : null;
-  const isAdmin = currentUser?.isAdmin;
   const isTuesdayMeeting = event.name.includes('Tuesday Meeting');
 
   return (
@@ -741,11 +942,6 @@ const EventCard: React.FC<EventCardProps> = ({ event, getUser, currentUser, onVi
         <div className="flex justify-between items-start">
           <CardTitle className="text-xl">{event.name}</CardTitle>
           <div className="flex space-x-1">
-            {event.isFeatured && (
-              <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                Featured
-              </Badge>
-            )}
             {event.isCancelled && (
               <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">
                 Cancelled
@@ -761,7 +957,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, getUser, currentUser, onVi
         <div className="space-y-2 text-sm">
           <div className="flex items-center">
             <Clock className="h-4 w-4 mr-2 text-gray-500" />
-            <span>{event.startTime} - {event.endTime}</span>
+            <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
           </div>
           <div className="flex items-center">
             <MapPin className="h-4 w-4 mr-2 text-gray-500" />
@@ -771,6 +967,11 @@ const EventCard: React.FC<EventCardProps> = ({ event, getUser, currentUser, onVi
             <div className="flex items-center">
               <User className="h-4 w-4 mr-2 text-gray-500" />
               <span>Presenter: {presenter.firstName} {presenter.lastName}</span>
+            </div>
+          )}
+          {isTuesdayMeeting && !event.isPresentationMeeting && (
+            <div className="flex items-center text-gray-500 italic">
+              <span>No presentation scheduled</span>
             </div>
           )}
           {event.description && <p className="pt-2">{event.description}</p>}
@@ -783,45 +984,56 @@ const EventCard: React.FC<EventCardProps> = ({ event, getUser, currentUser, onVi
           size="sm"
           onClick={() => onView(event)}
         >
-          {isPast ? "View Details" : event.isCancelled ? "View Details" : "RSVP"}
+          View Details
         </Button>
         
         {isAdmin && !event.isCancelled && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <div className="flex space-x-2">
+            {isTuesdayMeeting && onManageTuesdayMeeting && (
               <Button 
-                variant="destructive" 
+                variant="outline" 
                 size="sm"
+                onClick={() => onManageTuesdayMeeting(event)}
               >
-                {isTuesdayMeeting ? "Cancel" : "Delete"}
+                {event.isPresentationMeeting ? 'Change Presenter' : 'Add Presenter'}
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {isTuesdayMeeting 
-                    ? "This will cancel the Tuesday meeting. It won't be shown to members."
-                    : "This will permanently delete the event and cannot be undone."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => {
-                    if (isTuesdayMeeting) {
-                      onCancel(event);
-                    } else {
-                      onDelete(event.id);
-                    }
-                  }}
-                  className="bg-red-600 hover:bg-red-700"
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
                 >
-                  {isTuesdayMeeting ? "Cancel Meeting" : "Delete Event"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  {isTuesdayMeeting ? "Cancel" : "Delete"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isTuesdayMeeting 
+                      ? "This will cancel the Tuesday meeting. It won't be shown to members."
+                      : "This will permanently delete the event and cannot be undone."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => {
+                      if (isTuesdayMeeting) {
+                        onCancel(event);
+                      } else {
+                        onDelete(event.id);
+                      }
+                    }}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {isTuesdayMeeting ? "Cancel Meeting" : "Delete Event"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         )}
       </CardFooter>
     </Card>
@@ -834,9 +1046,17 @@ interface PendingEventsListProps {
   onApprove: (event: EventType) => void;
   onDisapprove: (event: EventType) => void;
   onView: (event: EventType) => void;
+  formatTime: (time: string) => string;
 }
 
-const PendingEventsList: React.FC<PendingEventsListProps> = ({ events, getUser, onApprove, onDisapprove, onView }) => {
+const PendingEventsList: React.FC<PendingEventsListProps> = ({ 
+  events, 
+  getUser, 
+  onApprove, 
+  onDisapprove, 
+  onView,
+  formatTime 
+}) => {
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
@@ -867,24 +1087,12 @@ const PendingEventsList: React.FC<PendingEventsListProps> = ({ events, getUser, 
             <div className="space-y-2 text-sm">
               <div className="flex items-center">
                 <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{event.startTime} - {event.endTime}</span>
+                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
               </div>
               <div className="flex items-center">
                 <MapPin className="h-4 w-4 mr-2 text-gray-500" />
                 <span>{event.location}</span>
               </div>
-              {event.isPresentationMeeting && event.presenter && (
-                <div className="flex items-center">
-                  <User className="h-4 w-4 mr-2 text-gray-500" />
-                  <span>
-                    Presenter: {
-                      getUser(event.presenter) 
-                        ? `${getUser(event.presenter).firstName} ${getUser(event.presenter).lastName}`
-                        : 'Unknown'
-                    }
-                  </span>
-                </div>
-              )}
               {event.description && <p className="pt-2">{event.description}</p>}
             </div>
           </CardContent>
