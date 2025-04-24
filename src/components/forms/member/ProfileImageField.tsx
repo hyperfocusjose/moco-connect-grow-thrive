@@ -19,10 +19,13 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
     <div className="mb-6 flex justify-center">
       <div className="flex flex-col items-center">
         <Avatar className="h-24 w-24 mb-2">
-          <AvatarImage src={profileImage || ""} />
-          <AvatarFallback className="bg-maroon text-white text-xl">
-            {member ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase() : "NA"}
-          </AvatarFallback>
+          {profileImage ? (
+            <AvatarImage src={profileImage} alt="Profile" />
+          ) : (
+            <AvatarFallback className="bg-maroon text-white text-xl">
+              {member ? `${member.firstName[0]}${member.lastName[0]}`.toUpperCase() : "NA"}
+            </AvatarFallback>
+          )}
         </Avatar>
         <ProfilePicUpload onImageUploaded={onImageUploaded} />
       </div>

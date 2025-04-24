@@ -62,7 +62,7 @@ export const getDataSinceLastTuesday = () => {
   
   const recentVisitors = visitors.filter(item => {
     const itemDate = new Date(item.visitDate);
-    return isAfter(itemDate, lastTuesday);
+    return isAfter(itemDate, lastTuesday) && !item.didNotShow;
   });
   
   const recentOneToOnes = oneToOnes.filter(item => {
@@ -168,6 +168,10 @@ const Reports = () => {
   });
 
   const filteredVisitors = visitors.filter(item => {
+    if (item.didNotShow) {
+      return false;
+    }
+    
     const itemDate = new Date(item.visitDate);
     return isWithinInterval(itemDate, { start: dateRange.start, end: dateRange.end });
   });

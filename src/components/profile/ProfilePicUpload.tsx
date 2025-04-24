@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera } from 'lucide-react';
 import { ProfilePicUploadProps } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
 
 export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploaded }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -11,21 +14,32 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Simulate file upload with loading state
     setIsUploading(true);
     try {
-      // In a real app, you would upload to storage service
-      // For demo purposes, we'll use a timeout and mock URL
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${uuidv4()}.${fileExt}`;
       
-      // Create a mock URL - in real app, this would be the uploaded file URL
-      const mockImageUrl = `/images/avatars/avatar-${Math.floor(Math.random() * 8) + 1}.png`;
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profiles')
+        .upload(filePath, file);
+        
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      // Get public URL for the uploaded file
+      const { data: { publicUrl } } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(filePath);
       
       // Pass the URL back to parent component
-      onImageUploaded(mockImageUrl);
+      onImageUploaded(publicUrl);
       
+      toast.success('Profile photo updated successfully');
     } catch (error) {
       console.error('Error uploading image:', error);
+      toast.error('Failed to upload profile photo');
     } finally {
       setIsUploading(false);
     }
