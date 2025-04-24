@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -30,13 +29,6 @@ export const MemberCard: React.FC<MemberCardProps> = ({
     if (onEdit) onEdit();
   };
 
-  // Add a timestamp to the URL to prevent caching issues
-  const getImageUrl = () => {
-    if (!member.profilePicture) return null;
-    const timestamp = new Date().getTime();
-    return `${member.profilePicture}?t=${timestamp}`;
-  };
-
   return (
     <Card 
       className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
@@ -57,7 +49,7 @@ export const MemberCard: React.FC<MemberCardProps> = ({
           <Avatar className="h-24 w-24 mb-4">
             {member.profilePicture ? (
               <AvatarImage 
-                src={getImageUrl()} 
+                src={member.profilePicture} 
                 alt={member.firstName}
                 onError={(e) => {
                   console.log("Card image failed to load:", member.profilePicture);

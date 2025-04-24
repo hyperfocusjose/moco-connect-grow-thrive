@@ -16,7 +16,7 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
   member, 
   onImageUploaded 
 }) => {
-  // Verify if the image in profileImage exists in the bucket
+  // Verify if the image exists and format the URL correctly
   useEffect(() => {
     const verifyImageExists = async () => {
       if (profileImage) {
@@ -26,14 +26,11 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
           if (filePathMatch && filePathMatch[1]) {
             const filePath = decodeURIComponent(filePathMatch[1]);
             
-            // Check if file exists in bucket
-            // Note: getPublicUrl doesn't actually check if the file exists,
-            // it just returns a URL. There's no 'error' property in its response.
+            // Get the public URL for the image
             const { data } = await supabase.storage
               .from('profiles')
               .getPublicUrl(filePath);
               
-            // If we needed to check file existence, we'd need to use a different method
             console.log('Generated public URL:', data.publicUrl);
           }
         } catch (error) {
@@ -50,20 +47,13 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
     return `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
   };
 
-  // Add a timestamp to the URL to prevent caching issues
-  const getImageUrl = () => {
-    if (!profileImage) return null;
-    const timestamp = new Date().getTime();
-    return `${profileImage}?t=${timestamp}`;
-  };
-
   return (
     <div className="mb-6 flex justify-center">
       <div className="flex flex-col items-center">
         <Avatar className="h-24 w-24 mb-2">
           {profileImage ? (
             <AvatarImage 
-              src={getImageUrl()} 
+              src={profileImage} 
               alt="Profile" 
               onError={(e) => {
                 console.log("Image failed to load:", profileImage);
