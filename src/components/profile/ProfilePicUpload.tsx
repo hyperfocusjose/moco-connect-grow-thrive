@@ -55,12 +55,28 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       
       console.log("Generated public URL:", publicUrl);
       
-      // Ensure the URL is fully qualified
-      const fullUrl = publicUrl.startsWith('http') ? publicUrl : `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
-      console.log("Full URL being passed to parent:", fullUrl);
+      // Always use the fully qualified URL with domain
+      const absoluteUrl = `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
+      console.log("Using absolute URL:", absoluteUrl);
+      
+      // Now update the user profile in the database to include this image URL
+      const { data: authData } = await supabase.auth.getSession();
+      if (authData.session?.user.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ profile_picture: absoluteUrl })
+          .eq('id', authData.session.user.id);
+          
+        if (updateError) {
+          console.error("Error updating profile with new image URL:", updateError);
+          toast.error("Failed to update profile with new image");
+        } else {
+          console.log("Profile updated successfully with new image URL");
+        }
+      }
       
       // Pass the URL back to parent component
-      onImageUploaded(fullUrl);
+      onImageUploaded(absoluteUrl);
       
       toast.success('Profile photo updated successfully');
     } catch (error) {
