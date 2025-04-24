@@ -22,10 +22,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => 
             alt={`${currentUser.firstName} ${currentUser.lastName}`}
             crossOrigin="anonymous"
           />
-        ) : null}
-        <AvatarFallback className="bg-maroon text-white text-3xl">
-          {getInitials(currentUser.firstName, currentUser.lastName)}
-        </AvatarFallback>
+        ) : (
+          <AvatarFallback className="bg-maroon text-white text-3xl">
+            {getInitials(currentUser.firstName, currentUser.lastName)}
+          </AvatarFallback>
+        )}
       </Avatar>
       <h2 className="text-2xl font-bold text-center">
         {currentUser.firstName} {currentUser.lastName}

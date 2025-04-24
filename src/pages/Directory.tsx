@@ -38,21 +38,32 @@ const Directory: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter out admin users and incomplete profiles
+  // Filter members - making sure to exclude admin users
   const filteredMembers = users.filter(member => {
-    // Skip profiles without proper first/last name or admin users
-    if (!member.firstName || !member.lastName || member.isAdmin) {
+    // First, explicitly filter out admin users
+    if (member.isAdmin) {
       return false;
     }
     
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      member.firstName.toLowerCase().includes(searchLower) ||
-      member.lastName.toLowerCase().includes(searchLower) ||
-      member.businessName.toLowerCase().includes(searchLower) ||
-      member.industry.toLowerCase().includes(searchLower) ||
-      member.tags.some(tag => tag.toLowerCase().includes(searchLower))
-    );
+    // Then filter out incomplete profiles
+    if (!member.firstName || !member.lastName) {
+      return false;
+    }
+    
+    // Finally, apply search filter if there's a search term
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        member.firstName.toLowerCase().includes(searchLower) ||
+        member.lastName.toLowerCase().includes(searchLower) ||
+        member.businessName.toLowerCase().includes(searchLower) ||
+        member.industry.toLowerCase().includes(searchLower) ||
+        member.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+    
+    // Include this non-admin member with complete profile
+    return true;
   });
 
   // Count of actual members (excluding admins)
