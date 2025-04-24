@@ -1,4 +1,3 @@
-
 /**
  * Adds a cache-busting parameter to an image URL to prevent caching issues
  * @param url The original image URL
@@ -11,7 +10,7 @@ export const getCacheBustedImageUrl = (url: string | null): string | null => {
   }
   
   try {
-    // Clean up the URL if needed
+    // Clean up the URL
     let cleanUrl = url.trim();
     
     // Skip if the URL already has our timestamp parameter
@@ -89,13 +88,11 @@ export const isValidImageUrl = (url: string | null): boolean => {
 export const validateImageUrl = async (url: string | null): Promise<boolean> => {
   if (!url) return false;
   
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => {
-      console.error('Image failed to load:', url);
-      resolve(false);
-    };
-    img.src = url;
-  });
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch (error) {
+    console.error('Error validating image URL:', error);
+    return false;
+  }
 };

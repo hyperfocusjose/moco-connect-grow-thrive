@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -23,7 +22,7 @@ export const MemberCard: React.FC<MemberCardProps> = ({
 }) => {
   const [imageValid, setImageValid] = useState<boolean | null>(null);
   const cachedImageUrl = member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : null;
-  
+
   // Handle edit button click without propagating to card click
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,18 +37,24 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         return;
       }
       
-      const isValid = await validateImageUrl(cachedImageUrl);
-      setImageValid(isValid);
-      
-      if (!isValid) {
-        console.error(`Invalid image for ${member.firstName} ${member.lastName}:`, cachedImageUrl);
+      try {
+        const response = await fetch(cachedImageUrl, { method: 'HEAD' });
+        const isValid = response.ok;
+        setImageValid(isValid);
+        
+        if (!isValid) {
+          console.error(`Invalid image for ${member.firstName} ${member.lastName}:`, cachedImageUrl);
+        }
+      } catch (error) {
+        console.error('Error validating image:', error);
+        setImageValid(false);
       }
     };
     
     validateImage();
   }, [cachedImageUrl, member.firstName, member.lastName]);
 
-  // Debug log the profile picture URL
+  // Debug log for profile picture
   useEffect(() => {
     console.log(`MemberCard rendering for ${member.firstName} ${member.lastName}:`, {
       originalUrl: member.profilePicture,
@@ -86,7 +91,6 @@ export const MemberCard: React.FC<MemberCardProps> = ({
                     processedUrl: cachedImageUrl
                   });
                   setImageValid(false);
-                  e.currentTarget.style.display = 'none';
                 }}
               />
             ) : (

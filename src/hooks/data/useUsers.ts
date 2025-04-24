@@ -18,12 +18,7 @@ export const useUsers = () => {
         return;
       }
 
-      if (!profilesData || profilesData.length === 0) {
-        console.log('No user profiles found');
-        return;
-      }
-
-      // Fetch user roles with improved logging
+      // Fetch user roles and convert IDs to strings for consistent comparison
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
@@ -32,15 +27,16 @@ export const useUsers = () => {
         console.error('Error fetching user roles:', userRolesError);
       }
 
+      // Create a Set of admin user IDs as strings for consistent comparison
       const adminUserIds = new Set(
         userRolesData
           ?.filter(role => role.role === 'admin')
-          .map(role => role.user_id) || []
+          .map(role => String(role.user_id))
       );
 
       console.log('Admin user IDs:', Array.from(adminUserIds));
 
-      // Fetch member tags separately
+      // Fetch member tags
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
         .select('*');
@@ -49,6 +45,7 @@ export const useUsers = () => {
         console.error('Error fetching member tags:', memberTagsError);
       }
 
+      // Create tags map
       const memberTagsMap = new Map();
       memberTagsData?.forEach((tagObj) => {
         if (!memberTagsMap.has(tagObj.member_id)) {
@@ -57,32 +54,32 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform profiles and filter out admin users for directory view
+      // Transform profiles and ensure consistent ID comparison when filtering admins
       const transformedUsers: User[] = profilesData
-        .filter(profile => !adminUserIds.has(profile.id))  // Filter out admin users
-        .map(profile => {
-          console.log(`Processing user ${profile.first_name} (${profile.id}): isAdmin=${adminUserIds.has(profile.id)}`);
-          
-          return {
-            id: profile.id,
-            firstName: profile.first_name || '',
-            lastName: profile.last_name || '',
-            email: profile.email || '',
-            phoneNumber: profile.phone_number || '',
-            businessName: profile.business_name || '',
-            industry: profile.industry || '',
-            bio: profile.bio || '',
-            tags: memberTagsMap.get(profile.id) || [],
-            profilePicture: profile.profile_picture || '',
-            isAdmin: adminUserIds.has(profile.id),
-            website: profile.website || '',
-            linkedin: profile.linkedin || '',
-            facebook: profile.facebook || '',
-            tiktok: profile.tiktok || '',
-            instagram: profile.instagram || '',
-            createdAt: new Date(profile.created_at),
-          };
-        });
+        .filter(profile => {
+          const isAdmin = adminUserIds.has(String(profile.id));
+          console.log(`Filtering user ${profile.first_name} (${profile.id}): isAdmin=${isAdmin}`);
+          return !isAdmin; // Filter out admin users
+        })
+        .map(profile => ({
+          id: profile.id,
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          email: profile.email || '',
+          phoneNumber: profile.phone_number || '',
+          businessName: profile.business_name || '',
+          industry: profile.industry || '',
+          bio: profile.bio || '',
+          tags: memberTagsMap.get(profile.id) || [],
+          profilePicture: profile.profile_picture || '',
+          isAdmin: false, // We know these aren't admins because we filtered them out
+          website: profile.website || '',
+          linkedin: profile.linkedin || '',
+          facebook: profile.facebook || '',
+          tiktok: profile.tiktok || '',
+          instagram: profile.instagram || '',
+          createdAt: new Date(profile.created_at),
+        }));
       
       console.log('Transformed users:', transformedUsers);
       setUsers(transformedUsers);
