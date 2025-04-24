@@ -37,7 +37,8 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         .from('profiles')
         .upload(filePath, blob, {
           contentType: 'image/png',
-          cacheControl: '3600'
+          cacheControl: '3600',
+          upsert: true
         });
         
       if (uploadError) {
@@ -54,8 +55,12 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       
       console.log("Generated public URL:", publicUrl);
       
+      // Ensure the URL is fully qualified
+      const fullUrl = publicUrl.startsWith('http') ? publicUrl : `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
+      console.log("Full URL being passed to parent:", fullUrl);
+      
       // Pass the URL back to parent component
-      onImageUploaded(publicUrl);
+      onImageUploaded(fullUrl);
       
       toast.success('Profile photo updated successfully');
     } catch (error) {
