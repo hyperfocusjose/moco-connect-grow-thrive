@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
@@ -38,6 +39,7 @@ const Directory: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Always exclude admin users completely
   const nonAdminUsers = users.filter(user => !user.isAdmin);
 
   const filteredMembers = nonAdminUsers.filter(member => {
@@ -55,6 +57,7 @@ const Directory: React.FC = () => {
     );
   });
 
+  // Count only non-admin users
   const totalMembers = nonAdminUsers.filter(user => user.firstName && user.lastName).length;
 
   const filteredVisitors = visitors ? visitors.filter(visitor => {
