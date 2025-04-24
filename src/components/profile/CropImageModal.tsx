@@ -25,120 +25,131 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState<string | null>(null);
 
+  // Create and initialize the canvas when the modal is opened
   useEffect(() => {
-    if (!canvasRef.current || !isOpen || !imageUrl) return;
+    if (!canvasRef.current || !isOpen) return;
     
     setLoading(true);
     setImageError(null);
     
-    // Create a new fabric canvas
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: 400,
-      height: 400,
-      backgroundColor: '#f0f0f0',
-      selection: false // Disable group selection
-    });
+    try {
+      // Create a new fabric canvas
+      const canvas = new FabricCanvas(canvasRef.current, {
+        width: 400,
+        height: 400,
+        backgroundColor: '#f0f0f0',
+        selection: false // Disable group selection
+      });
 
-    setFabricCanvas(canvas);
-
-    // Create a native Image element first to handle CORS issues
-    const imgEl = new Image();
-    imgEl.crossOrigin = 'anonymous';
-    imgEl.onload = () => {
-      // Once the image is loaded, create a fabric image
-      const img = new FabricImage(imgEl);
+      setFabricCanvas(canvas);
+      console.log("Canvas initialized", canvas);
       
-      // Scale image to fit canvas while maintaining aspect ratio
-      const scale = Math.min(
-        380 / img.width!,
-        380 / img.height!
+      // Load the image directly using fabric's built-in loader
+      FabricImage.fromURL(imageUrl, 
+        (img) => {
+          console.log("Image loaded successfully", img);
+          
+          // Scale image to fit canvas while maintaining aspect ratio
+          const scale = Math.min(
+            380 / img.width!,
+            380 / img.height!
+          );
+          
+          img.scale(scale);
+          img.set({
+            left: (400 - img.width! * scale) / 2,
+            top: (400 - img.height! * scale) / 2,
+            selectable: false,  // Prevent the image from being moved
+            originX: 'left',
+            originY: 'top'
+          });
+
+          canvas.add(img);
+          setOriginalImage(img);
+          canvas.renderAll();
+
+          // Create circle crop mask with clear visual indication
+          const radius = 150;
+          const circle = new FabricCircle({
+            left: (400 - radius * 2) / 2,
+            top: (400 - radius * 2) / 2,
+            radius: radius,
+            fill: 'transparent',
+            stroke: '#ffffff',
+            strokeWidth: 3,
+            strokeDashArray: [5, 5],
+            selectable: true,
+            hasControls: false,  // No resize controls
+            hasBorders: false,
+            hoverCursor: 'move',
+            borderColor: 'white',
+            cornerColor: 'white',
+            transparentCorners: false
+          });
+          
+          canvas.add(circle);
+          canvas.bringToFront(circle);
+          setCropCircle(circle);
+          
+          // Make the circle the active object
+          canvas.setActiveObject(circle);
+          setLoading(false);
+          canvas.renderAll();
+        },
+        { 
+          crossOrigin: 'anonymous',
+          // Handle loading errors at the fabric.js level
+          onerror: () => {
+            console.error("Failed to load the image in fabric:", imageUrl);
+            setImageError("Failed to load the image. The image might be inaccessible or the URL is invalid.");
+            setLoading(false);
+          }
+        }
       );
-      
-      img.scale(scale);
-      img.set({
-        left: (400 - img.width! * scale) / 2,
-        top: (400 - img.height! * scale) / 2,
-        selectable: false,  // Prevent the image from being moved
-        originX: 'left',
-        originY: 'top'
-      });
-
-      canvas.add(img);
-      setOriginalImage(img);
-
-      // Create circle crop mask with clear visual indication
-      const radius = 150;
-      const circle = new FabricCircle({
-        left: (400 - radius * 2) / 2,
-        top: (400 - radius * 2) / 2,
-        radius: radius,
-        fill: 'transparent',
-        stroke: '#ffffff',
-        strokeWidth: 3,
-        strokeDashArray: [5, 5],
-        selectable: true,
-        hasControls: false,  // No resize controls
-        hasBorders: false,
-        hoverCursor: 'move',
-        borderColor: 'white',
-        cornerColor: 'white',
-        transparentCorners: false
-      });
-      
-      canvas.add(circle);
-      canvas.bringToFront(circle);
-      setCropCircle(circle);
-      
-      // Make the circle the active object
-      canvas.setActiveObject(circle);
-      
+    } catch (error) {
+      console.error("Error initializing canvas or loading image:", error);
+      setImageError("An error occurred while setting up the image editor.");
       setLoading(false);
-      canvas.renderAll();
-    };
-
-    imgEl.onerror = () => {
-      console.error("Failed to load the image:", imageUrl);
-      setImageError("Failed to load the image. The image might be inaccessible or the URL is invalid.");
-      setLoading(false);
-    };
-
-    // Set the source last
-    imgEl.src = imageUrl;
+    }
 
     return () => {
-      canvas.dispose();
+      if (fabricCanvas) {
+        fabricCanvas.dispose();
+      }
     };
   }, [imageUrl, isOpen]);
 
   const handleCrop = () => {
     if (!fabricCanvas || !originalImage || !cropCircle) return;
 
-    // Get the coordinates from the crop circle
-    const circle = cropCircle;
-    const circleLeft = circle.left || 0;
-    const circleTop = circle.top || 0;
-    const radius = circle.radius || 150;
-    
-    // Create a temporary canvas for cropping
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = radius * 2;
-    tempCanvas.height = radius * 2;
-    const ctx = tempCanvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    // Draw the circle clip path
-    ctx.beginPath();
-    ctx.arc(radius, radius, radius, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-    
-    // Create a new image element for drawing
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    // Wait for the image to load before drawing
-    img.onload = () => {
+    try {
+      // Get the coordinates from the crop circle
+      const circle = cropCircle;
+      const circleLeft = circle.left || 0;
+      const circleTop = circle.top || 0;
+      const radius = circle.radius || 150;
+      
+      // Create a temporary canvas for cropping
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = radius * 2;
+      tempCanvas.height = radius * 2;
+      const ctx = tempCanvas.getContext('2d');
+      
+      if (!ctx) {
+        console.error("Could not get 2D context for temporary canvas");
+        return;
+      }
+      
+      // Draw the circle clip path
+      ctx.beginPath();
+      ctx.arc(radius, radius, radius, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      
+      // Use Fabric's toCanvasElement to get the rendered image 
+      // This avoids CORS issues by using the already loaded Fabric image
+      const imgCanvas = originalImage.toCanvasElement();
+      
       // Calculate the source coordinates in the original image
       const imgLeft = originalImage.left || 0;
       const imgTop = originalImage.top || 0;
@@ -146,7 +157,7 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       
       // Draw the image at the correct position
       ctx.drawImage(
-        img,
+        imgCanvas,
         (circleLeft - imgLeft) / imgScale,
         (circleTop - imgTop) / imgScale,
         (radius * 2) / imgScale,
@@ -162,14 +173,9 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       
       onCropComplete(croppedDataUrl);
       onClose();
-    };
-    
-    img.onerror = () => {
-      console.error("Failed to load image for cropping");
-    };
-
-    // Set the source last
-    img.src = imageUrl;
+    } catch (error) {
+      console.error("Error during image cropping:", error);
+    }
   };
 
   return (
