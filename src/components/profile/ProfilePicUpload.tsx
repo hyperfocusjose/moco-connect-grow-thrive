@@ -1,139 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Camera } from 'lucide-react';
+import React, { useState } from 'react';
 import { ProfilePicUploadProps } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import { CropImageModal } from './CropImageModal';
+import { UploadButton } from './UploadButton';
+import { useStorageBucket } from '@/hooks/useStorageBucket';
+import { uploadProfileImage } from '@/utils/imageUpload';
 
 export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploaded }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
-  const [bucketReady, setBucketReady] = useState(false);
-  const [checkingBucket, setCheckingBucket] = useState(true);
-
-  // Check if the user can access the storage bucket
-  useEffect(() => {
-    const checkBucketAccess = async () => {
-      try {
-        console.log("Checking if profiles storage bucket exists and is accessible...");
-        setCheckingBucket(true);
-        
-        // Try to list files in the bucket to see if it exists and user has access
-        const { data, error } = await supabase.storage
-          .from('profiles')
-          .list('', { limit: 1 });
-        
-        if (error) {
-          console.error("Error accessing profiles bucket:", error.message);
-          setBucketReady(false);
-          if (error.message.includes("The resource was not found")) {
-            toast.error("Storage bucket for profile images not found");
-          } else {
-            toast.error("Cannot access profile storage");
-          }
-        } else {
-          console.log("Successfully accessed profiles bucket with data:", data);
-          setBucketReady(true);
-        }
-      } catch (error) {
-        console.error("Unexpected error checking bucket access:", error);
-        setBucketReady(false);
-        toast.error("Failed to access profile image storage");
-      } finally {
-        setCheckingBucket(false);
-      }
-    };
-    
-    checkBucketAccess();
-  }, []);
-
-  const uploadImage = async (imageData: string) => {
-    setIsUploading(true);
-    try {
-      if (!bucketReady) {
-        console.error("Cannot upload: storage bucket not accessible");
-        toast.error("Image storage not accessible, please contact an administrator");
-        return;
-      }
-
-      console.log("Starting upload process with image data");
-      
-      // Convert base64 to blob
-      const response = await fetch(imageData);
-      
-      if (!response.ok) {
-        throw new Error("Failed to process image data");
-      }
-      
-      const blob = await response.blob();
-      console.log("Converted to blob:", blob.size, "bytes,", blob.type);
-      
-      const fileExt = 'png';
-      const filePath = `${uuidv4()}.${fileExt}`;
-      console.log("Will upload to path:", filePath);
-      
-      // Upload file to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('profiles')
-        .upload(filePath, blob, {
-          contentType: 'image/png',
-          cacheControl: '3600',
-          upsert: true
-        });
-        
-      if (uploadError) {
-        console.error("Supabase upload error:", uploadError);
-        throw uploadError;
-      }
-      
-      console.log("Upload successful:", data);
-      
-      // Get public URL for the uploaded file
-      const { data: { publicUrl } } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(filePath);
-      
-      console.log("Generated public URL:", publicUrl);
-      
-      // Now update the user profile in the database to include this image URL
-      const { data: authData } = await supabase.auth.getSession();
-      if (authData.session?.user.id) {
-        // Use a forced CDN URL
-        const cdnUrl = `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
-        console.log("Using CDN URL for profile update:", cdnUrl);
-        
-        const { error: updateError } = await supabase
-          .from('profiles')
-          .update({ profile_picture: cdnUrl })
-          .eq('id', authData.session.user.id);
-          
-        if (updateError) {
-          console.error("Error updating profile with new image URL:", updateError);
-          toast.error("Failed to update profile with new image");
-        } else {
-          console.log("Profile updated successfully with new image URL");
-        }
-        
-        // Pass the URL back to parent component
-        onImageUploaded(cdnUrl);
-        toast.success('Profile photo updated successfully');
-      } else {
-        console.error("No user session found");
-        toast.error("You need to be logged in to update your profile");
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload profile photo');
-    } finally {
-      setIsUploading(false);
-      setSelectedImage(null);
-      setShowCropModal(false);
-    }
-  };
+  
+  const { bucketReady, checkingBucket } = useStorageBucket('profiles');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,19 +20,16 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
 
     console.log("File selected:", file.name, file.type, file.size, "bytes");
     
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please select a valid image file');
       return;
     }
     
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image size should be less than 5MB');
       return;
     }
 
-    // Create a new FileReader and read the file
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target && typeof event.target.result === 'string') {
@@ -162,7 +38,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         setShowCropModal(true);
       } else {
         console.error("Failed to read file as DataURL");
-        toast.error("Failed to read selected image");
+        toast.error("Failed to read selected file");
       }
     };
     
@@ -174,35 +50,29 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
     reader.readAsDataURL(file);
   };
 
-  const handleCropComplete = (croppedImageUrl: string) => {
+  const handleCropComplete = async (croppedImageUrl: string) => {
     console.log("Crop completed, starting upload");
-    uploadImage(croppedImageUrl);
+    setIsUploading(true);
+    try {
+      const imageUrl = await uploadProfileImage(croppedImageUrl);
+      onImageUploaded(imageUrl);
+      toast.success('Profile photo updated successfully');
+    } catch (error) {
+      toast.error('Failed to upload profile photo');
+    } finally {
+      setIsUploading(false);
+      setSelectedImage(null);
+      setShowCropModal(false);
+    }
   };
 
   return (
     <div className="text-center">
-      <Button 
-        variant="outline" 
-        size="sm"
-        className="relative"
+      <UploadButton 
+        isUploading={isUploading}
         disabled={isUploading || checkingBucket || !bucketReady}
-      >
-        {isUploading ? (
-          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-gray-500" />
-        ) : (
-          <>
-            <Camera className="h-4 w-4 mr-2" />
-            Change Photo
-          </>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          onChange={handleFileChange}
-          disabled={isUploading || checkingBucket || !bucketReady}
-        />
-      </Button>
+        onFileChange={handleFileChange}
+      />
 
       {checkingBucket && (
         <div className="text-xs text-gray-600 mt-1">
