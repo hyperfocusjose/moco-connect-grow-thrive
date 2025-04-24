@@ -13,31 +13,41 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
   const [bucketReady, setBucketReady] = useState(false);
+  const [checkingBucket, setCheckingBucket] = useState(true);
 
-  // Check if the user can upload to the existing profiles bucket
+  // Check if the user can access the storage bucket
   useEffect(() => {
     const checkBucketAccess = async () => {
       try {
-        // Check if the bucket exists by attempting to list objects (this will work even with limited permissions)
-        const { error } = await supabase.storage
+        console.log("Checking if profiles storage bucket exists and is accessible...");
+        setCheckingBucket(true);
+        
+        // Try to list files in the bucket to see if it exists and user has access
+        const { data, error } = await supabase.storage
           .from('profiles')
           .list('', { limit: 1 });
         
         if (error) {
-          console.error("Error accessing profiles bucket:", error);
-          toast.error("Cannot access profile storage. You may need admin rights or authentication.");
-          return;
+          console.error("Error accessing profiles bucket:", error.message);
+          setBucketReady(false);
+          if (error.message.includes("The resource was not found")) {
+            toast.error("Storage bucket for profile images not found");
+          } else {
+            toast.error("Cannot access profile storage");
+          }
+        } else {
+          console.log("Successfully accessed profiles bucket with data:", data);
+          setBucketReady(true);
         }
-        
-        console.log("Successfully accessed profiles bucket");
-        setBucketReady(true);
       } catch (error) {
-        console.error("Error checking bucket access:", error);
+        console.error("Unexpected error checking bucket access:", error);
+        setBucketReady(false);
         toast.error("Failed to access profile image storage");
+      } finally {
+        setCheckingBucket(false);
       }
     };
     
-    // Attempt to access the bucket
     checkBucketAccess();
   }, []);
 
@@ -93,12 +103,11 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       const { data: authData } = await supabase.auth.getSession();
       if (authData.session?.user.id) {
         // Ensure URL has the correct domain and is accessible
-        const absoluteUrl = publicUrl;
-        console.log("Using URL for profile update:", absoluteUrl);
+        console.log("Using URL for profile update:", publicUrl);
         
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({ profile_picture: absoluteUrl })
+          .update({ profile_picture: publicUrl })
           .eq('id', authData.session.user.id);
           
         if (updateError) {
@@ -109,7 +118,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         }
         
         // Pass the URL back to parent component
-        onImageUploaded(absoluteUrl);
+        onImageUploaded(publicUrl);
         toast.success('Profile photo updated successfully');
       } else {
         console.error("No user session found");
@@ -170,7 +179,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         variant="outline" 
         size="sm"
         className="relative"
-        disabled={isUploading || !bucketReady}
+        disabled={isUploading || checkingBucket || !bucketReady}
       >
         {isUploading ? (
           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-gray-500" />
@@ -185,13 +194,19 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
           accept="image/*"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           onChange={handleFileChange}
-          disabled={isUploading || !bucketReady}
+          disabled={isUploading || checkingBucket || !bucketReady}
         />
       </Button>
 
-      {!bucketReady && (
+      {checkingBucket && (
+        <div className="text-xs text-gray-600 mt-1">
+          Checking image storage...
+        </div>
+      )}
+      
+      {!checkingBucket && !bucketReady && (
         <div className="text-xs text-amber-600 mt-1">
-          Image storage not accessible
+          Storage not accessible
         </div>
       )}
 

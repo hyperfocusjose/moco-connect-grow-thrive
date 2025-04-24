@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { User } from '@/types';
@@ -14,6 +14,14 @@ interface ProfileHeaderProps {
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  
+  // Reset image states when profile picture URL changes
+  useEffect(() => {
+    if (currentUser.profilePicture) {
+      setImageError(false);
+      setImageLoaded(false);
+    }
+  }, [currentUser.profilePicture]);
   
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName[0]}${lastName[0]}`.toUpperCase();
@@ -38,7 +46,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => 
   return (
     <div className="flex flex-col items-center mb-6">
       <Avatar className="h-32 w-32 mb-4">
-        {currentUser.profilePicture ? (
+        {currentUser.profilePicture && !imageError ? (
           <AvatarImage 
             src={currentUser.profilePicture} 
             alt={`${currentUser.firstName} ${currentUser.lastName}`}
@@ -46,10 +54,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => 
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
-        ) : null}
-        <AvatarFallback className="bg-maroon text-white text-3xl">
-          {getInitials(currentUser.firstName, currentUser.lastName)}
-        </AvatarFallback>
+        ) : (
+          <AvatarFallback className="bg-maroon text-white text-3xl">
+            {getInitials(currentUser.firstName, currentUser.lastName)}
+          </AvatarFallback>
+        )}
       </Avatar>
       
       {imageError && currentUser.profilePicture && (

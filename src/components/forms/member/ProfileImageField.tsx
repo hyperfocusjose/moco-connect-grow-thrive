@@ -32,30 +32,11 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
   const handleImageUploaded = (imageUrl: string) => {
     console.log("Image uploaded in ProfileImageField:", imageUrl);
     
-    // Verify the URL format
-    if (!imageUrl.startsWith('http')) {
-      console.error("Invalid image URL format:", imageUrl);
-      toast.error("Invalid image URL format");
-      return;
-    }
-    
     // Pass it along to parent component
     onImageUploaded(imageUrl);
     
-    // Test if the image is accessible
-    const testImg = new Image();
-    testImg.crossOrigin = "anonymous";
-    testImg.onload = () => {
-      console.log("Test image loaded successfully from URL:", imageUrl);
-      setImageLoaded(true);
-      setImageError(false);
-    };
-    testImg.onerror = () => {
-      console.error("Failed to load test image from URL:", imageUrl);
-      setImageError(true);
-      setImageLoaded(false);
-    };
-    testImg.src = imageUrl;
+    // Reset error state
+    setImageError(false);
   };
 
   const getInitials = () => {
@@ -98,7 +79,7 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
         {imageError && profileImage && (
           <Alert className="mt-4 max-w-xs text-red-600 bg-red-50 border-red-200">
             <AlertDescription>
-              Unable to load image. The storage bucket may not be properly configured.
+              Unable to load image. The URL may be invalid or inaccessible.
             </AlertDescription>
           </Alert>
         )}

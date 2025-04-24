@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -12,11 +12,20 @@ import { RecentActivities } from '@/components/profile/RecentActivities';
 import { AboutSection } from '@/components/profile/AboutSection';
 import { Button } from '@/components/ui/button';
 import { Edit } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Profile = () => {
   const { currentUser } = useAuth();
   const { stats, referrals, oneToOnes, tyfcbs } = useData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser?.profilePicture) {
+      console.log("Profile page loaded with profile picture:", currentUser.profilePicture);
+    } else {
+      console.log("Profile page loaded without profile picture");
+    }
+  }, [currentUser?.profilePicture]);
 
   if (!currentUser) {
     return <div className="p-6">Loading profile...</div>;
