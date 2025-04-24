@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -6,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Mail, Globe, Linkedin, Instagram, Facebook, Edit } from 'lucide-react';
+import { getCacheBustedImageUrl, getInitials } from '@/utils/imageUtils';
 
 interface MemberCardProps {
   member: User;
@@ -20,21 +20,10 @@ export const MemberCard: React.FC<MemberCardProps> = ({
   showEditButton = false, 
   onEdit 
 }) => {
-  const getInitials = (firstName: string, lastName: string) => {
-    return `${firstName[0]}${lastName[0]}`.toUpperCase();
-  };
-  
   // Handle edit button click without propagating to card click
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onEdit) onEdit();
-  };
-
-  // Add a timestamp to the URL to prevent caching issues
-  const getImageUrl = () => {
-    if (!member.profilePicture) return null;
-    const timestamp = new Date().getTime();
-    return `${member.profilePicture}?t=${timestamp}`;
   };
 
   return (
@@ -57,7 +46,7 @@ export const MemberCard: React.FC<MemberCardProps> = ({
           <Avatar className="h-24 w-24 mb-4">
             {member.profilePicture ? (
               <AvatarImage 
-                src={getImageUrl()} 
+                src={getCacheBustedImageUrl(member.profilePicture)} 
                 alt={member.firstName}
                 onError={(e) => {
                   console.log("Card image failed to load:", member.profilePicture);
