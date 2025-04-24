@@ -9,14 +9,13 @@ export const RecentActivity: React.FC = () => {
   const { activities, getUser, fetchActivities } = useData();
   
   useEffect(() => {
-    // Fetch activities when component mounts
     fetchActivities();
   }, [fetchActivities]);
   
-  // Get the 10 most recent activities
+  // Get the 5 most recent activities
   const recentActivities = [...activities].sort((a, b) => 
     b.date.getTime() - a.date.getTime()
-  ).slice(0, 10);
+  ).slice(0, 5);
 
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {
@@ -45,7 +44,7 @@ export const RecentActivity: React.FC = () => {
     <Card>
       <CardHeader>
         <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Recent network activity across the group</CardDescription>
+        <CardDescription>Latest network activity across the group</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
