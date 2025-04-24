@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -29,9 +28,14 @@ export const MemberCard: React.FC<MemberCardProps> = ({
 
   // Debug log the profile picture URL
   useEffect(() => {
-    console.log(`MemberCard rendering for ${member.firstName} ${member.lastName}:`, 
-      member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : 'No profile picture');
+    const imageUrl = member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : null;
+    console.log(`MemberCard rendering for ${member.firstName} ${member.lastName}:`, {
+      originalUrl: member.profilePicture,
+      processedUrl: imageUrl
+    });
   }, [member]);
+
+  const imageUrl = member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : null;
 
   return (
     <Card 
@@ -51,12 +55,15 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="flex flex-col items-center">
           <Avatar className="h-24 w-24 mb-4">
-            {member.profilePicture ? (
+            {imageUrl ? (
               <AvatarImage 
-                src={getCacheBustedImageUrl(member.profilePicture)} 
+                src={imageUrl} 
                 alt={`${member.firstName} ${member.lastName}`}
                 onError={(e) => {
-                  console.error("Card image failed to load:", member.profilePicture);
+                  console.error("Profile image failed to load:", {
+                    originalUrl: member.profilePicture,
+                    processedUrl: imageUrl
+                  });
                   e.currentTarget.style.display = 'none';
                 }}
               />

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -92,6 +93,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch users from Supabase on component mount
   const fetchUsers = useCallback(async () => {
     try {
+      console.log('Fetching users...');
       // First, fetch the basic profile data
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
@@ -134,17 +136,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Transform the data to match the User type
+      // Transform and filter out admin users
       const transformedUsers: User[] = profilesData
         .filter(profile => {
-          // Filter out profiles with no first name or last name (incomplete profiles)
-          return profile.first_name && profile.last_name;
+          // Only include profiles that have names and are not admin users
+          const hasNames = profile.first_name && profile.last_name;
+          const isAdmin = userRolesMap.get(profile.id) === 'admin';
+          console.log(`User ${profile.first_name}: hasNames=${hasNames}, isAdmin=${isAdmin}`);
+          return hasNames && !isAdmin;
         })
         .map(profile => {
-          // Get tags from the map
           const tags = memberTagsMap.get(profile.id) || [];
-          
-          // Check if user has admin role
           const isAdmin = userRolesMap.get(profile.id) === 'admin';
           
           return {
@@ -168,6 +170,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         });
       
+      console.log('Transformed users:', transformedUsers);
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error in fetchUsers:', error);

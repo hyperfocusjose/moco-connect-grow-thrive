@@ -5,25 +5,31 @@
  * @returns The URL with a cache-busting timestamp parameter
  */
 export const getCacheBustedImageUrl = (url: string | null): string | null => {
-  if (!url) return null;
-  
-  // Skip if the URL already has our timestamp parameter
-  if (url.includes('t=') && /t=[0-9]+/.test(url)) {
-    return url;
+  if (!url) {
+    console.debug('No URL provided to getCacheBustedImageUrl');
+    return null;
   }
   
   try {
     // Clean up the URL if needed
     let cleanUrl = url.trim();
     
+    // Skip if the URL already has our timestamp parameter
+    if (cleanUrl.includes('t=') && /t=[0-9]+/.test(cleanUrl)) {
+      console.debug('URL already has timestamp:', cleanUrl);
+      return cleanUrl;
+    }
+    
     // Add a timestamp parameter to prevent caching issues
     const timestamp = new Date().getTime();
     // Check if the URL already has query parameters
     const separator = cleanUrl.includes('?') ? '&' : '?';
     
-    // Log the generated URL for debugging
     const result = `${cleanUrl}${separator}t=${timestamp}`;
-    console.debug('Cache-busted image URL:', result);
+    console.debug('Generated cache-busted URL:', {
+      original: cleanUrl,
+      modified: result
+    });
     return result;
   } catch (error) {
     console.error('Error in getCacheBustedImageUrl:', error);
