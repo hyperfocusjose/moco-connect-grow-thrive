@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   firstName: string;
@@ -124,4 +123,50 @@ export interface Activity {
 
 export interface ProfilePicUploadProps {
   onImageUploaded: (imageUrl: string) => void;
+}
+
+export interface DataContextType {
+  users: User[];
+  events: Event[];
+  visitors: Visitor[];
+  activities: Activity[];
+  referrals: Referral[];
+  oneToOnes: OneToOne[];
+  tyfcbs: TYFCB[];
+  polls: Poll[];
+  stats: any; // Consider creating a more specific type for stats if possible
+
+  // User-related methods
+  getUser: (id: string) => User | undefined;
+  addUser: (user: Partial<User>) => Promise<void>;
+  updateUser: (id: string, userData: Partial<User>) => Promise<void>;
+  fetchUsers: () => Promise<void>;
+
+  // Event-related methods
+  createEvent: (event: Partial<Event>) => Promise<void>;
+  updateEvent: (id: string, eventData: Partial<Event>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
+
+  // Visitor-related methods
+  addVisitor: (visitor: Partial<Visitor>) => Promise<void>;
+  updateVisitor: (id: string, visitorData: Partial<Visitor>) => Promise<void>;
+  markVisitorNoShow: (visitorId: string) => Promise<void>;
+
+  // Activity-related methods
+  addReferral: (referral: Partial<Referral>) => Promise<void>;
+  addOneToOne: (oneToOne: Partial<OneToOne>) => Promise<void>;
+  addTYFCB: (tyfcb: Partial<TYFCB>) => Promise<void>;
+  fetchActivities: () => Promise<void>;
+
+  // Metrics-related methods
+  getUserMetrics: (userId: string) => any; // Consider creating a more specific return type
+  getTopPerformers: () => any; // Consider creating a more specific return type
+  getActivityForAllMembers: () => any; // Consider creating a more specific return type
+
+  // Poll-related methods
+  createPoll: (poll: Partial<Poll>) => Promise<void>;
+  updatePoll: (id: string, pollData: Partial<Poll>) => Promise<void>;
+  deletePoll: (id: string) => Promise<void>;
+  votePoll: (pollId: string, optionId: string) => Promise<void>;
+  hasVoted: (pollId: string, userId: string) => boolean;
 }
