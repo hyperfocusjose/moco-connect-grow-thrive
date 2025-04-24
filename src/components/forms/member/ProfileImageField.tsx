@@ -27,13 +27,14 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
             const filePath = decodeURIComponent(filePathMatch[1]);
             
             // Check if file exists in bucket
-            const { data, error } = await supabase.storage
+            // Note: getPublicUrl doesn't actually check if the file exists,
+            // it just returns a URL. There's no 'error' property in its response.
+            const { data } = await supabase.storage
               .from('profiles')
               .getPublicUrl(filePath);
               
-            if (error) {
-              console.error('Error verifying profile image:', error);
-            }
+            // If we needed to check file existence, we'd need to use a different method
+            console.log('Generated public URL:', data.publicUrl);
           }
         } catch (error) {
           console.error('Error parsing profile image URL:', error);
