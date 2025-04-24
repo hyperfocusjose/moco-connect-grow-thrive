@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ProfilePicUpload } from '@/components/profile/ProfilePicUpload';
 import { User } from '@/types';
-import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProfileImageFieldProps {

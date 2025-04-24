@@ -102,12 +102,13 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       // Now update the user profile in the database to include this image URL
       const { data: authData } = await supabase.auth.getSession();
       if (authData.session?.user.id) {
-        // Ensure URL has the correct domain and is accessible
-        console.log("Using URL for profile update:", publicUrl);
+        // Use a forced CDN URL
+        const cdnUrl = `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
+        console.log("Using CDN URL for profile update:", cdnUrl);
         
         const { error: updateError } = await supabase
           .from('profiles')
-          .update({ profile_picture: publicUrl })
+          .update({ profile_picture: cdnUrl })
           .eq('id', authData.session.user.id);
           
         if (updateError) {
@@ -118,7 +119,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         }
         
         // Pass the URL back to parent component
-        onImageUploaded(publicUrl);
+        onImageUploaded(cdnUrl);
         toast.success('Profile photo updated successfully');
       } else {
         console.error("No user session found");
@@ -152,12 +153,17 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       return;
     }
 
+    // Create a new FileReader and read the file
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      console.log("File read complete, data length:", result.length);
-      setSelectedImage(result);
-      setShowCropModal(true);
+    reader.onload = (event) => {
+      if (event.target && typeof event.target.result === 'string') {
+        console.log("File read complete, opening crop modal");
+        setSelectedImage(event.target.result);
+        setShowCropModal(true);
+      } else {
+        console.error("Failed to read file as DataURL");
+        toast.error("Failed to read selected image");
+      }
     };
     
     reader.onerror = () => {

@@ -46,30 +46,32 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
 
       setFabricCanvas(canvas);
       
-      // First create a regular HTML image element to test loading
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        console.log("Image pre-loaded successfully, dimensions:", img.width, "x", img.height);
-        
-        // Create a fabric image directly from the HTML image
-        const fabricImg = new FabricImage(img);
+      // Load the image directly using fabric
+      FabricImage.fromURL(imageUrl, (fabricImg) => {
+        console.log("Image loaded via Fabric.js");
         
         // Scale image to fit canvas while maintaining aspect ratio
+        const imgWidth = fabricImg.width || 0;
+        const imgHeight = fabricImg.height || 0;
+        
+        if (imgWidth === 0 || imgHeight === 0) {
+          setImageError("Invalid image dimensions");
+          setLoading(false);
+          return;
+        }
+        
         const scale = Math.min(
-          380 / img.width,
-          380 / img.height
+          380 / imgWidth,
+          380 / imgHeight
         );
         
         fabricImg.scale(scale);
         fabricImg.set({
-          left: (400 - img.width * scale) / 2,
-          top: (400 - img.height * scale) / 2,
+          left: (400 - imgWidth * scale) / 2,
+          top: (400 - imgHeight * scale) / 2,
           selectable: false,  // Prevent the image from being moved
           originX: 'left',
           originY: 'top',
-          crossOrigin: 'anonymous'
         });
 
         canvas.add(fabricImg);
@@ -101,20 +103,13 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
         
         setLoading(false);
         canvas.renderAll();
-      };
-      
-      img.onerror = (error) => {
-        console.error("Failed to pre-load the image:", error);
-        setImageError("Failed to load the image. The URL might be invalid or the image might be inaccessible due to CORS restrictions.");
-        setLoading(false);
-        toast.error("Failed to load image for cropping");
-      };
-      
-      img.src = imageUrl;
+      }, undefined, {
+        crossOrigin: 'anonymous'
+      });
       
       return () => {
-        if (fabricCanvas) {
-          fabricCanvas.dispose();
+        if (canvas) {
+          canvas.dispose();
         }
       };
     } catch (error) {
@@ -160,13 +155,6 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       
       // Render the image to a canvas element
       const imgCanvas = fabricCanvas.toCanvasElement();
-      const imgCtx = imgCanvas.getContext('2d');
-      
-      if (!imgCtx) {
-        console.error("Could not get 2D context for image canvas");
-        toast.error("Error during image processing");
-        return;
-      }
       
       // Draw the cropped portion to the temp canvas
       ctx.drawImage(
