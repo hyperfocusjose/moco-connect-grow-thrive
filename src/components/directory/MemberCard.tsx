@@ -26,6 +26,9 @@ export const MemberCard: React.FC<MemberCardProps> = ({
     if (onEdit) onEdit();
   };
 
+  // Debug log the profile picture URL
+  console.log(`MemberCard for ${member.firstName} ${member.lastName}:`, member.profilePicture);
+
   return (
     <Card 
       className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
@@ -47,9 +50,9 @@ export const MemberCard: React.FC<MemberCardProps> = ({
             {member.profilePicture ? (
               <AvatarImage 
                 src={getCacheBustedImageUrl(member.profilePicture)} 
-                alt={member.firstName}
+                alt={`${member.firstName} ${member.lastName}`}
                 onError={(e) => {
-                  console.log("Card image failed to load:", member.profilePicture);
+                  console.error("Card image failed to load:", member.profilePicture);
                   e.currentTarget.style.display = 'none';
                 }}
               />

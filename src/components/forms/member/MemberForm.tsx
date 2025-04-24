@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -68,20 +69,26 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
   };
 
   const onSubmit = async (data: FormValues) => {
+    console.log("Submitting form with profile image:", profileImage);
     setIsSubmitting(true);
     try {
       if (isEditing && member) {
-        await updateUser(member.id, {
+        // Make sure we're not losing the profile picture when editing
+        const updatedUser = {
           ...member,
           ...data,
           tags,
-          profilePicture: profileImage || member.profilePicture,
-        });
+          profilePicture: profileImage,
+        };
+        
+        console.log("Updating user with data:", updatedUser);
+        await updateUser(member.id, updatedUser);
         
         toast("Member updated", {
           description: "Member information has been updated successfully"
         });
       } else {
+        // User creation logic, ensuring profile picture is included
         const password = generateTemporaryPassword();
         
         const { data: sessionData } = await supabase.auth.getSession();
@@ -182,6 +189,12 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
     }
   };
 
+  // Make sure we update the profile image when it changes
+  const handleImageUploaded = (url: string) => {
+    console.log("Image updated in MemberForm:", url);
+    setProfileImage(url);
+  };
+
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-6">
@@ -192,7 +205,7 @@ export const MemberForm: React.FC<MemberFormProps> = ({ member, onComplete }) =>
         <ProfileImageField 
           profileImage={profileImage} 
           member={member || null} 
-          onImageUploaded={setProfileImage} 
+          onImageUploaded={handleImageUploaded} 
         />
         
         <Form {...form}>

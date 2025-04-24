@@ -7,6 +7,11 @@
 export const getCacheBustedImageUrl = (url: string | null): string | null => {
   if (!url) return null;
   
+  // Skip if the URL already has our timestamp parameter
+  if (url.includes('t=') && /t=[0-9]+/.test(url)) {
+    return url;
+  }
+  
   // Add a timestamp parameter to prevent caching issues
   const timestamp = new Date().getTime();
   // Check if the URL already has query parameters

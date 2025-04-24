@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
@@ -35,12 +34,11 @@ const Directory: React.FC = () => {
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
+    console.log("Directory: Fetching users");
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter out admin users and incomplete profiles
   const filteredMembers = users.filter(member => {
-    // Skip profiles without proper first/last name or admins
     if (!member.firstName || !member.lastName || member.isAdmin) {
       return false;
     }
@@ -55,7 +53,6 @@ const Directory: React.FC = () => {
     );
   });
 
-  // Count of actual members (excluding admins)
   const totalMembers = users.filter(user => user.firstName && user.lastName && !user.isAdmin).length;
 
   const filteredVisitors = visitors ? visitors.filter(visitor => {
@@ -78,12 +75,11 @@ const Directory: React.FC = () => {
     );
   }) : [];
 
-  // Total visitor count
   const totalVisitors = visitors ? visitors.length : 0;
-  // Count of visitors who showed up
   const showedVisitors = visitors ? visitors.filter(v => !v.didNotShow).length : 0;
 
   const handleSelectMember = (member: User) => {
+    console.log("Selected member:", member);
     setSelectedMember(member);
     setIsDetailOpen(true);
   };
@@ -93,6 +89,7 @@ const Directory: React.FC = () => {
   };
 
   const handleEditMember = (member: User) => {
+    console.log("Editing member:", member);
     setMemberToEdit(member);
     setIsEditFormOpen(true);
   };
