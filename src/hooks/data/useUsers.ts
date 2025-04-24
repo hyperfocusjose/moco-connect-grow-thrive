@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,12 +55,13 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform profiles and ensure consistent ID comparison when filtering admins
+      // Always filter out admin users, regardless of current user's role
       const transformedUsers: User[] = profilesData
         .filter(profile => {
+          // Check if this profile is an admin user
           const isAdmin = adminUserIds.has(String(profile.id));
-          console.log(`Filtering user ${profile.first_name} (${profile.id}): isAdmin=${isAdmin}`);
-          return !isAdmin; // Filter out admin users
+          // Only include non-admin users
+          return !isAdmin;
         })
         .map(profile => ({
           id: profile.id,
@@ -144,10 +146,12 @@ export const useUsers = () => {
         }
       }
       
+      // Update local state
       setUsers(prev => 
         prev.map(user => user.id === id ? { ...user, ...updatedUserData } : user)
       );
       
+      // Refetch users to ensure data consistency
       await fetchUsers();
       
       return Promise.resolve();

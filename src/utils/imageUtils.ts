@@ -1,3 +1,4 @@
+
 /**
  * Adds a cache-busting parameter to an image URL to prevent caching issues
  * @param url The original image URL
@@ -5,7 +6,6 @@
  */
 export const getCacheBustedImageUrl = (url: string | null): string | null => {
   if (!url) {
-    console.debug('No URL provided to getCacheBustedImageUrl');
     return null;
   }
   
@@ -13,23 +13,12 @@ export const getCacheBustedImageUrl = (url: string | null): string | null => {
     // Clean up the URL
     let cleanUrl = url.trim();
     
-    // Skip if the URL already has our timestamp parameter
-    if (cleanUrl.includes('t=') && /t=[0-9]+/.test(cleanUrl)) {
-      console.debug('URL already has timestamp:', cleanUrl);
-      return cleanUrl;
-    }
-    
     // Add a timestamp parameter to prevent caching issues
     const timestamp = new Date().getTime();
     // Check if the URL already has query parameters
     const separator = cleanUrl.includes('?') ? '&' : '?';
     
-    const result = `${cleanUrl}${separator}t=${timestamp}`;
-    console.debug('Generated cache-busted URL:', {
-      original: cleanUrl,
-      modified: result
-    });
-    return result;
+    return `${cleanUrl}${separator}t=${timestamp}`;
   } catch (error) {
     console.error('Error in getCacheBustedImageUrl:', error);
     return url;
@@ -66,14 +55,9 @@ export const isValidImageUrl = (url: string | null): boolean => {
   if (!url) return false;
   
   try {
-    // Basic URL validation
-    const parsed = new URL(url);
-    
-    // Check if it's from known image hosts or has image extensions
-    const isImageExtension = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(parsed.pathname);
-    const isSupabaseStorage = parsed.hostname.includes('supabase.co') && parsed.pathname.includes('storage/v1');
-    
-    return isImageExtension || isSupabaseStorage;
+    // Basic URL validation - just checking if it's a well-formed URL
+    new URL(url);
+    return true;
   } catch (e) {
     console.error('Invalid URL in isValidImageUrl:', url);
     return false;
@@ -81,15 +65,19 @@ export const isValidImageUrl = (url: string | null): boolean => {
 };
 
 /**
- * Validates that a URL is accessible and returns a valid image
+ * Lightweight function to check if an image URL exists and is accessible
  * @param url The image URL to validate
- * @returns Promise that resolves to boolean indicating if the URL returns a valid image
+ * @returns Promise that resolves to boolean indicating if the URL is accessible
  */
 export const validateImageUrl = async (url: string | null): Promise<boolean> => {
   if (!url) return false;
   
   try {
-    const response = await fetch(url, { method: 'HEAD' });
+    const response = await fetch(url, { 
+      method: 'HEAD',
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
     return response.ok;
   } catch (error) {
     console.error('Error validating image URL:', error);
