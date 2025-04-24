@@ -4,6 +4,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { User } from '@/types';
 import { toast } from 'sonner';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 interface ProfileHeaderProps {
   currentUser: User;
@@ -50,11 +52,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => 
         </AvatarFallback>
       </Avatar>
       
-      {currentUser.profilePicture && imageError && (
-        <div className="mt-2 text-xs text-red-500 text-center">
-          <p>Failed to load image</p>
-          <p className="text-gray-500 break-all">{currentUser.profilePicture}</p>
-        </div>
+      {imageError && currentUser.profilePicture && (
+        <Alert variant="destructive" className="mt-2 mb-4 max-w-md">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Image Error</AlertTitle>
+          <AlertDescription className="text-sm">
+            Failed to load profile image. The URL may be invalid or inaccessible.
+          </AlertDescription>
+        </Alert>
       )}
       
       <h2 className="text-2xl font-bold text-center">

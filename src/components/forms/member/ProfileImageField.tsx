@@ -4,6 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ProfilePicUpload } from '@/components/profile/ProfilePicUpload';
 import { User } from '@/types';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProfileImageFieldProps {
   profileImage: string | null;
@@ -53,7 +54,6 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
       console.error("Failed to load test image from URL:", imageUrl);
       setImageError(true);
       setImageLoaded(false);
-      toast.error("Image URL appears to be inaccessible");
     };
     testImg.src = imageUrl;
   };
@@ -95,19 +95,12 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
         </Avatar>
         <ProfilePicUpload onImageUploaded={handleImageUploaded} />
         
-        {profileImage && (
-          <div className="mt-2 text-xs text-gray-500 max-w-xs break-words">
-            <div className={imageLoaded ? "text-green-600" : "text-red-600"}>
-              Status: {imageLoaded ? "Loaded ✓" : imageError ? "Error loading image ✗" : "Loading..."}
-            </div>
-            URL: {profileImage.substring(0, 30)}{profileImage.length > 30 ? "..." : ""}
-          </div>
-        )}
-        
         {imageError && profileImage && (
-          <div className="mt-1 text-xs text-red-500">
-            Tip: Check if the URL is accessible and CORS settings are correct
-          </div>
+          <Alert className="mt-4 max-w-xs text-red-600 bg-red-50 border-red-200">
+            <AlertDescription>
+              Unable to load image. The storage bucket may not be properly configured.
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     </div>

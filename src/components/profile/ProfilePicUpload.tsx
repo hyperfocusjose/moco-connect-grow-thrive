@@ -14,52 +14,39 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
   const [showCropModal, setShowCropModal] = useState(false);
   const [bucketReady, setBucketReady] = useState(false);
 
-  // Check if profiles bucket exists and create it if needed
+  // Check if the user can upload to the existing profiles bucket
   useEffect(() => {
-    const checkAndCreateBucket = async () => {
+    const checkBucketAccess = async () => {
       try {
-        // Check if the bucket exists
-        const { data: buckets, error } = await supabase.storage.listBuckets();
+        // Check if the bucket exists by attempting to list objects (this will work even with limited permissions)
+        const { error } = await supabase.storage
+          .from('profiles')
+          .list('', { limit: 1 });
         
         if (error) {
-          console.error("Error listing buckets:", error);
+          console.error("Error accessing profiles bucket:", error);
+          toast.error("Cannot access profile storage. You may need admin rights or authentication.");
           return;
         }
         
-        const profilesBucketExists = buckets?.some(b => b.name === 'profiles');
-        
-        if (!profilesBucketExists) {
-          console.log("Creating profiles bucket since it doesn't exist");
-          const { error: bucketError } = await supabase.storage.createBucket('profiles', {
-            public: true
-          });
-          
-          if (bucketError) {
-            console.error("Error creating profiles bucket:", bucketError);
-            toast.error("Failed to create storage for profile images");
-            return;
-          }
-          
-          console.log("Successfully created profiles bucket");
-        } else {
-          console.log("Profiles bucket already exists");
-        }
-        
+        console.log("Successfully accessed profiles bucket");
         setBucketReady(true);
       } catch (error) {
-        console.error("Error checking/creating bucket:", error);
+        console.error("Error checking bucket access:", error);
+        toast.error("Failed to access profile image storage");
       }
     };
     
-    checkAndCreateBucket();
+    // Attempt to access the bucket
+    checkBucketAccess();
   }, []);
 
   const uploadImage = async (imageData: string) => {
     setIsUploading(true);
     try {
       if (!bucketReady) {
-        console.error("Cannot upload: storage bucket not ready");
-        toast.error("Image storage not ready, please try again");
+        console.error("Cannot upload: storage bucket not accessible");
+        toast.error("Image storage not accessible, please contact an administrator");
         return;
       }
 
@@ -204,7 +191,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
 
       {!bucketReady && (
         <div className="text-xs text-amber-600 mt-1">
-          Setting up image storage...
+          Image storage not accessible
         </div>
       )}
 
