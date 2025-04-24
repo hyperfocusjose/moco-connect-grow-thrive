@@ -16,26 +16,43 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
   const uploadImage = async (imageData: string) => {
     setIsUploading(true);
     try {
+      console.log("Starting upload process with image data");
+      
       // Convert base64 to blob
       const response = await fetch(imageData);
+      
+      if (!response.ok) {
+        throw new Error("Failed to process image data");
+      }
+      
       const blob = await response.blob();
+      console.log("Converted to blob:", blob.size, "bytes,", blob.type);
       
       const fileExt = 'png';
       const filePath = `${uuidv4()}.${fileExt}`;
+      console.log("Will upload to path:", filePath);
       
       // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data } = await supabase.storage
         .from('profiles')
-        .upload(filePath, blob);
+        .upload(filePath, blob, {
+          contentType: 'image/png',
+          cacheControl: '3600'
+        });
         
       if (uploadError) {
+        console.error("Supabase upload error:", uploadError);
         throw uploadError;
       }
+      
+      console.log("Upload successful:", data);
       
       // Get public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage
         .from('profiles')
         .getPublicUrl(filePath);
+      
+      console.log("Generated public URL:", publicUrl);
       
       // Pass the URL back to parent component
       onImageUploaded(publicUrl);
@@ -55,15 +72,38 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
     const file = e.target.files?.[0];
     if (!file) return;
 
+    console.log("File selected:", file.name, file.type, file.size, "bytes");
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
-      setSelectedImage(reader.result as string);
+      const result = reader.result as string;
+      console.log("File read complete, data length:", result.length);
+      setSelectedImage(result);
       setShowCropModal(true);
     };
+    
+    reader.onerror = () => {
+      console.error("FileReader error:", reader.error);
+      toast.error('Error reading the selected file');
+    };
+    
     reader.readAsDataURL(file);
   };
 
   const handleCropComplete = (croppedImageUrl: string) => {
+    console.log("Crop completed, starting upload");
     uploadImage(croppedImageUrl);
   };
 
