@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
@@ -33,10 +34,25 @@ const Directory: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const nonAdminUsers = users.filter(user => !user.isAdmin);
+  // Log user data to debug admin visibility
+  useEffect(() => {
+    console.log("Current user:", currentUser);
+    console.log("All users:", users);
+    console.log("Admin status:", isAdmin);
+  }, [currentUser, users, isAdmin]);
+
+  // Filter out admin users, but log why users are being filtered
+  const nonAdminUsers = users.filter(user => {
+    if (user.isAdmin) {
+      console.log(`Filtering out admin user: ${user.firstName} ${user.lastName}`);
+      return false;
+    }
+    return true;
+  });
 
   const filteredMembers = nonAdminUsers.filter(member => {
     if (!member.firstName || !member.lastName) {
+      console.log(`Filtering out user with missing name: ID ${member.id}`);
       return false;
     }
     

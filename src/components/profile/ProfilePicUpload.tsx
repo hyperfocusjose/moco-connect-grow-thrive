@@ -14,6 +14,18 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file is an image
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
     setIsUploading(true);
     try {
       const fileExt = file.name.split('.').pop();
@@ -21,9 +33,30 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       
       console.log("Starting upload to Supabase...");
       console.log("File path:", filePath);
+      console.log("File type:", file.type);
+      console.log("File size:", file.size);
+      
+      // Ensure the profiles bucket exists
+      try {
+        const { data: buckets } = await supabase
+          .storage
+          .listBuckets();
+          
+        const profilesBucketExists = buckets?.some(bucket => bucket.name === 'profiles');
+        
+        if (!profilesBucketExists) {
+          console.log("Profiles bucket doesn't exist, creating...");
+          // Note: This would require admin privileges, so it should be handled via SQL
+          toast.error("Storage not configured properly. Please contact an administrator.");
+          setIsUploading(false);
+          return;
+        }
+      } catch (bucketError) {
+        console.error("Error checking storage buckets:", bucketError);
+      }
       
       // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data, error: uploadError } = await supabase.storage
         .from('profiles')
         .upload(filePath, file, {
           cacheControl: '0',
@@ -34,7 +67,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         throw uploadError;
       }
       
-      console.log("Upload successful");
+      console.log("Upload successful:", data);
       
       // Get public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage

@@ -57,3 +57,45 @@ export const getInitials = (firstName?: string, lastName?: string): string => {
   
   return initials || "NA";
 };
+
+/**
+ * Validate if a URL is a valid image URL
+ * @param url The URL to validate
+ * @returns Boolean indicating if the URL is a valid image URL
+ */
+export const isValidImageUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  
+  try {
+    // Basic URL validation
+    const parsed = new URL(url);
+    
+    // Check if it's from known image hosts or has image extensions
+    const isImageExtension = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(parsed.pathname);
+    const isSupabaseStorage = parsed.hostname.includes('supabase.co') && parsed.pathname.includes('storage/v1');
+    
+    return isImageExtension || isSupabaseStorage;
+  } catch (e) {
+    console.error('Invalid URL in isValidImageUrl:', url);
+    return false;
+  }
+};
+
+/**
+ * Validates that a URL is accessible and returns a valid image
+ * @param url The image URL to validate
+ * @returns Promise that resolves to boolean indicating if the URL returns a valid image
+ */
+export const validateImageUrl = async (url: string | null): Promise<boolean> => {
+  if (!url) return false;
+  
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => {
+      console.error('Image failed to load:', url);
+      resolve(false);
+    };
+    img.src = url;
+  });
+};
