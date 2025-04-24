@@ -23,12 +23,15 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
   const [originalImage, setOriginalImage] = useState<FabricImage | null>(null);
   const [cropCircle, setCropCircle] = useState<FabricCircle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canvasRef.current || !isOpen || !imageUrl) return;
     
     setLoading(true);
+    setImageError(null);
     
+    // Create a new fabric canvas
     const canvas = new FabricCanvas(canvasRef.current, {
       width: 400,
       height: 400,
@@ -38,64 +41,69 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
 
     setFabricCanvas(canvas);
 
-    // Load the image with crossOrigin enabled
-    FabricImage.fromURL(
-      imageUrl, 
-      (img) => {
-        if (!img) {
-          console.error("Failed to load the image");
-          setLoading(false);
-          return;
-        }
+    // Create a native Image element first to handle CORS issues
+    const imgEl = new Image();
+    imgEl.crossOrigin = 'anonymous';
+    imgEl.onload = () => {
+      // Once the image is loaded, create a fabric image
+      const img = new FabricImage(imgEl);
+      
+      // Scale image to fit canvas while maintaining aspect ratio
+      const scale = Math.min(
+        380 / img.width!,
+        380 / img.height!
+      );
+      
+      img.scale(scale);
+      img.set({
+        left: (400 - img.width! * scale) / 2,
+        top: (400 - img.height! * scale) / 2,
+        selectable: false,  // Prevent the image from being moved
+        originX: 'left',
+        originY: 'top'
+      });
 
-        // Scale image to fit canvas while maintaining aspect ratio
-        const scale = Math.min(
-          400 / img.width!,
-          400 / img.height!
-        );
-        
-        img.scale(scale);
-        img.set({
-          left: (400 - img.width! * scale) / 2,
-          top: (400 - img.height! * scale) / 2,
-          selectable: false,  // Prevent the image from being moved
-          crossOrigin: 'anonymous'
-        });
+      canvas.add(img);
+      setOriginalImage(img);
 
-        canvas.add(img);
-        setOriginalImage(img);
+      // Create circle crop mask with clear visual indication
+      const radius = 150;
+      const circle = new FabricCircle({
+        left: (400 - radius * 2) / 2,
+        top: (400 - radius * 2) / 2,
+        radius: radius,
+        fill: 'transparent',
+        stroke: '#ffffff',
+        strokeWidth: 3,
+        strokeDashArray: [5, 5],
+        selectable: true,
+        hasControls: false,  // No resize controls
+        hasBorders: false,
+        hoverCursor: 'move',
+        borderColor: 'white',
+        cornerColor: 'white',
+        transparentCorners: false
+      });
+      
+      canvas.add(circle);
+      canvas.bringToFront(circle);
+      setCropCircle(circle);
+      
+      // Make the circle the active object
+      canvas.setActiveObject(circle);
+      
+      setLoading(false);
+      canvas.renderAll();
+    };
 
-        // Create circle crop mask with clear visual indication
-        const radius = 150;
-        const circle = new FabricCircle({
-          left: (400 - radius * 2) / 2,
-          top: (400 - radius * 2) / 2,
-          radius: radius,
-          fill: 'transparent',
-          stroke: '#ffffff',
-          strokeWidth: 3,
-          strokeDashArray: [5, 5],
-          selectable: true,
-          hasControls: false,  // No resize controls
-          hasBorders: false,
-          hoverCursor: 'move',
-          borderColor: 'white',
-          cornerColor: 'white',
-          transparentCorners: false
-        });
-        
-        canvas.add(circle);
-        canvas.bringToFront(circle);
-        setCropCircle(circle);
-        
-        // Make the circle the active object so it's immediately obvious it can be moved
-        canvas.setActiveObject(circle);
-        
-        setLoading(false);
-        canvas.renderAll();
-      },
-      { crossOrigin: 'anonymous' }
-    );
+    imgEl.onerror = () => {
+      console.error("Failed to load the image:", imageUrl);
+      setImageError("Failed to load the image. The image might be inaccessible or the URL is invalid.");
+      setLoading(false);
+    };
+
+    // Set the source last
+    imgEl.src = imageUrl;
 
     return () => {
       canvas.dispose();
@@ -128,7 +136,6 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
     // Create a new image element for drawing
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = imageUrl;
     
     // Wait for the image to load before drawing
     img.onload = () => {
@@ -160,6 +167,9 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
     img.onerror = () => {
       console.error("Failed to load image for cropping");
     };
+
+    // Set the source last
+    img.src = imageUrl;
   };
 
   return (
@@ -177,6 +187,11 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
               <div className="w-full h-[400px] flex items-center justify-center bg-gray-100">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-maroon"></div>
               </div>
+            ) : imageError ? (
+              <div className="w-full h-[400px] flex items-center justify-center bg-gray-100 flex-col p-4">
+                <p className="text-red-500 text-center mb-2">{imageError}</p>
+                <p className="text-gray-500 text-sm text-center">Try uploading a different image or refreshing the page.</p>
+              </div>
             ) : (
               <canvas ref={canvasRef} />
             )}
@@ -185,7 +200,7 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleCrop} disabled={loading || !originalImage}>
+            <Button onClick={handleCrop} disabled={loading || !originalImage || !!imageError}>
               <Crop className="mr-2 h-4 w-4" />
               Crop & Save
             </Button>
