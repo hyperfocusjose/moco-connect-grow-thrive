@@ -35,45 +35,24 @@ const Directory: React.FC = () => {
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
-    console.log("Directory component is fetching users...");
     fetchUsers();
   }, [fetchUsers]);
 
-  useEffect(() => {
-    console.log("Current users list:", users);
-    console.log("Users with admin role:", users.filter(user => user.isAdmin));
-  }, [users]);
-
-  // Filter members - making sure to exclude admin users
+  // Filter out admin users and incomplete profiles
   const filteredMembers = users.filter(member => {
-    // Log each member and their admin status for debugging
-    console.log(`Filtering member: ${member.firstName} ${member.lastName}, isAdmin: ${member.isAdmin}`);
-    
-    // Explicitly filter out admin users first
-    if (member.isAdmin === true) {
-      console.log(`Excluding admin user: ${member.firstName} ${member.lastName}`);
+    // Skip profiles without proper first/last name or admins
+    if (!member.firstName || !member.lastName || member.isAdmin) {
       return false;
     }
     
-    // Then filter out incomplete profiles
-    if (!member.firstName || !member.lastName) {
-      return false;
-    }
-    
-    // Finally, apply search filter if there's a search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        member.firstName.toLowerCase().includes(searchLower) ||
-        member.lastName.toLowerCase().includes(searchLower) ||
-        member.businessName.toLowerCase().includes(searchLower) ||
-        member.industry.toLowerCase().includes(searchLower) ||
-        member.tags.some(tag => tag.toLowerCase().includes(searchLower))
-      );
-    }
-    
-    // Include this non-admin member with complete profile
-    return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      member.firstName.toLowerCase().includes(searchLower) ||
+      member.lastName.toLowerCase().includes(searchLower) ||
+      member.businessName.toLowerCase().includes(searchLower) ||
+      member.industry.toLowerCase().includes(searchLower) ||
+      member.tags.some(tag => tag.toLowerCase().includes(searchLower))
+    );
   });
 
   // Count of actual members (excluding admins)

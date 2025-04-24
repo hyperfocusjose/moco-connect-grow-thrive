@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,7 +21,6 @@ interface MemberDetailProps {
 
 export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onEdit }) => {
   const [openForm, setOpenForm] = useState<null | 'referral' | '1to1' | 'tyfcb'>(null);
-  const [imageError, setImageError] = useState(false);
   const { currentUser } = useAuth();
   const isAdmin = !!currentUser?.isAdmin;
 
@@ -30,11 +30,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
   };
 
   const closeForm = () => setOpenForm(null);
-  
-  const handleImageError = () => {
-    console.error(`MemberDetail: Failed to load profile image for ${member.firstName} ${member.lastName}:`, member.profilePicture);
-    setImageError(true);
-  };
 
   return (
     <div className="p-6 max-w-md mx-auto">
@@ -52,18 +47,10 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
           )}
           
           <Avatar className="h-24 w-24 mb-4">
-            {member.profilePicture && !imageError ? (
-              <AvatarImage 
-                src={member.profilePicture} 
-                alt={member.firstName} 
-                crossOrigin="anonymous"
-                onError={handleImageError}
-              />
-            ) : (
-              <AvatarFallback className="bg-maroon text-white text-xl">
-                {getInitials(member.firstName, member.lastName)}
-              </AvatarFallback>
-            )}
+            <AvatarImage src={member.profilePicture} alt={member.firstName} />
+            <AvatarFallback className="bg-maroon text-white text-xl">
+              {getInitials(member.firstName, member.lastName)}
+            </AvatarFallback>
           </Avatar>
           <h2 className="text-2xl font-bold text-center">
             {member.firstName} {member.lastName}
