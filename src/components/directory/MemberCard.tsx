@@ -30,6 +30,13 @@ export const MemberCard: React.FC<MemberCardProps> = ({
     if (onEdit) onEdit();
   };
 
+  // Add a timestamp to the URL to prevent caching issues
+  const getImageUrl = () => {
+    if (!member.profilePicture) return null;
+    const timestamp = new Date().getTime();
+    return `${member.profilePicture}?t=${timestamp}`;
+  };
+
   return (
     <Card 
       className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
@@ -48,10 +55,20 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="flex flex-col items-center">
           <Avatar className="h-24 w-24 mb-4">
-            <AvatarImage src={member.profilePicture} alt={member.firstName} />
-            <AvatarFallback className="bg-maroon text-white text-xl">
-              {getInitials(member.firstName, member.lastName)}
-            </AvatarFallback>
+            {member.profilePicture ? (
+              <AvatarImage 
+                src={getImageUrl()} 
+                alt={member.firstName}
+                onError={(e) => {
+                  console.log("Card image failed to load:", member.profilePicture);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <AvatarFallback className="bg-maroon text-white text-xl">
+                {getInitials(member.firstName, member.lastName)}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="text-center">
             <h3 className="font-semibold text-lg">

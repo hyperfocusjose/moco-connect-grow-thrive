@@ -30,6 +30,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
   };
 
   const closeForm = () => setOpenForm(null);
+  
+  // Add a timestamp to the URL to prevent caching issues
+  const getImageUrl = () => {
+    if (!member.profilePicture) return null;
+    const timestamp = new Date().getTime();
+    return `${member.profilePicture}?t=${timestamp}`;
+  };
 
   return (
     <div className="p-6 max-w-md mx-auto">
@@ -47,10 +54,20 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
           )}
           
           <Avatar className="h-24 w-24 mb-4">
-            <AvatarImage src={member.profilePicture} alt={member.firstName} />
-            <AvatarFallback className="bg-maroon text-white text-xl">
-              {getInitials(member.firstName, member.lastName)}
-            </AvatarFallback>
+            {member.profilePicture ? (
+              <AvatarImage 
+                src={getImageUrl()} 
+                alt={member.firstName}
+                onError={(e) => {
+                  console.log("Detail image failed to load:", member.profilePicture);
+                  e.currentTarget.style.display = 'none';
+                }} 
+              />
+            ) : (
+              <AvatarFallback className="bg-maroon text-white text-xl">
+                {getInitials(member.firstName, member.lastName)}
+              </AvatarFallback>
+            )}
           </Avatar>
           <h2 className="text-2xl font-bold text-center">
             {member.firstName} {member.lastName}

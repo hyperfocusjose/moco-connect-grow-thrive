@@ -19,19 +19,29 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       const fileExt = file.name.split('.').pop();
       const filePath = `${uuidv4()}.${fileExt}`;
       
+      console.log("Starting upload to Supabase...");
+      console.log("File path:", filePath);
+      
       // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('profiles')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '0',
+          upsert: true
+        });
         
       if (uploadError) {
         throw uploadError;
       }
       
+      console.log("Upload successful");
+      
       // Get public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage
         .from('profiles')
         .getPublicUrl(filePath);
+      
+      console.log("Public URL generated:", publicUrl);
       
       // Pass the URL back to parent component
       onImageUploaded(publicUrl);
