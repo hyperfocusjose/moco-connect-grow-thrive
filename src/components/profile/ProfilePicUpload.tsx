@@ -6,23 +6,27 @@ import { ProfilePicUploadProps } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
+import { CropImageModal } from './CropImageModal';
 
 export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploaded }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showCropModal, setShowCropModal] = useState(false);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadImage = async (imageData: string) => {
     setIsUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
+      // Convert base64 to blob
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+      
+      const fileExt = 'png';
       const filePath = `${uuidv4()}.${fileExt}`;
       
       // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('profiles')
-        .upload(filePath, file);
+        .upload(filePath, blob);
         
       if (uploadError) {
         throw uploadError;
@@ -42,7 +46,25 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       toast.error('Failed to upload profile photo');
     } finally {
       setIsUploading(false);
+      setSelectedImage(null);
+      setShowCropModal(false);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedImage(reader.result as string);
+      setShowCropModal(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = (croppedImageUrl: string) => {
+    uploadImage(croppedImageUrl);
   };
 
   return (
@@ -54,7 +76,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         disabled={isUploading}
       >
         {isUploading ? (
-          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-gray-500"></div>
+          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-gray-500" />
         ) : (
           <>
             <Camera className="h-4 w-4 mr-2" />
@@ -69,6 +91,13 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
           disabled={isUploading}
         />
       </Button>
+
+      <CropImageModal
+        imageUrl={selectedImage || ''}
+        isOpen={showCropModal}
+        onClose={() => setShowCropModal(false)}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 };
