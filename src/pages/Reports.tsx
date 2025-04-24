@@ -118,7 +118,7 @@ export const getDataSinceLastTuesday = () => {
   };
 };
 
-const Reports = () => {
+const Reports: React.FC = () => {
   const { referrals, visitors, oneToOnes, tyfcbs, users, activities, getTopPerformers, getUserMetrics } = useData();
   const { currentUser } = useAuth();
   const [timeFrame, setTimeFrame] = useState('3months');
