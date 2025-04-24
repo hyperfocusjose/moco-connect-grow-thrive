@@ -32,6 +32,19 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       const filePath = `${uuidv4()}.${fileExt}`;
       console.log("Will upload to path:", filePath);
       
+      // Create profiles bucket if it doesn't exist
+      const { data: buckets } = await supabase.storage.listBuckets();
+      if (!buckets?.some(b => b.name === 'profiles')) {
+        console.log("Creating profiles bucket");
+        const { error: bucketError } = await supabase.storage.createBucket('profiles', {
+          public: true
+        });
+        if (bucketError) {
+          console.error("Error creating bucket:", bucketError);
+          throw new Error("Failed to create storage bucket");
+        }
+      }
+      
       // Upload file to Supabase Storage
       const { error: uploadError, data } = await supabase.storage
         .from('profiles')
@@ -55,13 +68,13 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       
       console.log("Generated public URL:", publicUrl);
       
-      // Always use the fully qualified URL with domain
-      const absoluteUrl = `https://fermfvwyoqewedrzgben.supabase.co/storage/v1/object/public/profiles/${filePath}`;
-      console.log("Using absolute URL:", absoluteUrl);
-      
       // Now update the user profile in the database to include this image URL
       const { data: authData } = await supabase.auth.getSession();
       if (authData.session?.user.id) {
+        // Ensure URL has the correct domain and is accessible
+        const absoluteUrl = publicUrl;
+        console.log("Using URL for profile update:", absoluteUrl);
+        
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ profile_picture: absoluteUrl })
@@ -73,12 +86,14 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         } else {
           console.log("Profile updated successfully with new image URL");
         }
+        
+        // Pass the URL back to parent component
+        onImageUploaded(absoluteUrl);
+        toast.success('Profile photo updated successfully');
+      } else {
+        console.error("No user session found");
+        toast.error("You need to be logged in to update your profile");
       }
-      
-      // Pass the URL back to parent component
-      onImageUploaded(absoluteUrl);
-      
-      toast.success('Profile photo updated successfully');
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload profile photo');

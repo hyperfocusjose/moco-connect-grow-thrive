@@ -40,7 +40,7 @@ const Directory: React.FC = () => {
 
   // Filter out admin users and incomplete profiles
   const filteredMembers = users.filter(member => {
-    // Skip profiles without proper first/last name or admins
+    // Skip profiles without proper first/last name or admin users
     if (!member.firstName || !member.lastName || member.isAdmin) {
       return false;
     }

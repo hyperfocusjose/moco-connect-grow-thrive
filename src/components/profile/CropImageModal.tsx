@@ -28,7 +28,7 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
 
   // Create and initialize the canvas when the modal is opened
   useEffect(() => {
-    if (!canvasRef.current || !isOpen) return;
+    if (!canvasRef.current || !isOpen || !imageUrl) return;
     
     setLoading(true);
     setImageError(null);
@@ -53,61 +53,54 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       img.onload = () => {
         console.log("Image pre-loaded successfully, dimensions:", img.width, "x", img.height);
         
-        // Now create the fabric image
-        new FabricImage.fromURL(imageUrl, 
-          (fabricImg) => {
-            console.log("Fabric image loaded successfully");
-            
-            // Scale image to fit canvas while maintaining aspect ratio
-            const scale = Math.min(
-              380 / fabricImg.width!,
-              380 / fabricImg.height!
-            );
-            
-            fabricImg.scale(scale);
-            fabricImg.set({
-              left: (400 - fabricImg.width! * scale) / 2,
-              top: (400 - fabricImg.height! * scale) / 2,
-              selectable: false,  // Prevent the image from being moved
-              originX: 'left',
-              originY: 'top',
-              crossOrigin: 'anonymous'
-            });
-
-            canvas.add(fabricImg);
-            setOriginalImage(fabricImg);
-            
-            // Create circle crop mask
-            const radius = 150;
-            const circle = new FabricCircle({
-              left: (400 - radius * 2) / 2,
-              top: (400 - radius * 2) / 2,
-              radius: radius,
-              fill: 'transparent',
-              stroke: '#ffffff',
-              strokeWidth: 3,
-              strokeDashArray: [5, 5],
-              selectable: true,
-              hasControls: false,
-              hasBorders: false,
-              hoverCursor: 'move',
-              borderColor: 'white',
-              cornerColor: 'white',
-              transparentCorners: false
-            });
-            
-            canvas.add(circle);
-            canvas.bringToFront(circle);
-            setCropCircle(circle);
-            canvas.setActiveObject(circle);
-            
-            setLoading(false);
-            canvas.renderAll();
-          },
-          { 
-            crossOrigin: 'anonymous'
-          }
+        // Create a fabric image directly from the HTML image
+        const fabricImg = new FabricImage(img);
+        
+        // Scale image to fit canvas while maintaining aspect ratio
+        const scale = Math.min(
+          380 / img.width,
+          380 / img.height
         );
+        
+        fabricImg.scale(scale);
+        fabricImg.set({
+          left: (400 - img.width * scale) / 2,
+          top: (400 - img.height * scale) / 2,
+          selectable: false,  // Prevent the image from being moved
+          originX: 'left',
+          originY: 'top',
+          crossOrigin: 'anonymous'
+        });
+
+        canvas.add(fabricImg);
+        setOriginalImage(fabricImg);
+        
+        // Create circle crop mask
+        const radius = 150;
+        const circle = new FabricCircle({
+          left: (400 - radius * 2) / 2,
+          top: (400 - radius * 2) / 2,
+          radius: radius,
+          fill: 'transparent',
+          stroke: '#ffffff',
+          strokeWidth: 3,
+          strokeDashArray: [5, 5],
+          selectable: true,
+          hasControls: false,
+          hasBorders: false,
+          hoverCursor: 'move',
+          borderColor: 'white',
+          cornerColor: 'white',
+          transparentCorners: false
+        });
+        
+        canvas.add(circle);
+        canvas.bringToFront(circle);
+        setCropCircle(circle);
+        canvas.setActiveObject(circle);
+        
+        setLoading(false);
+        canvas.renderAll();
       };
       
       img.onerror = (error) => {
@@ -132,84 +125,6 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
     }
   }, [imageUrl, isOpen]);
 
-  const handleDirectImageLoad = () => {
-    if (!fabricCanvas || !imageUrl) return;
-    
-    setLoading(true);
-    setImageError(null);
-    
-    // Try alternative loading method with direct DOM image
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    
-    img.onload = () => {
-      try {
-        const fabricImg = new FabricImage(img);
-        
-        // Scale image to fit canvas while maintaining aspect ratio
-        const scale = Math.min(
-          380 / img.width,
-          380 / img.height
-        );
-        
-        fabricImg.scale(scale);
-        fabricImg.set({
-          left: (400 - img.width * scale) / 2,
-          top: (400 - img.height * scale) / 2,
-          selectable: false,
-          originX: 'left',
-          originY: 'top'
-        });
-        
-        // Clear existing objects
-        fabricCanvas.clear();
-        fabricCanvas.add(fabricImg);
-        setOriginalImage(fabricImg);
-        
-        // Add circle again
-        const radius = 150;
-        const circle = new FabricCircle({
-          left: (400 - radius * 2) / 2,
-          top: (400 - radius * 2) / 2,
-          radius: radius,
-          fill: 'transparent',
-          stroke: '#ffffff',
-          strokeWidth: 3,
-          strokeDashArray: [5, 5],
-          selectable: true,
-          hasControls: false,
-          hasBorders: false,
-          hoverCursor: 'move',
-          borderColor: 'white',
-          cornerColor: 'white',
-          transparentCorners: false
-        });
-        
-        fabricCanvas.add(circle);
-        fabricCanvas.bringToFront(circle);
-        setCropCircle(circle);
-        fabricCanvas.setActiveObject(circle);
-        
-        setLoading(false);
-        fabricCanvas.renderAll();
-        toast.success("Image loaded successfully");
-      } catch (err) {
-        console.error("Error creating fabric image from loaded DOM image:", err);
-        setImageError("Error processing the loaded image.");
-        setLoading(false);
-        toast.error("Error processing image");
-      }
-    };
-    
-    img.onerror = () => {
-      console.error("Failed to load image using direct DOM image method");
-      setImageError("Failed to load the image using alternative method.");
-      setLoading(false);
-    };
-    
-    img.src = imageUrl;
-  };
-
   const handleCrop = () => {
     if (!fabricCanvas || !originalImage || !cropCircle) {
       toast.error("Missing required elements for cropping");
@@ -224,7 +139,6 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       const radius = circle.radius || 150;
       
       console.log("Cropping with circle at:", circleLeft, circleTop, "radius:", radius);
-      console.log("Original image at:", originalImage.left, originalImage.top);
       
       // Create a temporary canvas for cropping
       const tempCanvas = document.createElement('canvas');
@@ -244,38 +158,35 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       ctx.closePath();
       ctx.clip();
       
-      try {
-        // Use Fabric's toCanvasElement to get the rendered image 
-        const imgCanvas = originalImage.toCanvasElement();
-        
-        // Calculate the source coordinates in the original image
-        const imgLeft = originalImage.left || 0;
-        const imgTop = originalImage.top || 0;
-        const imgScale = originalImage.scaleX || 1;
-        
-        // Draw the image at the correct position
-        ctx.drawImage(
-          imgCanvas,
-          (circleLeft - imgLeft) / imgScale,
-          (circleTop - imgTop) / imgScale,
-          (radius * 2) / imgScale,
-          (radius * 2) / imgScale,
-          0,
-          0,
-          radius * 2,
-          radius * 2
-        );
-        
-        // Get the data URL from the temp canvas
-        const croppedDataUrl = tempCanvas.toDataURL('image/png');
-        
-        onCropComplete(croppedDataUrl);
-        onClose();
-        toast.success("Image cropped successfully");
-      } catch (error) {
-        console.error("Error accessing image data for cropping:", error);
-        toast.error("Error accessing image data for cropping");
+      // Render the image to a canvas element
+      const imgCanvas = fabricCanvas.toCanvasElement();
+      const imgCtx = imgCanvas.getContext('2d');
+      
+      if (!imgCtx) {
+        console.error("Could not get 2D context for image canvas");
+        toast.error("Error during image processing");
+        return;
       }
+      
+      // Draw the cropped portion to the temp canvas
+      ctx.drawImage(
+        imgCanvas,
+        circleLeft - radius, 
+        circleTop - radius,
+        radius * 2,
+        radius * 2,
+        0,
+        0,
+        radius * 2,
+        radius * 2
+      );
+      
+      // Get the data URL from the temp canvas
+      const croppedDataUrl = tempCanvas.toDataURL('image/png');
+      
+      onCropComplete(croppedDataUrl);
+      onClose();
+      toast.success("Image cropped successfully");
     } catch (error) {
       console.error("Error during image cropping:", error);
       toast.error("Error during image cropping");
@@ -301,13 +212,6 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
               <div className="w-full h-[400px] flex items-center justify-center bg-gray-100 flex-col p-4">
                 <p className="text-red-500 text-center mb-2">{imageError}</p>
                 <p className="text-gray-500 text-sm text-center mb-2">Try uploading a different image or refreshing the page.</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleDirectImageLoad}
-                >
-                  Try Alternative Loading Method
-                </Button>
               </div>
             ) : (
               <canvas ref={canvasRef} />

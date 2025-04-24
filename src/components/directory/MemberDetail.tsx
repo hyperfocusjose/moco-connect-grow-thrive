@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,7 +46,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
           )}
           
           <Avatar className="h-24 w-24 mb-4">
-            <AvatarImage src={member.profilePicture} alt={member.firstName} />
+            {member.profilePicture ? (
+              <AvatarImage 
+                src={member.profilePicture} 
+                alt={member.firstName} 
+                crossOrigin="anonymous"
+              />
+            ) : null}
             <AvatarFallback className="bg-maroon text-white text-xl">
               {getInitials(member.firstName, member.lastName)}
             </AvatarFallback>

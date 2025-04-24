@@ -16,7 +16,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ currentUser }) => 
   return (
     <div className="flex flex-col items-center mb-6">
       <Avatar className="h-32 w-32 mb-4">
-        <AvatarImage src={currentUser.profilePicture} />
+        {currentUser.profilePicture ? (
+          <AvatarImage 
+            src={currentUser.profilePicture} 
+            alt={`${currentUser.firstName} ${currentUser.lastName}`}
+            crossOrigin="anonymous"
+          />
+        ) : null}
         <AvatarFallback className="bg-maroon text-white text-3xl">
           {getInitials(currentUser.firstName, currentUser.lastName)}
         </AvatarFallback>

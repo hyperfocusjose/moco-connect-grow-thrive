@@ -39,16 +39,18 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
       return;
     }
     
+    // Pass it along to parent component
+    onImageUploaded(imageUrl);
+    
     // Test if the image is accessible
     const testImg = new Image();
+    testImg.crossOrigin = "anonymous"; // Add crossOrigin attribute
     testImg.onload = () => {
       console.log("Test image loaded successfully from URL:", imageUrl);
-      onImageUploaded(imageUrl);
     };
     testImg.onerror = () => {
       console.error("Failed to load test image from URL:", imageUrl);
       toast.error("Image URL appears to be inaccessible");
-      onImageUploaded(imageUrl); // Still pass it along, but with a warning
     };
     testImg.src = imageUrl;
   };
@@ -102,7 +104,7 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
             <div className={imageLoaded ? "text-green-600" : "text-red-600"}>
               Status: {imageLoaded ? "Loaded ✓" : imageError ? "Error loading image ✗" : "Loading..."}
             </div>
-            Image URL: {profileImage}
+            Image URL: {profileImage.substring(0, 50)}{profileImage.length > 50 ? "..." : ""}
           </div>
         )}
         
