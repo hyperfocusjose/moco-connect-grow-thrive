@@ -1,8 +1,10 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { useData } from "@/contexts/DataContext";
+import { format } from "date-fns";
 
 interface ApproveEventsOverlayProps {
   open: boolean;
@@ -12,13 +14,42 @@ interface ApproveEventsOverlayProps {
 export const ApproveEventsOverlay: React.FC<ApproveEventsOverlayProps> = ({
   open, onClose
 }) => {
-  const [pendingEvents, setPendingEvents] = useState([
-    { id: 1, name: "Spring Social", date: "2025-05-02", requestedBy: "Alex" },
-    { id: 2, name: "Fundraiser", date: "2025-05-10", requestedBy: "Sam" },
-  ]);
+  const { events, updateEvent, getUser } = useData();
+  const [pendingEvents, setPendingEvents] = useState<any[]>([]);
 
-  const approveEvent = (id: number) => {
-    setPendingEvents((prev) => prev.filter((e) => e.id !== id));
+  useEffect(() => {
+    // Filter unapproved events
+    const unapproved = events
+      .filter(event => !event.isApproved && !event.isCancelled)
+      .map(event => {
+        const requestedBy = event.createdBy ? getUser(event.createdBy)?.firstName || "Unknown" : "Unknown";
+        return {
+          id: event.id,
+          name: event.name,
+          date: format(new Date(event.date), 'yyyy-MM-dd'),
+          requestedBy
+        };
+      });
+
+    setPendingEvents(unapproved);
+  }, [events, getUser]);
+
+  const approveEvent = async (id: string) => {
+    try {
+      await updateEvent(id, { isApproved: true });
+      setPendingEvents((prev) => prev.filter((e) => e.id !== id));
+    } catch (error) {
+      console.error("Error approving event:", error);
+    }
+  };
+
+  const rejectEvent = async (id: string) => {
+    try {
+      await updateEvent(id, { isCancelled: true });
+      setPendingEvents((prev) => prev.filter((e) => e.id !== id));
+    } catch (error) {
+      console.error("Error rejecting event:", error);
+    }
   };
 
   return (
@@ -41,7 +72,7 @@ export const ApproveEventsOverlay: React.FC<ApproveEventsOverlayProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" className="bg-maroon hover:bg-maroon/90" onClick={() => approveEvent(event.id)}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => approveEvent(event.id)}>Reject</Button>
+                    <Button size="sm" variant="outline" onClick={() => rejectEvent(event.id)}>Reject</Button>
                   </div>
                 </li>
               ))}

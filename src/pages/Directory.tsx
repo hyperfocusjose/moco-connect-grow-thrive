@@ -7,7 +7,7 @@ import { MemberDetail } from '@/components/directory/MemberDetail';
 import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, Users, UserCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 const Directory: React.FC = () => {
   const { users, visitors, markVisitorNoShow, fetchUsers } = useData();
@@ -54,6 +55,9 @@ const Directory: React.FC = () => {
     );
   });
 
+  // Count of actual members (excluding admins)
+  const totalMembers = users.filter(user => user.firstName && user.lastName && !user.isAdmin).length;
+
   const filteredVisitors = visitors ? visitors.filter(visitor => {
     if (!includeNoShows && visitor.didNotShow) {
       return false;
@@ -73,6 +77,11 @@ const Directory: React.FC = () => {
       didNotShowMatch
     );
   }) : [];
+
+  // Total visitor count
+  const totalVisitors = visitors ? visitors.length : 0;
+  // Count of visitors who showed up
+  const showedVisitors = visitors ? visitors.filter(v => !v.didNotShow).length : 0;
 
   const handleSelectMember = (member: User) => {
     setSelectedMember(member);
@@ -134,6 +143,23 @@ const Directory: React.FC = () => {
         </TabsList>
         
         <TabsContent value="members">
+          <div className="flex justify-between items-center mb-6">
+            <Card className="flex-grow">
+              <CardHeader className="py-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-lg font-medium">Total Members</CardTitle>
+                  <CardDescription>Active group members</CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="rounded-full bg-green-100 p-2">
+                    <Users className="h-5 w-5 text-green-600" />
+                  </div>
+                  <span className="text-2xl font-bold">{totalMembers}</span>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
+
           <div className="relative mb-6">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -163,6 +189,38 @@ const Directory: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="visitors">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <Card>
+              <CardHeader className="py-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-lg font-medium">Total Visitors</CardTitle>
+                  <CardDescription>All time</CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="rounded-full bg-blue-100 p-2">
+                    <Users className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <span className="text-2xl font-bold">{totalVisitors}</span>
+                </div>
+              </CardHeader>
+            </Card>
+            
+            <Card>
+              <CardHeader className="py-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-lg font-medium">Attended</CardTitle>
+                  <CardDescription>Visitors who showed up</CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="rounded-full bg-green-100 p-2">
+                    <UserCheck className="h-5 w-5 text-green-600" />
+                  </div>
+                  <span className="text-2xl font-bold">{showedVisitors}</span>
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">

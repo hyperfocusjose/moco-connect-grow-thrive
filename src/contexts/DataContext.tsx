@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Event, Visitor, Referral, OneToOne, TYFCB, Activity, Poll } from '@/types';
@@ -93,36 +92,60 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Fetch users from Supabase on component mount
   const fetchUsers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch the basic profile data
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*, member_tags(tag), user_roles(role)');
+        .select('*');
       
-      if (error) {
-        console.error('Error fetching users:', error);
+      if (profilesError) {
+        console.error('Error fetching user profiles:', profilesError);
         return;
       }
 
-      if (!data || data.length === 0) {
+      if (!profilesData || profilesData.length === 0) {
         console.log('No user profiles found');
         return;
       }
 
+      // Then, fetch user roles separately
+      const userRolesMap = new Map();
+      const { data: userRolesData, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select('*');
+
+      if (!userRolesError && userRolesData) {
+        userRolesData.forEach((role) => {
+          userRolesMap.set(role.user_id, role.role);
+        });
+      }
+
+      // Then, fetch member tags separately
+      const memberTagsMap = new Map();
+      const { data: memberTagsData, error: memberTagsError } = await supabase
+        .from('member_tags')
+        .select('*');
+
+      if (!memberTagsError && memberTagsData) {
+        memberTagsData.forEach((tagObj) => {
+          if (!memberTagsMap.has(tagObj.member_id)) {
+            memberTagsMap.set(tagObj.member_id, []);
+          }
+          memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
+        });
+      }
+
       // Transform the data to match the User type
-      const transformedUsers: User[] = data
+      const transformedUsers: User[] = profilesData
         .filter(profile => {
           // Filter out profiles with no first name or last name (incomplete profiles)
           return profile.first_name && profile.last_name;
         })
         .map(profile => {
-          // Extract tags from the member_tags relation
-          const tags = profile.member_tags ? 
-            profile.member_tags.map((tagObj: any) => tagObj.tag) : 
-            [];
+          // Get tags from the map
+          const tags = memberTagsMap.get(profile.id) || [];
           
-          // Check if user has admin role - safely handle potential errors
-          const isAdmin = profile.user_roles && Array.isArray(profile.user_roles) ? 
-            profile.user_roles.some((role: any) => role.role === 'admin') : 
-            false;
+          // Check if user has admin role
+          const isAdmin = userRolesMap.get(profile.id) === 'admin';
           
           return {
             id: profile.id,
