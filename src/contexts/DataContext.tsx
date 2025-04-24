@@ -114,6 +114,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('*');
 
       if (!userRolesError && userRolesData) {
+        console.log("User roles data:", userRolesData);
         userRolesData.forEach((role) => {
           userRolesMap.set(role.user_id, role.role);
         });
@@ -134,6 +135,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
+      // Get admin users by checking user_id from user_roles where role = 'admin'
+      const adminUsers = new Set<string>();
+      
+      // Special case for this application - mark user with email admin@mocopng.com as admin
+      profilesData.forEach(profile => {
+        if (profile.email === 'admin@mocopng.com') {
+          adminUsers.add(profile.id);
+        }
+      });
+      
+      userRolesData?.forEach(role => {
+        if (role.role === 'admin') {
+          adminUsers.add(role.user_id);
+        }
+      });
+      
+      console.log("Identified admin users:", Array.from(adminUsers));
+
       // Transform the data to match the User type
       const transformedUsers: User[] = profilesData
         .filter(profile => {
@@ -144,10 +163,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Get tags from the map
           const tags = memberTagsMap.get(profile.id) || [];
           
-          // Check if user has admin role
-          const isAdmin = userRolesMap.get(profile.id) === 'admin';
+          // Check if user has admin role either through roles table or email
+          const isAdmin = adminUsers.has(profile.id);
           
-          return {
+          const user = {
             id: profile.id,
             firstName: profile.first_name || '',
             lastName: profile.last_name || '',
@@ -166,8 +185,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             instagram: profile.instagram || '',
             createdAt: new Date(profile.created_at),
           };
+          
+          console.log(`User ${profile.first_name} ${profile.last_name}, isAdmin: ${isAdmin}`);
+          return user;
         });
       
+      console.log("Transformed users:", transformedUsers);
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error in fetchUsers:', error);

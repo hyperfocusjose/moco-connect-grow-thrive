@@ -35,13 +35,23 @@ const Directory: React.FC = () => {
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
+    console.log("Directory component is fetching users...");
     fetchUsers();
   }, [fetchUsers]);
 
+  useEffect(() => {
+    console.log("Current users list:", users);
+    console.log("Users with admin role:", users.filter(user => user.isAdmin));
+  }, [users]);
+
   // Filter members - making sure to exclude admin users
   const filteredMembers = users.filter(member => {
-    // First, explicitly filter out admin users
-    if (member.isAdmin) {
+    // Log each member and their admin status for debugging
+    console.log(`Filtering member: ${member.firstName} ${member.lastName}, isAdmin: ${member.isAdmin}`);
+    
+    // Explicitly filter out admin users first
+    if (member.isAdmin === true) {
+      console.log(`Excluding admin user: ${member.firstName} ${member.lastName}`);
       return false;
     }
     

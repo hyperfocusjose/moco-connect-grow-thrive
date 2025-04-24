@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera } from 'lucide-react';
 import { ProfilePicUploadProps } from '@/types';
@@ -12,10 +12,57 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
   const [isUploading, setIsUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
+  const [bucketReady, setBucketReady] = useState(false);
+
+  // Check if profiles bucket exists and create it if needed
+  useEffect(() => {
+    const checkAndCreateBucket = async () => {
+      try {
+        // Check if the bucket exists
+        const { data: buckets, error } = await supabase.storage.listBuckets();
+        
+        if (error) {
+          console.error("Error listing buckets:", error);
+          return;
+        }
+        
+        const profilesBucketExists = buckets?.some(b => b.name === 'profiles');
+        
+        if (!profilesBucketExists) {
+          console.log("Creating profiles bucket since it doesn't exist");
+          const { error: bucketError } = await supabase.storage.createBucket('profiles', {
+            public: true
+          });
+          
+          if (bucketError) {
+            console.error("Error creating profiles bucket:", bucketError);
+            toast.error("Failed to create storage for profile images");
+            return;
+          }
+          
+          console.log("Successfully created profiles bucket");
+        } else {
+          console.log("Profiles bucket already exists");
+        }
+        
+        setBucketReady(true);
+      } catch (error) {
+        console.error("Error checking/creating bucket:", error);
+      }
+    };
+    
+    checkAndCreateBucket();
+  }, []);
 
   const uploadImage = async (imageData: string) => {
     setIsUploading(true);
     try {
+      if (!bucketReady) {
+        console.error("Cannot upload: storage bucket not ready");
+        toast.error("Image storage not ready, please try again");
+        return;
+      }
+
       console.log("Starting upload process with image data");
       
       // Convert base64 to blob
@@ -31,19 +78,6 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       const fileExt = 'png';
       const filePath = `${uuidv4()}.${fileExt}`;
       console.log("Will upload to path:", filePath);
-      
-      // Create profiles bucket if it doesn't exist
-      const { data: buckets } = await supabase.storage.listBuckets();
-      if (!buckets?.some(b => b.name === 'profiles')) {
-        console.log("Creating profiles bucket");
-        const { error: bucketError } = await supabase.storage.createBucket('profiles', {
-          public: true
-        });
-        if (bucketError) {
-          console.error("Error creating bucket:", bucketError);
-          throw new Error("Failed to create storage bucket");
-        }
-      }
       
       // Upload file to Supabase Storage
       const { error: uploadError, data } = await supabase.storage
@@ -149,7 +183,7 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         variant="outline" 
         size="sm"
         className="relative"
-        disabled={isUploading}
+        disabled={isUploading || !bucketReady}
       >
         {isUploading ? (
           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-gray-500" />
@@ -164,9 +198,15 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
           accept="image/*"
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           onChange={handleFileChange}
-          disabled={isUploading}
+          disabled={isUploading || !bucketReady}
         />
       </Button>
+
+      {!bucketReady && (
+        <div className="text-xs text-amber-600 mt-1">
+          Setting up image storage...
+        </div>
+      )}
 
       <CropImageModal
         imageUrl={selectedImage || ''}

@@ -19,11 +19,10 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Log when the component receives a new profile image
+  // Reset states when a new URL is provided
   useEffect(() => {
     if (profileImage) {
       console.log("ProfileImageField received image URL:", profileImage);
-      // Reset states when a new URL is provided
       setImageLoaded(false);
       setImageError(false);
     }
@@ -44,12 +43,16 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
     
     // Test if the image is accessible
     const testImg = new Image();
-    testImg.crossOrigin = "anonymous"; // Add crossOrigin attribute
+    testImg.crossOrigin = "anonymous";
     testImg.onload = () => {
       console.log("Test image loaded successfully from URL:", imageUrl);
+      setImageLoaded(true);
+      setImageError(false);
     };
     testImg.onerror = () => {
       console.error("Failed to load test image from URL:", imageUrl);
+      setImageError(true);
+      setImageLoaded(false);
       toast.error("Image URL appears to be inaccessible");
     };
     testImg.src = imageUrl;
@@ -66,19 +69,17 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
     setImageError(false);
   };
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    console.error("Error loading avatar image:", e);
+  const handleImageError = () => {
+    console.error("Error loading avatar image from URL:", profileImage);
     setImageError(true);
     setImageLoaded(false);
-    // Fall back to initials
-    (e.target as HTMLImageElement).style.display = 'none';
   };
 
   return (
     <div className="mb-6 flex justify-center">
       <div className="flex flex-col items-center">
         <Avatar className="h-24 w-24 mb-2">
-          {profileImage ? (
+          {profileImage && !imageError ? (
             <AvatarImage 
               src={profileImage} 
               alt="Profile" 
@@ -91,11 +92,6 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
               {getInitials()}
             </AvatarFallback>
           )}
-          {profileImage && imageError && (
-            <AvatarFallback className="bg-maroon text-white text-xl">
-              {getInitials()}
-            </AvatarFallback>
-          )}
         </Avatar>
         <ProfilePicUpload onImageUploaded={handleImageUploaded} />
         
@@ -104,7 +100,7 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
             <div className={imageLoaded ? "text-green-600" : "text-red-600"}>
               Status: {imageLoaded ? "Loaded ✓" : imageError ? "Error loading image ✗" : "Loading..."}
             </div>
-            Image URL: {profileImage.substring(0, 50)}{profileImage.length > 50 ? "..." : ""}
+            URL: {profileImage.substring(0, 30)}{profileImage.length > 30 ? "..." : ""}
           </div>
         )}
         
