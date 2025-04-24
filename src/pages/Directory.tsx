@@ -38,8 +38,10 @@ const Directory: React.FC = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const filteredMembers = users.filter(member => {
-    if (!member.firstName || !member.lastName || member.isAdmin) {
+  const nonAdminUsers = users.filter(user => !user.isAdmin);
+
+  const filteredMembers = nonAdminUsers.filter(member => {
+    if (!member.firstName || !member.lastName) {
       return false;
     }
     
@@ -53,7 +55,7 @@ const Directory: React.FC = () => {
     );
   });
 
-  const totalMembers = users.filter(user => user.firstName && user.lastName && !user.isAdmin).length;
+  const totalMembers = nonAdminUsers.filter(user => user.firstName && user.lastName).length;
 
   const filteredVisitors = visitors ? visitors.filter(visitor => {
     if (!includeNoShows && visitor.didNotShow) {

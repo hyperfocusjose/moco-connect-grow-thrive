@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,7 +27,10 @@ export const MemberCard: React.FC<MemberCardProps> = ({
   };
 
   // Debug log the profile picture URL
-  console.log(`MemberCard for ${member.firstName} ${member.lastName}:`, member.profilePicture);
+  useEffect(() => {
+    console.log(`MemberCard rendering for ${member.firstName} ${member.lastName}:`, 
+      member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : 'No profile picture');
+  }, [member]);
 
   return (
     <Card 

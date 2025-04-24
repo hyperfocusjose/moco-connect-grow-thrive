@@ -16,10 +16,13 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
   member, 
   onImageUploaded 
 }) => {
-  // Log the initial image URL for debugging
+  // Log the image URL for debugging
   useEffect(() => {
     console.log('ProfileImageField initialized with image URL:', profileImage);
-  }, []);
+    if (profileImage) {
+      console.log('Cache-busted URL:', getCacheBustedImageUrl(profileImage));
+    }
+  }, [profileImage]);
 
   return (
     <div className="mb-6 flex justify-center">
@@ -30,7 +33,7 @@ export const ProfileImageField: React.FC<ProfileImageFieldProps> = ({
               src={getCacheBustedImageUrl(profileImage)} 
               alt="Profile" 
               onError={(e) => {
-                console.error("Image failed to load:", profileImage);
+                console.error("Profile image failed to load:", profileImage);
                 e.currentTarget.style.display = 'none';
               }}
             />
