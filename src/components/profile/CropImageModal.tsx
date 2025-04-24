@@ -33,11 +33,12 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
       width: 400,
       height: 400,
       backgroundColor: '#f0f0f0',
+      selection: false // Disable group selection
     });
 
     setFabricCanvas(canvas);
 
-    // Load the image
+    // Load the image with crossOrigin enabled
     FabricImage.fromURL(
       imageUrl, 
       (img) => {
@@ -58,12 +59,13 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
           left: (400 - img.width! * scale) / 2,
           top: (400 - img.height! * scale) / 2,
           selectable: false,  // Prevent the image from being moved
+          crossOrigin: 'anonymous'
         });
 
         canvas.add(img);
         setOriginalImage(img);
 
-        // Create circle crop mask
+        // Create circle crop mask with clear visual indication
         const radius = 150;
         const circle = new FabricCircle({
           left: (400 - radius * 2) / 2,
@@ -71,17 +73,23 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
           radius: radius,
           fill: 'transparent',
           stroke: '#ffffff',
-          strokeWidth: 2,
+          strokeWidth: 3,
           strokeDashArray: [5, 5],
           selectable: true,
           hasControls: false,  // No resize controls
           hasBorders: false,
           hoverCursor: 'move',
+          borderColor: 'white',
+          cornerColor: 'white',
+          transparentCorners: false
         });
         
         canvas.add(circle);
         canvas.bringToFront(circle);
         setCropCircle(circle);
+        
+        // Make the circle the active object so it's immediately obvious it can be moved
+        canvas.setActiveObject(circle);
         
         setLoading(false);
         canvas.renderAll();
@@ -117,32 +125,41 @@ export const CropImageModal: React.FC<CropImageModalProps> = ({
     ctx.closePath();
     ctx.clip();
     
-    // Draw the image at the correct position
+    // Create a new image element for drawing
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.src = imageUrl;
     
-    // Calculate the source coordinates in the original image
-    const imgLeft = originalImage.left || 0;
-    const imgTop = originalImage.top || 0;
-    const imgScale = originalImage.scaleX || 1;
+    // Wait for the image to load before drawing
+    img.onload = () => {
+      // Calculate the source coordinates in the original image
+      const imgLeft = originalImage.left || 0;
+      const imgTop = originalImage.top || 0;
+      const imgScale = originalImage.scaleX || 1;
+      
+      // Draw the image at the correct position
+      ctx.drawImage(
+        img,
+        (circleLeft - imgLeft) / imgScale,
+        (circleTop - imgTop) / imgScale,
+        (radius * 2) / imgScale,
+        (radius * 2) / imgScale,
+        0,
+        0,
+        radius * 2,
+        radius * 2
+      );
+      
+      // Get the data URL from the temp canvas
+      const croppedDataUrl = tempCanvas.toDataURL('image/png');
+      
+      onCropComplete(croppedDataUrl);
+      onClose();
+    };
     
-    ctx.drawImage(
-      img,
-      (circleLeft - imgLeft) / imgScale,
-      (circleTop - imgTop) / imgScale,
-      (radius * 2) / imgScale,
-      (radius * 2) / imgScale,
-      0,
-      0,
-      radius * 2,
-      radius * 2
-    );
-    
-    // Get the data URL from the temp canvas
-    const croppedDataUrl = tempCanvas.toDataURL('image/png');
-    
-    onCropComplete(croppedDataUrl);
-    onClose();
+    img.onerror = () => {
+      console.error("Failed to load image for cropping");
+    };
   };
 
   return (
