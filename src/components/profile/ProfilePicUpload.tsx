@@ -36,25 +36,6 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       console.log("File type:", file.type);
       console.log("File size:", file.size);
       
-      // Ensure the profiles bucket exists
-      try {
-        const { data: buckets } = await supabase
-          .storage
-          .listBuckets();
-          
-        const profilesBucketExists = buckets?.some(bucket => bucket.name === 'profiles');
-        
-        if (!profilesBucketExists) {
-          console.log("Profiles bucket doesn't exist, creating...");
-          // Note: This would require admin privileges, so it should be handled via SQL
-          toast.error("Storage not configured properly. Please contact an administrator.");
-          setIsUploading(false);
-          return;
-        }
-      } catch (bucketError) {
-        console.error("Error checking storage buckets:", bucketError);
-      }
-      
       // Upload file to Supabase Storage
       const { data, error: uploadError } = await supabase.storage
         .from('profiles')

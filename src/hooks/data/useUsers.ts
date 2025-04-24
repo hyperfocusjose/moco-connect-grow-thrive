@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,46 +23,45 @@ export const useUsers = () => {
         return;
       }
 
-      // Fetch user roles separately with improved logging
-      const userRolesMap = new Map();
+      // Fetch user roles with improved logging
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
 
       if (userRolesError) {
         console.error('Error fetching user roles:', userRolesError);
-      } else if (userRolesData) {
-        console.log('User roles data:', userRolesData);
-        userRolesData.forEach((role) => {
-          userRolesMap.set(role.user_id, role.role);
-          console.log(`Set role for user ${role.user_id}: ${role.role}`);
-        });
       }
 
+      const adminUserIds = new Set(
+        userRolesData
+          ?.filter(role => role.role === 'admin')
+          .map(role => role.user_id) || []
+      );
+
+      console.log('Admin user IDs:', Array.from(adminUserIds));
+
       // Fetch member tags separately
-      const memberTagsMap = new Map();
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
         .select('*');
 
       if (memberTagsError) {
         console.error('Error fetching member tags:', memberTagsError);
-      } else if (memberTagsData) {
-        memberTagsData.forEach((tagObj) => {
-          if (!memberTagsMap.has(tagObj.member_id)) {
-            memberTagsMap.set(tagObj.member_id, []);
-          }
-          memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
-        });
       }
 
-      // Transform and apply role filtering correctly
+      const memberTagsMap = new Map();
+      memberTagsData?.forEach((tagObj) => {
+        if (!memberTagsMap.has(tagObj.member_id)) {
+          memberTagsMap.set(tagObj.member_id, []);
+        }
+        memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
+      });
+
+      // Transform profiles and filter out admin users for directory view
       const transformedUsers: User[] = profilesData
+        .filter(profile => !adminUserIds.has(profile.id))  // Filter out admin users
         .map(profile => {
-          const isAdmin = userRolesMap.get(profile.id) === 'admin';
-          const hasNames = profile.first_name && profile.last_name;
-          
-          console.log(`User ${profile.first_name || 'unknown'} (${profile.id}): hasNames=${hasNames}, isAdmin=${isAdmin}`);
+          console.log(`Processing user ${profile.first_name} (${profile.id}): isAdmin=${adminUserIds.has(profile.id)}`);
           
           return {
             id: profile.id,
@@ -76,7 +74,7 @@ export const useUsers = () => {
             bio: profile.bio || '',
             tags: memberTagsMap.get(profile.id) || [],
             profilePicture: profile.profile_picture || '',
-            isAdmin: isAdmin,
+            isAdmin: adminUserIds.has(profile.id),
             website: profile.website || '',
             linkedin: profile.linkedin || '',
             facebook: profile.facebook || '',
