@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { Button } from '@/components/ui/button';
-import { PlusIcon } from '@radix-ui/react-icons';
+import { Plus as PlusIcon } from 'lucide-react';
 import { Event } from '@/types';
 import { format } from 'date-fns';
 import { useEffect } from 'react';

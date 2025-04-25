@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
@@ -95,6 +96,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getActivityForAllMembers,
       fetchUsers,
       fetchActivities,
+      fetchEvents
     }}>
       {children}
     </DataContext.Provider>
