@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
-import { Calendar as CalendarIcon, MapPin, Clock, User, ChevronLeft, ChevronRight, Plus, AlertCircle, History } from 'lucide-react';
+import { 
+  Calendar as CalendarIcon, 
+  MapPin, 
+  Clock, 
+  User, 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus, 
+  AlertCircle, 
+  History 
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -233,6 +243,9 @@ const Events = () => {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [eventDetails, setEventDetails] = useState<EventType | null>(null);
   const [presenterHistoryOpen, setPresenterHistoryOpen] = useState(false);
+  const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
+  const [tuesdayMeetingsInitialized, setTuesdayMeetingsInitialized] = useState(false);
+  
   const [newEvent, setNewEvent] = useState({
     name: '',
     date: new Date(),
@@ -241,11 +254,81 @@ const Events = () => {
     location: '',
     description: '',
   });
-  
-  const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
-  
+
   const isAdmin = currentUser?.isAdmin;
-  const [tuesdayMeetingsInitialized, setTuesdayMeetingsInitialized] = useState(false);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingEvents = events.filter(event => {
+    const eventDate = new Date(event.date);
+    const isWeeklyMeeting = event.name.toLowerCase().includes('tuesday meeting');
+    
+    if (isWeeklyMeeting) {
+      const uniqueTuesdayMeetingDates = new Map();
+      
+      events
+        .filter(e => 
+          e.name.toLowerCase().includes('tuesday meeting') && 
+          !e.isCancelled && 
+          e.isApproved &&
+          new Date(e.date) >= today
+        )
+        .forEach(meeting => {
+          const meetingDate = formatDateForComparison(new Date(meeting.date));
+          if (!uniqueTuesdayMeetingDates.has(meetingDate) || meeting.isPresentationMeeting) {
+            uniqueTuesdayMeetingDates.set(meetingDate, meeting);
+          }
+        });
+      
+      const upcomingTuesdayMeetings = Array.from(uniqueTuesdayMeetingDates.values())
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 2);
+      
+      return upcomingTuesdayMeetings.some(meeting => meeting.id === event.id);
+    }
+    
+    return eventDate >= today && event.isApproved && !event.isCancelled;
+  });
+
+  const pastEvents = events.filter(event => {
+    const eventDate = new Date(event.date);
+    const isWeeklyMeeting = event.name.toLowerCase().includes('tuesday meeting');
+    return eventDate < today && event.isApproved && !isWeeklyMeeting;
+  });
+
+  const myEvents = events.filter(event => {
+    const eventDate = new Date(event.date);
+    return (event.createdBy === currentUser?.id || event.presenter === currentUser?.id) && 
+           eventDate >= today;
+  });
+
+  const pendingEvents = events.filter(event => !event.isApproved && !event.isCancelled);
+
+  const cancelledEvents = events.filter(event => event.isCancelled === true);
+
+  const filteredEvents = (() => {
+    switch (selectedTab) {
+      case 'upcoming':
+        return upcomingEvents;
+      case 'past':
+        return pastEvents;
+      case 'my-events':
+        return myEvents;
+      case 'pending':
+        return pendingEvents;
+      case 'cancelled':
+        return cancelledEvents;
+      default:
+        return [];
+    }
+  })();
+
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    return selectedTab === 'past' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
+  });
 
   useEffect(() => {
     if (isAdmin && !tuesdayMeetingsInitialized && events.length > 0) {
@@ -288,57 +371,6 @@ const Events = () => {
       setTuesdayMeetingsInitialized(true);
     }
   }, [isAdmin, events, createEvent, currentUser, tuesdayMeetingsInitialized]);
-
-  const filteredEvents = events.filter(event => {
-    const eventDate = new Date(event.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const isWeeklyMeeting = event.name.toLowerCase().includes('tuesday meeting');
-    
-    if (selectedTab === 'upcoming') {
-      if (isWeeklyMeeting) {
-        const uniqueTuesdayMeetingDates = new Map();
-        
-        events
-          .filter(e => 
-            e.name.toLowerCase().includes('tuesday meeting') && 
-            !e.isCancelled && 
-            e.isApproved &&
-            new Date(e.date) >= today
-          )
-          .forEach(meeting => {
-            const meetingDate = formatDateForComparison(new Date(meeting.date));
-            if (!uniqueTuesdayMeetingDates.has(meetingDate) || meeting.isPresentationMeeting) {
-              uniqueTuesdayMeetingDates.set(meetingDate, meeting);
-            }
-          });
-        
-        const upcomingTuesdayMeetings = Array.from(uniqueTuesdayMeetingDates.values())
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-          .slice(0, 2);
-        
-        return upcomingTuesdayMeetings.some(meeting => meeting.id === event.id);
-      } else {
-        return eventDate >= today && event.isApproved && !event.isCancelled;
-      }
-    } else if (selectedTab === 'past') {
-      return eventDate < today && event.isApproved && !isWeeklyMeeting;
-    } else if (selectedTab === 'my-events' && currentUser) {
-      return (event.createdBy === currentUser.id || event.presenter === currentUser.id) && 
-             eventDate >= today;
-    } else if (selectedTab === 'pending' && isAdmin) {
-      return !event.isApproved && !event.isCancelled;
-    } else if (selectedTab === 'cancelled') {
-      return event.isCancelled === true;
-    }
-    return false;
-  });
-
-  const sortedEvents = [...filteredEvents].sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    return selectedTab === 'past' ? dateB.getTime() - dateA.getTime() : dateA.getTime() - dateB.getTime();
-  });
 
   const eventsInMonth = events.filter(event => {
     const eventDate = new Date(event.date);
