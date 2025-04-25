@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { User } from '@/types';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Phone, Mail, Globe, Linkedin, Instagram, Facebook, Edit } from 'lucide-react';
-import { getCacheBustedImageUrl, getInitials } from '@/utils/imageUtils';
+import { getCacheBustedImageUrl, getInitials, validateImageUrl } from '@/utils/imageUtils';
 
 interface MemberCardProps {
   member: User;
@@ -20,14 +21,42 @@ export const MemberCard: React.FC<MemberCardProps> = ({
   showEditButton = false, 
   onEdit 
 }) => {
-  const [imageKey] = useState<number>(Date.now());
+  const [imageValid, setImageValid] = useState<boolean | null>(null);
   const cachedImageUrl = member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : null;
-
+  
   // Handle edit button click without propagating to card click
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onEdit) onEdit();
   };
+
+  // Validate image URL when it changes
+  useEffect(() => {
+    const validateImage = async () => {
+      if (!cachedImageUrl) {
+        setImageValid(false);
+        return;
+      }
+      
+      const isValid = await validateImageUrl(cachedImageUrl);
+      setImageValid(isValid);
+      
+      if (!isValid) {
+        console.error(`Invalid image for ${member.firstName} ${member.lastName}:`, cachedImageUrl);
+      }
+    };
+    
+    validateImage();
+  }, [cachedImageUrl, member.firstName, member.lastName]);
+
+  // Debug log the profile picture URL
+  useEffect(() => {
+    console.log(`MemberCard rendering for ${member.firstName} ${member.lastName}:`, {
+      originalUrl: member.profilePicture,
+      processedUrl: cachedImageUrl,
+      isValid: imageValid
+    });
+  }, [member, cachedImageUrl, imageValid]);
 
   return (
     <Card 
@@ -47,13 +76,17 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         )}
         <div className="flex flex-col items-center">
           <Avatar className="h-24 w-24 mb-4">
-            {cachedImageUrl ? (
+            {(cachedImageUrl && imageValid) ? (
               <AvatarImage 
-                key={imageKey}
                 src={cachedImageUrl} 
                 alt={`${member.firstName} ${member.lastName}`}
                 onError={(e) => {
-                  console.error("Profile image failed to load:", cachedImageUrl);
+                  console.error("Profile image failed to load:", {
+                    originalUrl: member.profilePicture,
+                    processedUrl: cachedImageUrl
+                  });
+                  setImageValid(false);
+                  e.currentTarget.style.display = 'none';
                 }}
               />
             ) : (

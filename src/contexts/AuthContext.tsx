@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -13,6 +14,7 @@ interface AuthContextType {
   updateCurrentUser: (user: User) => Promise<void>;
 }
 
+// Define a type for the profile data from Supabase
 interface ProfileData {
   id?: string;
   first_name?: string;
@@ -50,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
 
+  // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
     try {
       const { data: rolesData, error } = await supabase
@@ -73,90 +76,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Initialize authentication state from local storage
   useEffect(() => {
-    const initAuth = async () => {
-      setIsLoading(true);
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        
-        if (sessionData?.session?.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sessionData.session.user.id)
-            .single();
-            
-          if (profileError) {
-            console.error('Error fetching profile:', profileError);
-            setIsLoading(false);
-            return;
-          }
-          
-          const userRoles = await fetchRoles(sessionData.session.user.id);
-          const isAdmin = userRoles.includes('admin');
-          
-          const user: User = {
-            id: sessionData.session.user.id,
-            firstName: profileData.first_name || '',
-            lastName: profileData.last_name || '',
-            email: profileData.email || sessionData.session.user.email || '',
-            phoneNumber: profileData.phone_number || '',
-            businessName: profileData.business_name || '',
-            industry: profileData.industry || '',
-            bio: profileData.bio || '',
-            profilePicture: profileData.profile_picture || '',
-            tags: [],
-            isAdmin,
-            website: profileData.website || '',
-            linkedin: profileData.linkedin || '',
-            facebook: profileData.facebook || '',
-            tiktok: profileData.tiktok || '',
-            instagram: profileData.instagram || '',
-            createdAt: new Date(profileData.created_at || sessionData.session.user.created_at),
-          };
-          
-          try {
-            const { data: tagsData } = await supabase
-              .from('member_tags')
-              .select('tag')
-              .eq('member_id', sessionData.session.user.id);
-              
-            if (tagsData && tagsData.length > 0) {
-              user.tags = tagsData.map(t => t.tag);
-            }
-          } catch (tagError) {
-            console.error('Error fetching member tags:', tagError);
-          }
-          
-          setCurrentUser(user);
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          setIsAuthenticated(true);
-        } else {
-          const storedUser = localStorage.getItem('currentUser');
-          if (storedUser) {
-            try {
-              const user = JSON.parse(storedUser);
-              setCurrentUser(user);
-              setIsAuthenticated(true);
-              if (user.id) {
-                fetchRoles(user.id);
-              }
-            } catch (error) {
-              console.error('Failed to parse stored user data:', error);
-              localStorage.removeItem('currentUser');
-            }
-          }
+        const user = JSON.parse(storedUser);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        if (user.id) {
+          fetchRoles(user.id);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Failed to parse stored user data:', error);
       }
-    };
-    
-    initAuth();
+    }
+    setIsLoading(false);
   }, []);
 
+  // Handle login with Supabase authentication
   const login = async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -180,11 +118,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Failed to fetch user profile');
         }
         
+        // Get user roles
         const userRoles = await fetchRoles(data.user.id);
         const isAdmin = userRoles.includes('admin');
         
+        // Correctly type the profile data
         const profile = (profileData as ProfileData) || {};
         
+        // Combine auth and profile data
         const newUser: User = {
           id: data.user.id,
           firstName: profile.first_name || '',
@@ -195,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           industry: profile.industry || '',
           bio: profile.bio || '',
           profilePicture: profile.profile_picture || '',
-          tags: [],
+          tags: [], // We'll fetch tags separately
           isAdmin,
           website: profile.website || '',
           linkedin: profile.linkedin || '',
@@ -205,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(profile.created_at || data.user.created_at),
         };
         
+        // Fetch member tags
         try {
           const { data: tagsData } = await supabase
             .from('member_tags')
@@ -245,75 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Promise.resolve();
   };
 
+  // Infer admin from roles
   const isAdmin = roles.includes('admin');
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (profileError) {
-            console.error('Error fetching profile on auth change:', profileError);
-            return;
-          }
-          
-          const userRoles = await fetchRoles(session.user.id);
-          const isAdmin = userRoles.includes('admin');
-          
-          const updatedUser: User = {
-            id: session.user.id,
-            firstName: profileData.first_name || '',
-            lastName: profileData.last_name || '',
-            email: profileData.email || session.user.email || '',
-            phoneNumber: profileData.phone_number || '',
-            businessName: profileData.business_name || '',
-            industry: profileData.industry || '',
-            bio: profileData.bio || '',
-            profilePicture: profileData.profile_picture || '',
-            tags: [],
-            isAdmin,
-            website: profileData.website || '',
-            linkedin: profileData.linkedin || '',
-            facebook: profileData.facebook || '',
-            tiktok: profileData.tiktok || '',
-            instagram: profileData.instagram || '',
-            createdAt: new Date(profileData.created_at || session.user.created_at),
-          };
-          
-          try {
-            const { data: tagsData } = await supabase
-              .from('member_tags')
-              .select('tag')
-              .eq('member_id', session.user.id);
-              
-            if (tagsData && tagsData.length > 0) {
-              updatedUser.tags = tagsData.map(t => t.tag);
-            }
-          } catch (tagError) {
-            console.error('Error fetching member tags:', tagError);
-          }
-          
-          setCurrentUser(updatedUser);
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-          setIsAuthenticated(true);
-        } else if (event === 'SIGNED_OUT') {
-          setCurrentUser(null);
-          setIsAuthenticated(false);
-          setRoles([]);
-          localStorage.removeItem('currentUser');
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
   return (
     <AuthContext.Provider value={{ currentUser, isAuthenticated, isLoading, roles, isAdmin, login, logout, updateCurrentUser }}>
