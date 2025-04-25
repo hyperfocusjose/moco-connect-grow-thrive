@@ -210,8 +210,7 @@ const Events = () => {
 
   const handleCreateEvent = () => {
     if (!newEvent.name || !newEvent.location) {
-      toast({
-        title: "Error",
+      toast("Error", {
         description: "Please fill in all required fields",
         variant: "destructive",
       });
@@ -243,8 +242,7 @@ const Events = () => {
       description: '',
     });
 
-    toast({
-      title: isAdmin ? "Event created" : "Event submitted for approval",
+    toast(isAdmin ? "Event created" : "Event submitted for approval", {
       description: isAdmin 
         ? "The event has been created successfully" 
         : "Your event has been submitted and is pending approval",
@@ -264,8 +262,7 @@ const Events = () => {
     
     setTuesdayMeetingDialog(null);
     
-    toast({
-      title: "Meeting updated",
+    toast("Meeting updated", {
       description: updatedEvent.isPresentationMeeting 
         ? "Presenter has been assigned to this meeting" 
         : "Meeting has been updated",
@@ -276,8 +273,7 @@ const Events = () => {
     const updatedEvent = { ...event, isCancelled: true };
     updateEvent(event.id, updatedEvent);
     
-    toast({
-      title: "Event cancelled",
+    toast("Event cancelled", {
       description: "The event has been cancelled successfully",
     });
   };
@@ -286,8 +282,7 @@ const Events = () => {
     const updatedEvent = { ...event, isApproved: true };
     updateEvent(event.id, updatedEvent);
     
-    toast({
-      title: "Event approved",
+    toast("Event approved", {
       description: "The event has been approved successfully",
     });
   };
@@ -296,8 +291,7 @@ const Events = () => {
     const updatedEvent = { ...event, isCancelled: true };
     updateEvent(event.id, updatedEvent);
     
-    toast({
-      title: "Event disapproved",
+    toast("Event disapproved", {
       description: "The event has been moved to cancelled events",
     });
   };
@@ -305,8 +299,7 @@ const Events = () => {
   const handleDeleteEvent = (eventId: string) => {
     deleteEvent(eventId);
     
-    toast({
-      title: "Event deleted",
+    toast("Event deleted", {
       description: "The event has been deleted permanently",
     });
   };
