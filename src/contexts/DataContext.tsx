@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
@@ -8,7 +7,6 @@ import { useMetrics } from '@/hooks/data/useMetrics';
 import { usePollOperations } from '@/hooks/data/usePollOperations';
 import { DataContextType } from '@/types';
 
-// Initialize with empty data arrays
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
 export const useData = () => useContext(DataContext);
@@ -26,7 +24,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     events,
     createEvent,
     updateEvent,
-    deleteEvent
+    deleteEvent,
+    fetchEvents
   } = useEvents();
 
   const {
