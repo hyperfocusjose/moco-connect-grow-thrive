@@ -6,9 +6,11 @@ import { ProfilePicUploadProps } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploaded }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const { currentUser, updateCurrentUser } = useAuth();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -32,9 +34,6 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
       const filePath = `${uuidv4()}.${fileExt}`;
       
       console.log("Starting upload to Supabase...");
-      console.log("File path:", filePath);
-      console.log("File type:", file.type);
-      console.log("File size:", file.size);
       
       // Upload file to Supabase Storage
       const { data, error: uploadError } = await supabase.storage
@@ -56,6 +55,30 @@ export const ProfilePicUpload: React.FC<ProfilePicUploadProps> = ({ onImageUploa
         .getPublicUrl(filePath);
       
       console.log("Public URL generated:", publicUrl);
+      
+      // CRITICAL FIX: Immediately update the user's profile in the database
+      if (currentUser?.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ profile_picture: publicUrl })
+          .eq('id', currentUser.id);
+          
+        if (updateError) {
+          console.error("Failed to update profile with new image:", updateError);
+          toast.error('Failed to update profile with new image');
+        } else {
+          console.log("Profile updated with new image URL:", publicUrl);
+          
+          // Update the current user in context with the new profile picture
+          if (currentUser) {
+            const updatedUser = { 
+              ...currentUser, 
+              profilePicture: publicUrl 
+            };
+            await updateCurrentUser(updatedUser);
+          }
+        }
+      }
       
       // Pass the URL back to parent component
       onImageUploaded(publicUrl);

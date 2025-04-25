@@ -76,22 +76,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Initialize authentication state from local storage
-  useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setCurrentUser(user);
-        setIsAuthenticated(true);
-        if (user.id) {
-          fetchRoles(user.id);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored user data:', error);
+  // Function to fetch user profile data
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+          
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        return null;
       }
+
+      return profileData as ProfileData;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
     }
-    setIsLoading(false);
+  };
+
+  // Initialize authentication state from local storage and refresh profile data
+  useEffect(() => {
+    const refreshUserData = async () => {
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser) as User;
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          
+          if (user.id) {
+            fetchRoles(user.id);
+            
+            // Refresh profile data to ensure it's current
+            const freshProfileData = await fetchUserProfile(user.id);
+            if (freshProfileData) {
+              const updatedUser: User = {
+                ...user,
+                firstName: freshProfileData.first_name || user.firstName,
+                lastName: freshProfileData.last_name || user.lastName,
+                email: freshProfileData.email || user.email,
+                phoneNumber: freshProfileData.phone_number || user.phoneNumber,
+                businessName: freshProfileData.business_name || user.businessName,
+                industry: freshProfileData.industry || user.industry,
+                bio: freshProfileData.bio || user.bio,
+                profilePicture: freshProfileData.profile_picture || user.profilePicture,
+                website: freshProfileData.website || user.website,
+                linkedin: freshProfileData.linkedin || user.linkedin,
+                facebook: freshProfileData.facebook || user.facebook,
+                tiktok: freshProfileData.tiktok || user.tiktok,
+                instagram: freshProfileData.instagram || user.instagram,
+              };
+              
+              setCurrentUser(updatedUser);
+              localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            }
+          }
+        } catch (error) {
+          console.error('Failed to parse stored user data:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    refreshUserData();
   }, []);
 
   // Handle login with Supabase authentication
@@ -179,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateCurrentUser = async (user: User) => {
+    console.log("Updating current user in context:", user);
     setCurrentUser(user);
     localStorage.setItem('currentUser', JSON.stringify(user));
     if (user.id) {

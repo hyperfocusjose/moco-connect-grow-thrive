@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +11,7 @@ import { Phone, Mail, ArrowUpRight, ListCheck, Calendar, Globe, Linkedin, Facebo
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
-import { getCacheBustedImageUrl, getInitials, validateImageUrl } from '@/utils/imageUtils';
+import { getInitials } from '@/utils/imageUtils';
 
 interface MemberDetailProps {
   member: User;
@@ -22,42 +21,11 @@ interface MemberDetailProps {
 
 export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onEdit }) => {
   const [openForm, setOpenForm] = useState<null | 'referral' | '1to1' | 'tyfcb'>(null);
-  const [imageValid, setImageValid] = useState<boolean | null>(null);
+  const [imageError, setImageError] = useState(false);
   const { currentUser } = useAuth();
   const isAdmin = !!currentUser?.isAdmin;
-  const cachedImageUrl = member.profilePicture ? getCacheBustedImageUrl(member.profilePicture) : null;
-
-  // Validate image URL when it changes
-  useEffect(() => {
-    const validateImage = async () => {
-      if (!cachedImageUrl) {
-        setImageValid(false);
-        return;
-      }
-      
-      console.log('Validating image URL in MemberDetail:', cachedImageUrl);
-      const isValid = await validateImageUrl(cachedImageUrl);
-      setImageValid(isValid);
-      
-      if (!isValid) {
-        console.error('Invalid image URL in MemberDetail:', cachedImageUrl);
-      }
-    };
-    
-    validateImage();
-  }, [cachedImageUrl]);
 
   const closeForm = () => setOpenForm(null);
-  
-  // Debug log
-  useEffect(() => {
-    console.log(`MemberDetail rendering for ${member.firstName} ${member.lastName}:`, {
-      originalUrl: member.profilePicture,
-      processedUrl: cachedImageUrl,
-      isValid: imageValid,
-      isAdmin: isAdmin
-    });
-  }, [member, cachedImageUrl, imageValid, isAdmin]);
 
   return (
     <div className="p-6 max-w-md mx-auto">
@@ -75,14 +43,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ member, onClose, onE
           )}
           
           <Avatar className="h-24 w-24 mb-4">
-            {(cachedImageUrl && imageValid) ? (
+            {(member.profilePicture && !imageError) ? (
               <AvatarImage 
-                src={cachedImageUrl} 
+                src={member.profilePicture} 
                 alt={member.firstName}
-                onError={(e) => {
-                  console.log("Detail image failed to load:", cachedImageUrl);
-                  setImageValid(false);
-                  e.currentTarget.style.display = 'none';
+                onError={() => {
+                  console.error("Detail image failed to load:", member.profilePicture);
+                  setImageError(true);
                 }} 
               />
             ) : (
