@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
-import { AlertCircle, History, Plus } from 'lucide-react';
+import { AlertCircle, History, Plus, Clock, MapPin, User as UserIcon, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import EventsList from '@/components/events/EventsList';
@@ -48,11 +48,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import PresenterHistoryDialog from '@/components/events/PresenterHistoryDialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 
 const Events = () => {
   const { events, createEvent, updateEvent, deleteEvent, getUser, users } = useData();
   const { currentUser } = useAuth();
-  const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -640,7 +641,7 @@ const Events = () => {
             </div>
             {eventDetails?.isPresentationMeeting && eventDetails?.presenter && (
               <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-gray-500" />
+                <UserIcon className="h-4 w-4 mr-2 text-gray-500" />
                 <span>
                   Presenter: {
                     eventDetails.presenter && getUser(eventDetails.presenter) 
