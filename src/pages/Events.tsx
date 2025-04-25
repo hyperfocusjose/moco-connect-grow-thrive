@@ -1,40 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
-import { 
-  Calendar as CalendarIcon, 
-  MapPin, 
-  Clock, 
-  User, 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus, 
-  AlertCircle, 
-  History 
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, History, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
-import { 
-  format, 
-  parse, 
-  isSameMonth, 
-  isSameDay, 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  addMonths, 
-  subMonths, 
-  addYears,
-  isTuesday,
-  startOfDay,
-  isPast,
-  getDaysInMonth
-} from 'date-fns';
-import { eachTuesdayOfInterval, formatDateForComparison } from '@/utils/dateUtils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import EventsList from '@/components/events/EventsList';
+import PendingEventsList from '@/components/events/PendingEventsList';
+import EventCalendarView from '@/components/events/EventCalendarView';
 import { useAuth } from '@/contexts/AuthContext';
+import { format, addMonths, subMonths, addYears, isPast, getDaysInMonth, startOfMonth, endOfMonth, isSameMonth, isSameDay, startOfDay } from 'date-fns';
+import { eachTuesdayOfInterval, formatDateForComparison } from '@/utils/dateUtils';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -66,173 +42,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import PresenterHistoryDialog from '@/components/events/PresenterHistoryDialog';
-
-const EventsList = ({ 
-  events, 
-  getUser, 
-  currentUser, 
-  onView, 
-  onManageTuesdayMeeting, 
-  onCancel, 
-  onDelete, 
-  formatTime,
-  isAdmin,
-  isCancelled = false
-}) => {
-  return (
-    <div className="space-y-4">
-      {events.length > 0 ? (
-        events.map(event => (
-          <Card key={event.id} className={`overflow-hidden ${event.isCancelled ? 'opacity-60' : ''}`}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{event.name}</CardTitle>
-                  <CardDescription>
-                    {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
-                  </CardDescription>
-                </div>
-                {event.name.toLowerCase().includes('tuesday meeting') && isAdmin && !isCancelled && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => onManageTuesdayMeeting(event)}
-                  >
-                    {event.isPresentationMeeting ? "Edit Presenter" : "Add Presenter"}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="flex items-center text-sm text-muted-foreground mb-2">
-                <Clock className="mr-1 h-4 w-4" />
-                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <MapPin className="mr-1 h-4 w-4" />
-                <span>{event.location}</span>
-              </div>
-              {event.isPresentationMeeting && event.presenter && (
-                <div className="flex items-center text-sm text-muted-foreground mt-2">
-                  <User className="mr-1 h-4 w-4" />
-                  <span>Presenter: {
-                    getUser(event.presenter) 
-                      ? `${getUser(event.presenter).firstName} ${getUser(event.presenter).lastName}`
-                      : 'Unknown'
-                  }</span>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="pt-2 flex justify-between">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onView(event)}
-              >
-                View Details
-              </Button>
-              {isAdmin && !isCancelled && (
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={() => event.name.toLowerCase().includes('tuesday meeting') ? onCancel(event) : onDelete(event.id)}
-                >
-                  {event.name.toLowerCase().includes('tuesday meeting') ? 'Cancel Meeting' : 'Delete'}
-                </Button>
-              )}
-            </CardFooter>
-          </Card>
-        ))
-      ) : (
-        <div className="text-center py-8 text-muted-foreground">
-          {isCancelled ? 'No cancelled events found.' : 'No events found.'}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PendingEventsList = ({ events, getUser, onApprove, onDisapprove, onView, formatTime }) => {
-  return (
-    <div className="space-y-4">
-      {events.length > 0 ? (
-        events.map(event => (
-          <Card key={event.id}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{event.name}</CardTitle>
-                  <CardDescription>
-                    {format(new Date(event.date), "EEEE, MMMM d, yyyy")}
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">Pending</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-2">
-              <div className="flex items-center text-sm text-muted-foreground mb-2">
-                <Clock className="mr-1 h-4 w-4" />
-                <span>{formatTime(event.startTime)} - {formatTime(event.endTime)}</span>
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground mb-2">
-                <MapPin className="mr-1 h-4 w-4" />
-                <span>{event.location}</span>
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <User className="mr-1 h-4 w-4" />
-                <span>Created by: {
-                  getUser(event.createdBy) 
-                    ? `${getUser(event.createdBy).firstName} ${getUser(event.createdBy).lastName}`
-                    : 'Unknown'
-                }</span>
-              </div>
-            </CardContent>
-            <CardFooter className="pt-2">
-              <div className="flex space-x-2 w-full">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onView(event)}
-                >
-                  View Details
-                </Button>
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                  onClick={() => onApprove(event)}
-                >
-                  Approve
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onDisapprove(event)}
-                >
-                  Reject
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-        ))
-      ) : (
-        <div className="text-center py-8 text-muted-foreground">
-          No pending events found.
-        </div>
-      )}
-    </div>
-  );
-};
 
 const Events = () => {
   const { events, createEvent, updateEvent, deleteEvent, getUser, users } = useData();
@@ -786,88 +601,22 @@ const Events = () => {
           </TabsContent>
         </Tabs>
       ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <Button variant="outline" size="sm" onClick={previousMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h2 className="text-xl font-semibold">{format(currentDate, 'MMMM yyyy')}</h2>
-            <Button variant="outline" size="sm" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="font-medium text-sm py-1">
-                {day}
-              </div>
-            ))}
-          </div>
-          
-          <div className="grid grid-cols-7 gap-1">
-            {generateCalendarDays().map((day, dayIdx) => {
-              if (day === null) {
-                return <div key={`empty-${dayIdx}`} className="min-h-24 p-1"></div>;
-              }
-              
-              const eventsOnDay = getEventsForDay(day);
-              const isToday = isSameDay(day, new Date());
-              const isTuesdayDay = isTuesday(day);
-              
-              return (
-                <div 
-                  key={dayIdx} 
-                  className={`min-h-24 border rounded-md p-1 ${
-                    isToday ? 'bg-gray-100' : ''
-                  } ${
-                    isTuesdayDay ? 'bg-maroon/5 border-maroon/20' : ''
-                  }`}
-                >
-                  <div className="text-right text-sm font-medium mb-1">
-                    {format(day, 'd')}
-                  </div>
-                  <div className="space-y-1">
-                    {eventsOnDay.filter(e => !e.isCancelled).slice(0, 2).map((event) => (
-                      <div 
-                        key={event.id} 
-                        className={`text-xs p-1 rounded ${
-                          event.name.includes('Tuesday Meeting') 
-                            ? 'bg-maroon/10 text-maroon' 
-                            : 'bg-blue-100 text-blue-800'
-                        } truncate cursor-pointer hover:opacity-80`}
-                        title={event.name}
-                        onClick={() => setEventDetails(event)}
-                      >
-                        {event.name}
-                      </div>
-                    ))}
-                    {eventsOnDay.filter(e => !e.isCancelled).length > 2 && (
-                      <div className="text-xs text-gray-500 text-center">
-                        +{eventsOnDay.filter(e => !e.isCancelled).length - 2} more
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold mb-4">Events this month</h3>
-            <EventsList 
-              events={eventsInMonth.filter(e => !e.isCancelled)} 
-              getUser={getUser} 
-              currentUser={currentUser} 
-              onView={(event) => setEventDetails(event)} 
-              onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
-              onCancel={handleCancelEvent} 
-              onDelete={handleDeleteEvent} 
-              formatTime={formatTime}
-              isAdmin={isAdmin}
-            />
-          </div>
-        </div>
+        <EventCalendarView
+          currentDate={currentDate}
+          eventsInMonth={eventsInMonth}
+          onPreviousMonth={previousMonth}
+          onNextMonth={nextMonth}
+          getEventsForDay={getEventsForDay}
+          generateCalendarDays={generateCalendarDays}
+          onEventClick={(event) => setEventDetails(event)}
+          getUser={getUser}
+          currentUser={currentUser}
+          onManageTuesdayMeeting={(event) => setTuesdayMeetingDialog(event)}
+          onCancel={handleCancelEvent}
+          onDelete={handleDeleteEvent}
+          formatTime={formatTime}
+          isAdmin={isAdmin}
+        />
       )}
 
       <Dialog open={!!eventDetails} onOpenChange={(open) => !open && setEventDetails(null)}>
