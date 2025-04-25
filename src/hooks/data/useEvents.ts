@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Event } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,43 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
-
-  const fetchEvents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('date', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching events:', error);
-        toast.error('Failed to load events');
-        return;
-      }
-
-      const transformedEvents: Event[] = data.map(event => ({
-        id: event.id,
-        name: event.name,
-        date: new Date(event.date),
-        startTime: event.start_time,
-        endTime: event.end_time,
-        location: event.location,
-        description: event.description || '',
-        createdBy: event.created_by || '',
-        isApproved: event.is_approved || false,
-        isFeatured: event.is_featured || false,
-        isPresentationMeeting: event.is_presentation_meeting || false,
-        presenter: event.presenter,
-        createdAt: new Date(event.created_at || new Date()),
-        isCancelled: event.is_cancelled || false,
-      }));
-
-      setEvents(transformedEvents);
-    } catch (error) {
-      console.error('Error in fetchEvents:', error);
-      toast.error('Failed to load events');
-    }
-  };
 
   const createEvent = async (event: Partial<Event>) => {
     try {
@@ -154,7 +118,6 @@ export const useEvents = () => {
     events,
     createEvent,
     updateEvent,
-    deleteEvent,
-    fetchEvents
+    deleteEvent
   };
 };
