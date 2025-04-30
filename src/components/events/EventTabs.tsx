@@ -33,6 +33,13 @@ const EventTabs: React.FC<EventTabsProps> = ({
   formatTime,
   isAdmin
 }) => {
+  // Create a wrapper function to adapt the onDelete function to match what EventsList expects
+  const handleDelete = (event: Event) => {
+    if (event.id) {
+      onDelete(event.id);
+    }
+  };
+
   return (
     <Tabs defaultValue="upcoming" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
       <TabsList className="mb-6">
@@ -51,7 +58,7 @@ const EventTabs: React.FC<EventTabsProps> = ({
           onView={onView} 
           onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel} 
-          onDelete={onDelete} 
+          onDelete={handleDelete} 
           formatTime={formatTime}
           isAdmin={isAdmin}
         />
@@ -65,7 +72,7 @@ const EventTabs: React.FC<EventTabsProps> = ({
           onView={onView} 
           onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel} 
-          onDelete={onDelete} 
+          onDelete={handleDelete} 
           formatTime={formatTime}
           isAdmin={isAdmin}
         />
@@ -79,7 +86,7 @@ const EventTabs: React.FC<EventTabsProps> = ({
           onView={onView} 
           onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel} 
-          onDelete={onDelete} 
+          onDelete={handleDelete} 
           formatTime={formatTime}
           isAdmin={isAdmin}
         />
@@ -124,7 +131,7 @@ const EventTabs: React.FC<EventTabsProps> = ({
           onView={onView} 
           onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel} 
-          onDelete={onDelete} 
+          onDelete={handleDelete} 
           formatTime={formatTime}
           isAdmin={isAdmin}
           isCancelled 

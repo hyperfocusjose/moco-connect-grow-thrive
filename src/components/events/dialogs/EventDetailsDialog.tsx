@@ -34,7 +34,7 @@ interface EventDetailsDialogProps {
   formatTime: (time: string) => string;
   isAdmin: boolean;
   onCancel: (event: EventType) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => void;  // We keep this as string since this component handles the ID extraction
 }
 
 const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({

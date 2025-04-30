@@ -18,7 +18,7 @@ interface PendingEventsListProps {
   events: Event[];
   getUser: (id: string) => User | undefined;
   onApprove: (event: Event) => void;
-  onDisapprove: (event: Event) => void;
+  onDisapprove: (event: Event) => void;  // Updated to take an Event object
   onView: (event: Event) => void;
   formatTime: (time: string) => string;
 }

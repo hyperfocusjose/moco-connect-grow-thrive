@@ -10,7 +10,7 @@ interface EventsListProps {
   onView: (event: Event) => void;
   onManageTuesdayMeeting?: (event: Event) => void;
   onCancel?: (event: Event) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (event: Event) => void;  // Updated to take an Event object, not just an ID
   formatTime: (time: string) => string;
   isAdmin?: boolean;
   isCancelled?: boolean;

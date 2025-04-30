@@ -20,7 +20,7 @@ interface EventCardProps {
   onView: (event: Event) => void;
   onManageTuesdayMeeting?: (event: Event) => void;
   onCancel?: (event: Event) => void;
-  onDelete?: (id: string) => void;
+  onDelete?: (event: Event) => void;  // Updated to take an Event object, not just an ID
   formatTime: (time: string) => string;
   isAdmin?: boolean;
   isCancelled?: boolean;
@@ -90,7 +90,7 @@ const EventCard = ({
           <Button 
             variant="destructive" 
             size="sm"
-            onClick={() => event.name.toLowerCase().includes('tuesday meeting') ? onCancel?.(event) : onDelete?.(event.id)}
+            onClick={() => event.name.toLowerCase().includes('tuesday meeting') ? onCancel?.(event) : onDelete?.(event)}
           >
             {event.name.toLowerCase().includes('tuesday meeting') ? 'Cancel Meeting' : 'Delete'}
           </Button>

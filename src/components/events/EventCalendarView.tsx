@@ -39,6 +39,13 @@ const EventCalendarView = ({
   formatTime,
   isAdmin,
 }: EventCalendarViewProps) => {
+  // Create a wrapper function to adapt the onDelete function to match what EventsList expects
+  const handleDelete = (event: Event) => {
+    if (event.id) {
+      onDelete(event.id);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
@@ -116,7 +123,7 @@ const EventCalendarView = ({
           onView={onEventClick} 
           onManageTuesdayMeeting={onManageTuesdayMeeting}
           onCancel={onCancel} 
-          onDelete={onDelete} 
+          onDelete={handleDelete} 
           formatTime={formatTime}
           isAdmin={isAdmin}
         />
