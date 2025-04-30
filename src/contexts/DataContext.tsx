@@ -23,11 +23,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   } = useUsers();
 
   const {
-    events,
+    events,  
+    fetchEvents,
     createEvent,
     updateEvent,
-    deleteEvent,
-    fetchEvents
+    deleteEvent
+  
   } = useEvents();
 
   const {
@@ -76,10 +77,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       polls,
       stats,
       getUser,
+      fetchEvents,
       createEvent,
       updateEvent,
       deleteEvent,
-      fetchEvents,
       getUserMetrics,
       addVisitor,
       updateVisitor,
