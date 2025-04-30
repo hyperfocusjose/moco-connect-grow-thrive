@@ -40,6 +40,13 @@ const EventTabs: React.FC<EventTabsProps> = ({
     }
   };
 
+  // Create a wrapper function to adapt onDisapprove for PendingEventsList
+  const handleDisapprove = (event: Event) => {
+    if (event.id) {
+      onDelete(event.id);
+    }
+  };
+
   return (
     <Tabs defaultValue="upcoming" value={selectedTab} onValueChange={setSelectedTab} className="w-full">
       <TabsList className="mb-6">
@@ -107,7 +114,7 @@ const EventTabs: React.FC<EventTabsProps> = ({
             events={sortedEvents} 
             getUser={getUser} 
             onApprove={onCancel} 
-            onDisapprove={onDelete} 
+            onDisapprove={handleDisapprove} 
             onView={onView} 
             formatTime={formatTime}
           />

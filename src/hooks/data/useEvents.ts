@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Event } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (): Promise<boolean> => {
     try {
       console.log('Fetching events from Supabase...');
       const { data, error } = await supabase
@@ -18,7 +17,7 @@ export const useEvents = () => {
       if (error) {
         console.error('Error fetching events:', error);
         toast.error('Failed to load events');
-        return;
+        return false;
       }
 
       // Don't show any error toast if data is empty - this is normal
@@ -27,7 +26,7 @@ export const useEvents = () => {
       if (!data || data.length === 0) {
         console.log('No events found in database');
         setEvents([]);
-        return;
+        return true; // This is still a successful fetch, just with no data
       }
       
       const formattedEvents: Event[] = data.map(event => ({
@@ -49,9 +48,11 @@ export const useEvents = () => {
 
       console.log('Events transformed to client format:', formattedEvents.length);
       setEvents(formattedEvents);
+      return true;
     } catch (error) {
       console.error('Error in fetchEvents:', error);
       toast.error('Failed to load events');
+      return false;
     }
   };
 
