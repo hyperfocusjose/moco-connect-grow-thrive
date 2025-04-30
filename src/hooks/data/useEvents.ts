@@ -8,6 +8,46 @@ import { v4 as uuidv4 } from 'uuid';
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
 
+  const fetchEvents = async () => {
+    try {
+      console.log('Fetching events from Supabase...');
+      const { data, error } = await supabase
+        .from('events')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching events:', error);
+        toast.error('Failed to load events');
+        return;
+      }
+
+      console.log(`Retrieved ${data.length} events from Supabase`);
+      
+      const formattedEvents: Event[] = data.map(event => ({
+        id: event.id,
+        name: event.name,
+        date: new Date(event.date),
+        startTime: event.start_time,
+        endTime: event.end_time,
+        location: event.location,
+        description: event.description || '',
+        createdBy: event.created_by || '',
+        isApproved: event.is_approved || false,
+        isFeatured: event.is_featured || false,
+        isPresentationMeeting: event.is_presentation_meeting || false,
+        presenter: event.presenter,
+        createdAt: new Date(event.created_at),
+        isCancelled: event.is_cancelled || false,
+      }));
+
+      console.log('Events transformed to client format:', formattedEvents.length);
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error('Error in fetchEvents:', error);
+      toast.error('Failed to load events');
+    }
+  };
+
   const createEvent = async (event: Partial<Event>) => {
     try {
       const newEvent: Event = {
@@ -118,6 +158,7 @@ export const useEvents = () => {
     events,
     createEvent,
     updateEvent,
-    deleteEvent
+    deleteEvent,
+    fetchEvents
   };
 };

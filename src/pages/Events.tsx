@@ -52,7 +52,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 
 const Events = () => {
-  const { events, createEvent, updateEvent, deleteEvent, getUser, users } = useData();
+  const { events, createEvent, updateEvent, deleteEvent, getUser, users, fetchEvents } = useData();
   const { currentUser } = useAuth();
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -70,6 +70,11 @@ const Events = () => {
     location: '',
     description: '',
   });
+
+  useEffect(() => {
+    console.log('Events component mounted, fetching events...');
+    fetchEvents();
+  }, [fetchEvents]);
 
   const isAdmin = currentUser?.isAdmin;
 

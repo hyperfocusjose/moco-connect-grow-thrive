@@ -26,7 +26,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     events,
     createEvent,
     updateEvent,
-    deleteEvent
+    deleteEvent,
+    fetchEvents
   } = useEvents();
 
   const {
@@ -78,6 +79,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createEvent,
       updateEvent,
       deleteEvent,
+      fetchEvents,
       getUserMetrics,
       addVisitor,
       updateVisitor,

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +10,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDateForComparison } from '@/utils/dateUtils';
 
 export const UpcomingEvents = () => {
-  const { events } = useData();
+  const { events, fetchEvents } = useData();
   const today = useMemo(() => startOfToday(), []);
   const in14Days = useMemo(() => addDays(today, 14), [today]);
+  
+  useEffect(() => {
+    console.log('UpcomingEvents component mounted, fetching events...');
+    fetchEvents();
+  }, [fetchEvents]);
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
