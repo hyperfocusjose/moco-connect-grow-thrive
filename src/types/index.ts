@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   firstName: string;
@@ -147,7 +146,7 @@ export interface DataContextType {
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, eventData: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  fetchEvents: () => Promise<void>;
+  fetchEvents: () => Promise<boolean>; // Updated return type to Promise<boolean>
 
   // Visitor-related methods
   addVisitor: (visitor: Partial<Visitor>) => Promise<void>;

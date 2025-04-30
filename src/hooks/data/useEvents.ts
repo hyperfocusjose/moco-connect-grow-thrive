@@ -23,13 +23,8 @@ export const useEvents = () => {
       // Don't show any error toast if data is empty - this is normal
       console.log(`Retrieved ${data?.length || 0} events from Supabase`);
       
-      if (!data || data.length === 0) {
-        console.log('No events found in database');
-        setEvents([]);
-        return true; // This is still a successful fetch, just with no data
-      }
-      
-      const formattedEvents: Event[] = data.map(event => ({
+      // Always set events to data or an empty array if data is null
+      const formattedEvents: Event[] = data ? data.map(event => ({
         id: event.id,
         name: event.name,
         date: new Date(event.date),
@@ -44,7 +39,7 @@ export const useEvents = () => {
         presenter: event.presenter,
         createdAt: new Date(event.created_at),
         isCancelled: event.is_cancelled || false,
-      }));
+      })) : [];
 
       console.log('Events transformed to client format:', formattedEvents.length);
       setEvents(formattedEvents);
