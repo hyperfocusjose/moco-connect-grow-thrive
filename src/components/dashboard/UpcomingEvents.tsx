@@ -16,12 +16,10 @@ export const UpcomingEvents = () => {
   const in14Days = useMemo(() => addDays(today, 14), [today]);
   
   useEffect(() => {
-    console.log('UpcomingEvents component mounted, fetching events...');
     const loadEvents = async () => {
       const success = await fetchEvents();
       setEventsLoadError(!success);
     };
-    
     loadEvents();
   }, [fetchEvents]);
   
