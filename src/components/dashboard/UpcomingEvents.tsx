@@ -1,3 +1,4 @@
+
 import React, { useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +44,21 @@ export const UpcomingEvents = () => {
 
   const hasEvents = upcomingEvents.length > 0 || todayEvents.length > 0;
 
+  // Function to format time properly
+  const formatTime = (time: string) => {
+    // Handle various time formats
+    try {
+      const [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+      const date = new Date();
+      date.setHours(hours);
+      date.setMinutes(minutes);
+      return format(date, 'h:mm a'); // Format as 12-hour time with am/pm
+    } catch (error) {
+      console.error('Error formatting time:', time);
+      return time; // Return original if parsing fails
+    }
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-3">
@@ -70,7 +86,7 @@ export const UpcomingEvents = () => {
                     </Badge>
                   </div>
                   <p className="text-sm text-gray-600 mt-1">
-                    {format(new Date(event.date), "h:mm a")} • {event.location}
+                    {formatTime(event.startTime)} • {event.location}
                   </p>
                 </div>
               ))}
@@ -94,7 +110,7 @@ export const UpcomingEvents = () => {
                   <div className="flex-grow">
                     <h4 className="font-medium">{event.name}</h4>
                     <p className="text-sm text-gray-600">
-                      {format(new Date(event.date), "h:mm a")} • {event.location}
+                      {formatTime(event.startTime)} • {event.location}
                     </p>
                   </div>
                 </div>

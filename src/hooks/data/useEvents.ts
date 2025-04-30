@@ -21,7 +21,14 @@ export const useEvents = () => {
         return;
       }
 
-      console.log(`Retrieved ${data.length} events from Supabase`);
+      // Don't show any error toast if data is empty - this is normal
+      console.log(`Retrieved ${data?.length || 0} events from Supabase`);
+      
+      if (!data || data.length === 0) {
+        console.log('No events found in database');
+        setEvents([]);
+        return;
+      }
       
       const formattedEvents: Event[] = data.map(event => ({
         id: event.id,

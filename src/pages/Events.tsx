@@ -56,11 +56,14 @@ const Events = () => {
   const { currentUser } = useAuth();
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [eventDetails, setEventDetails] = useState<EventType | null>(null);
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
+  const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
+  const [isManagePresenterOpen, setIsManagePresenterOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [presenterHistoryOpen, setPresenterHistoryOpen] = useState(false);
-  const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
-  const [tuesdayMeetingsInitialized, setTuesdayMeetingsInitialized] = useState(false);
+  const [eventIdToDelete, setEventIdToDelete] = useState<string | null>(null);
   
   const [newEvent, setNewEvent] = useState({
     name: '',
@@ -77,6 +80,20 @@ const Events = () => {
   }, [fetchEvents]);
 
   const isAdmin = currentUser?.isAdmin;
+
+  // Format time function for consistent display
+  const formatTime = (time: string) => {
+    try {
+      const [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+      const date = new Date();
+      date.setHours(hours);
+      date.setMinutes(minutes);
+      return format(date, 'h:mm a'); // Format as 12-hour time with am/pm
+    } catch (error) {
+      console.error('Error formatting time:', time);
+      return time; // Return original if parsing fails
+    }
+  };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -306,13 +323,6 @@ const Events = () => {
     toast.success("Event deleted", {
       description: "The event has been deleted permanently",
     });
-  };
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12;
-    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   const getPresenterHistory = () => {
