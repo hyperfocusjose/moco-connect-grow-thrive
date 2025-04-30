@@ -164,6 +164,7 @@ export const useEvents = () => {
 
   return {
     events,
+    fetchEvents,
     createEvent,
     updateEvent,
     deleteEvent,
