@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Event as EventType } from '@/types';
@@ -56,13 +57,17 @@ const Events = () => {
   const { currentUser } = useAuth();
   const [selectedTab, setSelectedTab] = useState('upcoming');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
   const [isManagePresenterOpen, setIsManagePresenterOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isConfirmCancelOpen, setIsConfirmCancelOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [eventDetails, setEventDetails] = useState<EventType | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventType | null>(null);
   const [presenterHistoryOpen, setPresenterHistoryOpen] = useState(false);
+  const [tuesdayMeetingDialog, setTuesdayMeetingDialog] = useState<EventType | null>(null);
+  const [tuesdayMeetingsInitialized, setTuesdayMeetingsInitialized] = useState(false);
   const [eventIdToDelete, setEventIdToDelete] = useState<string | null>(null);
   
   const [newEvent, setNewEvent] = useState({
