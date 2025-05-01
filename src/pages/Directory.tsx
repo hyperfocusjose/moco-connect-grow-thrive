@@ -41,16 +41,7 @@ const Directory: React.FC = () => {
     console.log("Admin status:", isAdmin);
   }, [currentUser, users, isAdmin]);
 
-  // Filter out admin users, but log why users are being filtered
-  const nonAdminUsers = users.filter(user => {
-    if (user.isAdmin) {
-      console.log(`Filtering out admin user: ${user.firstName} ${user.lastName}`);
-      return false;
-    }
-    return true;
-  });
-
-  const filteredMembers = nonAdminUsers.filter(member => {
+  const filteredMembers = users.filter(member => {
     if (!member.firstName || !member.lastName) {
       console.log(`Filtering out user with missing name: ID ${member.id}`);
       return false;
@@ -66,7 +57,7 @@ const Directory: React.FC = () => {
     );
   });
 
-  const totalMembers = nonAdminUsers.filter(user => user.firstName && user.lastName).length;
+  const totalMembers = users.filter(user => user.firstName && user.lastName).length;
 
   const filteredVisitors = visitors ? visitors.filter(visitor => {
     if (!includeNoShows && visitor.didNotShow) {
