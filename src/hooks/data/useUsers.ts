@@ -25,20 +25,20 @@ export const useUsers = () => {
         return;
       }
 
-      // Create a set of admin user IDs
-      const adminUserIds = new Set(
-        userRolesData
-          ?.filter(role => role.role === 'admin')
-          .map(role => role.user_id) || []
-      );
-
-      console.log('Admin user IDs:', Array.from(adminUserIds));
+      // Get the admin user ID
+      const adminUserIds = userRolesData
+        ?.filter(role => role.role === 'admin')
+        .map(role => role.user_id) || [];
       
-      // Now fetch profiles excluding admin users
+      const adminUserId = adminUserIds.length > 0 ? adminUserIds[0] : null;
+      
+      console.log('Admin user ID:', adminUserId);
+      
+      // Now fetch profiles directly excluding the admin user ID
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .not('id', 'in', Array.from(adminUserIds));
+        .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000'); // Use a dummy UUID if no admin found
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
@@ -80,7 +80,7 @@ export const useUsers = () => {
           bio: profile.bio || '',
           tags: memberTagsMap.get(profile.id) || [],
           profilePicture: profile.profile_picture || '',
-          isAdmin: adminUserIds.has(profile.id), // Still tracking isAdmin for other features
+          isAdmin: adminUserIds.includes(profile.id), // Still tracking isAdmin for other features
           website: profile.website || '',
           linkedin: profile.linkedin || '',
           facebook: profile.facebook || '',
