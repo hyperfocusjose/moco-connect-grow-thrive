@@ -30,12 +30,7 @@ export const useUsers = () => {
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
       
-      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('id', adminUserId);
+      const adminUserId = adminUserIds.length > 0 ? adminUserIds[0] : null;
       
       console.log('Admin user ID:', adminUserId);
         console.log("adminUserId used for filtering:", adminUserId);
@@ -45,7 +40,7 @@ export const useUsers = () => {
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000'); // Use a dummy UUID if no admin found
+        .neq('id', adminUserId || '31727ff4-213c-492a-bbc6-ce91c8bab2d2'); 
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
