@@ -25,22 +25,20 @@ export const useUsers = () => {
         return;
       }
 
-      // Get the admin user ID
+      // Get the admin user IDs for tracking isAdmin status
       const adminUserIds = userRolesData
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
       
-      const adminUserId = adminUserIds.length > 0 ? adminUserIds[0] : null;
+      // Use hardcoded admin ID to exclude from the profiles query
+      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
+      console.log('Admin user ID used for filtering:', adminUserId);
       
-      console.log('Admin user ID:', adminUserId);
-        console.log("adminUserId used for filtering:", adminUserId);
-      console.log("Returned profiles:", profilesData);
-      
-      // Now fetch profiles directly excluding the admin user ID
+      // Fetch profiles directly excluding the admin user ID
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .neq('id', adminUserId || '31727ff4-213c-492a-bbc6-ce91c8bab2d2'); // Use a dummy UUID if no admin found
+        .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000'); // Use a dummy UUID if no admin found
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
@@ -51,6 +49,8 @@ export const useUsers = () => {
         console.log('No user profiles found');
         return;
       }
+      
+      console.log("Returned profiles:", profilesData);
 
       // Fetch member tags separately
       const { data: memberTagsData, error: memberTagsError } = await supabase
