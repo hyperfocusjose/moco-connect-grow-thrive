@@ -1,7 +1,12 @@
+
 import { useState, useCallback } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { Database } from '@/integrations/supabase/types';
+
+// Define a type for profiles table rows
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
 export const useUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -10,11 +15,30 @@ export const useUsers = () => {
     try {
       console.log('Fetching users...');
       
-      // Update the query to exclude users with role = 'admin'
+      // First get all user_roles to identify admin users
+      const { data: userRolesData, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select('*');
+
+      if (userRolesError) {
+        console.error('Error fetching user roles:', userRolesError);
+        return;
+      }
+
+      // Create a set of admin user IDs
+      const adminUserIds = new Set(
+        userRolesData
+          ?.filter(role => role.role === 'admin')
+          .map(role => role.user_id) || []
+      );
+
+      console.log('Admin user IDs:', Array.from(adminUserIds));
+      
+      // Now fetch profiles excluding admin users
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .neq('role', 'admin');
+        .not('id', 'in', Array.from(adminUserIds));
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
@@ -25,23 +49,6 @@ export const useUsers = () => {
         console.log('No user profiles found');
         return;
       }
-
-      // Fetch user roles with improved logging - we still need this for other role-related features
-      const { data: userRolesData, error: userRolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      if (userRolesError) {
-        console.error('Error fetching user roles:', userRolesError);
-      }
-
-      const adminUserIds = new Set(
-        userRolesData
-          ?.filter(role => role.role === 'admin')
-          .map(role => role.user_id) || []
-      );
-
-      console.log('Admin user IDs:', Array.from(adminUserIds));
 
       // Fetch member tags separately
       const { data: memberTagsData, error: memberTagsError } = await supabase
@@ -60,7 +67,7 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform profiles - we've already excluded admin users in the initial query
+      // Transform profiles - we've excluded admin users in the query
       const transformedUsers: User[] = profilesData.map(profile => {
         return {
           id: profile.id,
