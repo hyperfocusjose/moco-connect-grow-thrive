@@ -34,11 +34,19 @@ export const useUsers = () => {
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
       console.log('Admin user ID used for filtering:', adminUserId);
       
+      // Fetch all profiles without filtering first to see what's available
+      const { data: allProfilesData, error: allProfilesError } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      console.log('All profiles before filtering:', allProfilesData);
+      
       // Fetch profiles directly excluding the admin user ID
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
-        .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000'); // Use a dummy UUID if no admin found
+        .select('*');
+        // Temporarily removing filter to see all profiles
+        // .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000');
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
@@ -69,28 +77,30 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform profiles - we've excluded admin users in the query
-      const transformedUsers: User[] = profilesData.map(profile => {
-        return {
-          id: profile.id,
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          email: profile.email || '',
-          phoneNumber: profile.phone_number || '',
-          businessName: profile.business_name || '',
-          industry: profile.industry || '',
-          bio: profile.bio || '',
-          tags: memberTagsMap.get(profile.id) || [],
-          profilePicture: profile.profile_picture || '',
-          isAdmin: adminUserIds.includes(profile.id), // Still tracking isAdmin for other features
-          website: profile.website || '',
-          linkedin: profile.linkedin || '',
-          facebook: profile.facebook || '',
-          tiktok: profile.tiktok || '',
-          instagram: profile.instagram || '',
-          createdAt: new Date(profile.created_at),
-        };
-      });
+      // Transform all profiles except the admin (filtering here instead of in query)
+      const transformedUsers: User[] = profilesData
+        .filter(profile => profile.id !== adminUserId)
+        .map(profile => {
+          return {
+            id: profile.id,
+            firstName: profile.first_name || '',
+            lastName: profile.last_name || '',
+            email: profile.email || '',
+            phoneNumber: profile.phone_number || '',
+            businessName: profile.business_name || '',
+            industry: profile.industry || '',
+            bio: profile.bio || '',
+            tags: memberTagsMap.get(profile.id) || [],
+            profilePicture: profile.profile_picture || '',
+            isAdmin: adminUserIds.includes(profile.id), // Still tracking isAdmin for other features
+            website: profile.website || '',
+            linkedin: profile.linkedin || '',
+            facebook: profile.facebook || '',
+            tiktok: profile.tiktok || '',
+            instagram: profile.instagram || '',
+            createdAt: new Date(profile.created_at),
+          };
+        });
       
       console.log('Transformed users:', transformedUsers);
       setUsers(transformedUsers);

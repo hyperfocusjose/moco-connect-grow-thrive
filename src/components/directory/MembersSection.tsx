@@ -4,7 +4,8 @@ import { User } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, AlertCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface MembersSectionProps {
   searchTerm: string;
@@ -54,6 +55,18 @@ export const MembersSection = ({
         />
       </div>
 
+      {filteredMembers.length === 0 && (
+        <Alert variant="default" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No members found</AlertTitle>
+          <AlertDescription>
+            {searchTerm ? 
+              "No members match your search criteria. Try adjusting your search terms." : 
+              "There are no members in the directory yet. If you believe this is an error, please check the console logs or contact the administrator."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMembers.map((member) => (
           <MemberCard 
@@ -64,11 +77,6 @@ export const MembersSection = ({
             onEdit={() => onEditMember(member)}
           />
         ))}
-        {filteredMembers.length === 0 && (
-          <div className="col-span-full text-center py-10 text-muted-foreground">
-            No members found matching your search criteria.
-          </div>
-        )}
       </div>
     </>
   );
