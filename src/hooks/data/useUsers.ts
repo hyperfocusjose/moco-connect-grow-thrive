@@ -30,7 +30,12 @@ export const useUsers = () => {
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
       
-      const adminUserId = adminUserIds.length > 0 ? adminUserIds[0] : null;
+      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('id', adminUserId);
       
       console.log('Admin user ID:', adminUserId);
         console.log("adminUserId used for filtering:", adminUserId);
