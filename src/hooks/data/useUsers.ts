@@ -33,6 +33,8 @@ export const useUsers = () => {
       const adminUserId = adminUserIds.length > 0 ? adminUserIds[0] : null;
       
       console.log('Admin user ID:', adminUserId);
+        console.log("adminUserId used for filtering:", adminUserId);
+      console.log("Returned profiles:", profilesData);
       
       // Now fetch profiles directly excluding the admin user ID
       const { data: profilesData, error: profilesError } = await supabase
