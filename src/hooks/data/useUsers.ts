@@ -40,7 +40,7 @@ export const useUsers = () => {
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
-        .neq('id', adminUserId || '31727ff4-213c-492a-bbc6-ce91c8bab2d2'); 
+        .neq('id', adminUserId || '31727ff4-213c-492a-bbc6-ce91c8bab2d2'); // Use a dummy UUID if no admin found
       
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
