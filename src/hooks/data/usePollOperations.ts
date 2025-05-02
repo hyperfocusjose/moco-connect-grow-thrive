@@ -1,8 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { Poll, PollOption } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -13,98 +11,76 @@ export const usePollOperations = () => {
   const { toast } = useToast();
   const { currentUser } = useAuth();
 
-  // Fetch polls from Supabase
   const fetchPolls = async (): Promise<void> => {
     try {
       setIsLoading(true);
       setLoadError(null);
-      console.log('Fetching polls from Supabase...');
 
-      // Fetch polls data
       const { data: pollsData, error: pollsError } = await supabase
         .from('polls')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (pollsError) {
-        throw new Error(`Error fetching polls: ${pollsError.message}`);
-      }
+      if (pollsError) throw new Error(pollsError.message);
 
-      // Fetch poll options data
       const { data: optionsData, error: optionsError } = await supabase
         .from('poll_options')
         .select('*');
+      if (optionsError) throw new Error(optionsError.message);
 
-      if (optionsError) {
-        throw new Error(`Error fetching poll options: ${optionsError.message}`);
-      }
-
-      // Fetch votes data
       const { data: votesData, error: votesError } = await supabase
         .from('poll_votes')
         .select('*');
+      if (votesError) throw new Error(votesError.message);
 
-      if (votesError) {
-        throw new Error(`Error fetching poll votes: ${votesError.message}`);
-      }
-
-      // Process the data to match our application's data structure
-      const processedPolls = pollsData.map(poll => {
-        // Find options for this poll
+      const processedPolls: Poll[] = pollsData.map(poll => {
         const pollOptions = optionsData
-          .filter(option => option.poll_id === poll.id)
-          .map(option => {
-            // Find votes for this option
-            const optionVotes = votesData
-              .filter(vote => vote.option_id === option.id)
-              .map(vote => vote.user_id);
-
-            return {
-              id: option.id,
-              text: option.text,
-              votes: optionVotes
-            } as PollOption;
-          });
+          .filter(opt => opt.poll_id === poll.id)
+          .map(option => ({
+            id: option.id,
+            text: option.text,
+            votes: votesData
+              .filter(v => v.option_id === option.id)
+              .map(v => v.user_id),
+          }));
 
         return {
           id: poll.id,
           title: poll.title,
           description: poll.description,
-          options: pollOptions,
           startDate: new Date(poll.start_date),
           endDate: new Date(poll.end_date),
           createdBy: poll.created_by,
           isActive: poll.is_active,
           isArchived: poll.is_archived,
-          createdAt: new Date(poll.created_at)
-        } as Poll;
+          createdAt: new Date(poll.created_at),
+          options: pollOptions,
+        };
       });
 
       setPolls(processedPolls);
-      console.log(`Fetched ${processedPolls.length} polls successfully`);
     } catch (error) {
       console.error('Error in fetchPolls:', error);
-      setLoadError(error instanceof Error ? error.message : 'Unknown error fetching polls');
+      setLoadError(error instanceof Error ? error.message : 'Failed to load polls');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Create a new poll
   const createPoll = async (poll: Partial<Poll>): Promise<void> => {
     if (!currentUser) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to create a poll",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "You must be logged in to create a poll", variant: "destructive" });
+      return;
+    }
+
+    // ✅ Ensure only the admin can create polls
+    const ADMIN_ID = '31727ff4-213c-492a-bbc6-ce91c8bab2d2'; // replace with real admin UID
+    if (currentUser.id !== ADMIN_ID) {
+      toast({ title: "Access Denied", description: "Only the admin can create polls", variant: "destructive" });
       return;
     }
 
     try {
-      console.log('Creating new poll:', poll);
-      
-      // Create poll record
       const { data: pollData, error: pollError } = await supabase
         .from('polls')
         .insert({
@@ -113,42 +89,29 @@ export const usePollOperations = () => {
           start_date: poll.startDate?.toISOString(),
           end_date: poll.endDate?.toISOString(),
           created_by: currentUser.id,
-          is_active: poll.isActive !== undefined ? poll.isActive : true,
-          is_archived: poll.isArchived || false
+          is_active: poll.isActive ?? true,
+          is_archived: poll.isArchived ?? false,
         })
         .select('id')
         .single();
 
-      if (pollError) {
-        throw new Error(`Error creating poll: ${pollError.message}`);
-      }
-
+      if (pollError) throw new Error(pollError.message);
       const pollId = pollData.id;
-      console.log('Poll created with ID:', pollId);
 
-      // Create poll options
       if (poll.options && poll.options.length > 0) {
-        const optionsToInsert = poll.options.map(option => ({
+        const optionsToInsert = poll.options.map(opt => ({
           poll_id: pollId,
-          text: option.text
+          text: opt.text,
         }));
 
         const { error: optionsError } = await supabase
           .from('poll_options')
           .insert(optionsToInsert);
-
-        if (optionsError) {
-          throw new Error(`Error creating poll options: ${optionsError.message}`);
-        }
+        if (optionsError) throw new Error(optionsError.message);
       }
 
-      // Refresh polls after creation
       await fetchPolls();
-
-      toast({
-        title: "Success",
-        description: "Poll created successfully",
-      });
+      toast({ title: "Success", description: "Poll created successfully" });
     } catch (error) {
       console.error('Error in createPoll:', error);
       toast({
@@ -159,35 +122,24 @@ export const usePollOperations = () => {
     }
   };
 
-  // Update an existing poll
-  const updatePoll = async (id: string, pollUpdates: Partial<Poll>): Promise<void> => {
+  const updatePoll = async (id: string, updates: Partial<Poll>): Promise<void> => {
     try {
-      console.log('Updating poll:', id, pollUpdates);
-
-      // Update poll record
-      const { error: pollError } = await supabase
+      const { error } = await supabase
         .from('polls')
         .update({
-          title: pollUpdates.title,
-          description: pollUpdates.description,
-          start_date: pollUpdates.startDate?.toISOString(),
-          end_date: pollUpdates.endDate?.toISOString(),
-          is_active: pollUpdates.isActive,
-          is_archived: pollUpdates.isArchived
+          title: updates.title,
+          description: updates.description,
+          start_date: updates.startDate?.toISOString(),
+          end_date: updates.endDate?.toISOString(),
+          is_active: updates.isActive,
+          is_archived: updates.isArchived,
         })
         .eq('id', id);
 
-      if (pollError) {
-        throw new Error(`Error updating poll: ${pollError.message}`);
-      }
+      if (error) throw new Error(error.message);
 
-      // Refresh polls after update
       await fetchPolls();
-
-      toast({
-        title: "Success",
-        description: "Poll updated successfully",
-      });
+      toast({ title: "Success", description: "Poll updated successfully" });
     } catch (error) {
       console.error('Error in updatePoll:', error);
       toast({
@@ -198,38 +150,22 @@ export const usePollOperations = () => {
     }
   };
 
-  // Delete a poll
   const deletePoll = async (id: string): Promise<void> => {
     try {
-      console.log('Deleting poll:', id);
-
-      // Delete poll options first (cascade delete will remove votes)
       const { error: optionsError } = await supabase
         .from('poll_options')
         .delete()
         .eq('poll_id', id);
+      if (optionsError) throw new Error(optionsError.message);
 
-      if (optionsError) {
-        throw new Error(`Error deleting poll options: ${optionsError.message}`);
-      }
-
-      // Delete poll record
       const { error: pollError } = await supabase
         .from('polls')
         .delete()
         .eq('id', id);
+      if (pollError) throw new Error(pollError.message);
 
-      if (pollError) {
-        throw new Error(`Error deleting poll: ${pollError.message}`);
-      }
-
-      // Refresh polls after deletion
       await fetchPolls();
-
-      toast({
-        title: "Success",
-        description: "Poll deleted successfully",
-      });
+      toast({ title: "Success", description: "Poll deleted successfully" });
     } catch (error) {
       console.error('Error in deletePoll:', error);
       toast({
@@ -240,64 +176,43 @@ export const usePollOperations = () => {
     }
   };
 
-  // Vote on a poll
   const votePoll = async (pollId: string, optionId: string): Promise<void> => {
     if (!currentUser) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to vote",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "You must be logged in to vote", variant: "destructive" });
       return;
     }
 
     try {
-      console.log('Voting on poll:', pollId, 'option:', optionId);
-
-      // Check if user has already voted
       const { data: existingVote, error: checkError } = await supabase
         .from('poll_votes')
         .select('id')
         .eq('poll_id', pollId)
         .eq('user_id', currentUser.id);
 
-      if (checkError) {
-        throw new Error(`Error checking existing vote: ${checkError.message}`);
-      }
+      if (checkError) throw new Error(checkError.message);
 
       if (existingVote && existingVote.length > 0) {
-        // Update existing vote
         const { error: updateError } = await supabase
           .from('poll_votes')
           .update({ option_id: optionId })
           .eq('poll_id', pollId)
           .eq('user_id', currentUser.id);
 
-        if (updateError) {
-          throw new Error(`Error updating vote: ${updateError.message}`);
-        }
+        if (updateError) throw new Error(updateError.message);
       } else {
-        // Create new vote
-        const { error: voteError } = await supabase
+        const { error: insertError } = await supabase
           .from('poll_votes')
           .insert({
             poll_id: pollId,
             option_id: optionId,
-            user_id: currentUser.id
+            user_id: currentUser.id,
           });
 
-        if (voteError) {
-          throw new Error(`Error creating vote: ${voteError.message}`);
-        }
+        if (insertError) throw new Error(insertError.message);
       }
 
-      // Refresh polls after voting
       await fetchPolls();
-
-      toast({
-        title: "Success",
-        description: "Vote recorded successfully",
-      });
+      toast({ title: "Success", description: "Vote recorded successfully" });
     } catch (error) {
       console.error('Error in votePoll:', error);
       toast({
@@ -308,33 +223,30 @@ export const usePollOperations = () => {
     }
   };
 
-  // Check if a user has voted on a poll
   const hasVoted = (pollId: string, userId: string): boolean => {
     const poll = polls.find(p => p.id === pollId);
     if (!poll) return false;
-
-    return poll.options.some(option => option.votes.includes(userId));
+    return poll.options.some(opt => opt.votes.includes(userId));
   };
 
-  // Initialize polls on component mount
   useEffect(() => {
     fetchPolls();
   }, []);
 
   const cleanup = () => {
-    // Cleanup function (if needed)
+    // Cleanup logic placeholder if needed
   };
 
   return {
     polls,
+    isLoading,
+    loadError,
+    fetchPolls,
     createPoll,
     updatePoll,
     deletePoll,
     votePoll,
     hasVoted,
-    isLoading,
-    loadError,
-    fetchPolls,
-    cleanup
+    cleanup,
   };
 };
