@@ -10,8 +10,9 @@ export const usePollOperations = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const { toast } = useToast();
   const { currentUser } = useAuth();
-
-  const [userMap, setUserMap] = useState<Record<string, { firstName: string, lastName: string, email: string }>>({});
+  
+  // Added userMap to store user information
+  const [userMap, setUserMap] = useState<Record<string, { firstName: string, lastName: string, email: string }>>({}); 
 
   const fetchPolls = async (): Promise<void> => {
     try {
@@ -34,19 +35,21 @@ export const usePollOperations = () => {
         .from('poll_votes')
         .select('*');
       if (votesError) throw new Error(votesError.message);
-
+      
+      // Fetch profiles data for all users who voted
       const voterIds = new Set<string>();
       votesData.forEach(vote => {
         if (vote.user_id) voterIds.add(vote.user_id);
       });
-
+      
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email')
         .in('id', Array.from(voterIds));
-
+        
       if (profilesError) throw new Error(profilesError.message);
-
+      
+      // Create a map of user IDs to profile data
       const userProfiles: Record<string, { firstName: string, lastName: string, email: string }> = {};
       profilesData?.forEach(profile => {
         userProfiles[profile.id] = {
@@ -55,34 +58,20 @@ export const usePollOperations = () => {
           email: profile.email || ''
         };
       });
-
+      
+      // Update the userMap state
       setUserMap(userProfiles);
 
       const processedPolls: Poll[] = pollsData.map(poll => {
         const pollOptions = optionsData
           .filter(opt => opt.poll_id === poll.id)
-          .map(option => {
-            const relatedVotes = votesData.filter(v => v.option_id === option.id);
-            const basicVotes = relatedVotes.map(v => v.user_id || '');
-
-            const voteDetails = currentUser?.isAdmin
-              ? relatedVotes.map(v => {
-                  const user = userProfiles[v.user_id || ''];
-                  return {
-                    userId: v.user_id || '',
-                    name: user ? `${user.firstName} ${user.lastName}`.trim() : 'Unknown',
-                    email: user?.email || 'Unknown'
-                  };
-                })
-              : undefined;
-
-            return {
-              id: option.id,
-              text: option.text,
-              votes: basicVotes,
-              ...(voteDetails ? { voteDetails } : {})
-            };
-          });
+          .map(option => ({
+            id: option.id,
+            text: option.text,
+            votes: votesData
+              .filter(v => v.option_id === option.id)
+              .map(v => v.user_id),
+          }));
 
         return {
           id: poll.id,
@@ -113,7 +102,8 @@ export const usePollOperations = () => {
       return;
     }
 
-    const ADMIN_ID = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
+    // ✅ Ensure only the admin can create polls
+    const ADMIN_ID = '31727ff4-213c-492a-bbc6-ce91c8bab2d2'; // replace with real admin UID
     if (currentUser.id !== ADMIN_ID) {
       toast({ title: "Access Denied", description: "Only the admin can create polls", variant: "destructive" });
       return;
@@ -278,6 +268,7 @@ export const usePollOperations = () => {
           email: user.email
         };
       }
+      // Fall back to email if name isn't available
       return {
         firstName: user.email.split('@')[0] || '',
         lastName: '',
@@ -291,7 +282,9 @@ export const usePollOperations = () => {
     fetchPolls();
   }, []);
 
-  const cleanup = () => {};
+  const cleanup = () => {
+    // Cleanup logic placeholder if needed
+  };
 
   return {
     polls,
@@ -303,7 +296,7 @@ export const usePollOperations = () => {
     deletePoll,
     votePoll,
     hasVoted,
-    getUser,
+    getUser, // Export the getUser function
     cleanup,
   };
 };
