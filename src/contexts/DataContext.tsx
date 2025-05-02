@@ -91,7 +91,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // We ignore the return value since the DataContextType expects Promise<void>
   };
 
-  // Wrap the fetchActivities function in the same way if needed
+  // Wrap the fetchActivities function in the same way
   const wrappedFetchActivities = async (): Promise<void> => {
     await fetchActivities();
     // We ignore the return value since the DataContextType expects Promise<void>
