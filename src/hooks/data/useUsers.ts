@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,8 +13,11 @@ export const useUsers = () => {
   const fetchUsers = useCallback(async () => {
     try {
       console.log('Fetching users...');
-      
-      // First get all user_roles to identify admin users
+
+      // Hardcoded Admin User ID to exclude from directory
+      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
+
+      // Fetch user_roles to identify who is an admin
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
@@ -25,29 +27,16 @@ export const useUsers = () => {
         return;
       }
 
-      // Get the admin user IDs for tracking isAdmin status
       const adminUserIds = userRolesData
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
-      
-      // Use hardcoded admin ID to exclude from the profiles query
-      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
-      console.log('Admin user ID used for filtering:', adminUserId);
-      
-      // Fetch all profiles without filtering first to see what's available
-      const { data: allProfilesData, error: allProfilesError } = await supabase
-        .from('profiles')
-        .select('*');
-        
-      console.log('All profiles before filtering:', allProfilesData);
-      
-      // Fetch profiles directly excluding the admin user ID
+
+      // Fetch all profiles, excluding the admin
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*');
-        // Temporarily removing filter to see all profiles
-        // .neq('id', adminUserId || '00000000-0000-0000-0000-000000000000');
-      
+        .select('*')
+        .neq('id', adminUserId);
+
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
         return;
@@ -57,55 +46,52 @@ export const useUsers = () => {
         console.log('No user profiles found');
         return;
       }
-      
-      console.log("Returned profiles:", profilesData);
 
-      // Fetch member tags separately
+      // Fetch member tags for only the included users
+      const memberIds = profilesData.map(p => p.id);
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
-        .select('*');
+        .select('*')
+        .in('member_id', memberIds);
 
       if (memberTagsError) {
         console.error('Error fetching member tags:', memberTagsError);
       }
 
+      // Organize tags by member_id
       const memberTagsMap = new Map();
-      memberTagsData?.forEach((tagObj) => {
+      memberTagsData?.forEach(tagObj => {
         if (!memberTagsMap.has(tagObj.member_id)) {
           memberTagsMap.set(tagObj.member_id, []);
         }
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform all profiles except the admin (filtering here instead of in query)
-      const transformedUsers: User[] = profilesData
-        .filter(profile => profile.id !== adminUserId)
-        .map(profile => {
-          return {
-            id: profile.id,
-            firstName: profile.first_name || '',
-            lastName: profile.last_name || '',
-            email: profile.email || '',
-            phoneNumber: profile.phone_number || '',
-            businessName: profile.business_name || '',
-            industry: profile.industry || '',
-            bio: profile.bio || '',
-            tags: memberTagsMap.get(profile.id) || [],
-            profilePicture: profile.profile_picture || '',
-            isAdmin: adminUserIds.includes(profile.id), // Still tracking isAdmin for other features
-            website: profile.website || '',
-            linkedin: profile.linkedin || '',
-            facebook: profile.facebook || '',
-            tiktok: profile.tiktok || '',
-            instagram: profile.instagram || '',
-            createdAt: new Date(profile.created_at),
-          };
-        });
-      
-      console.log('Transformed users:', transformedUsers);
+      // Transform profiles into User objects
+      const transformedUsers: User[] = profilesData.map(profile => ({
+        id: profile.id,
+        firstName: profile.first_name || '',
+        lastName: profile.last_name || '',
+        email: profile.email || '',
+        phoneNumber: profile.phone_number || '',
+        businessName: profile.business_name || '',
+        industry: profile.industry || '',
+        bio: profile.bio || '',
+        tags: memberTagsMap.get(profile.id) || [],
+        profilePicture: profile.profile_picture || '',
+        isAdmin: adminUserIds.includes(profile.id),
+        website: profile.website || '',
+        linkedin: profile.linkedin || '',
+        facebook: profile.facebook || '',
+        tiktok: profile.tiktok || '',
+        instagram: profile.instagram || '',
+        createdAt: new Date(profile.created_at),
+      }));
+
       setUsers(transformedUsers);
     } catch (error) {
       console.error('Error in fetchUsers:', error);
+      toast.error('Failed to load users');
     }
   }, []);
 
@@ -122,7 +108,7 @@ export const useUsers = () => {
   const updateUser = async (id: string, updatedUserData: Partial<User>) => {
     try {
       console.log('Updating user with data:', { id, ...updatedUserData });
-      
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -140,37 +126,34 @@ export const useUsers = () => {
           instagram: updatedUserData.instagram,
         })
         .eq('id', id);
-      
+
       if (error) throw error;
-      
+
+      // Replace tags
       if (updatedUserData.tags) {
         const { error: deleteError } = await supabase
           .from('member_tags')
           .delete()
           .eq('member_id', id);
-        
+
         if (deleteError) throw deleteError;
-        
+
         const tagInserts = updatedUserData.tags.map(tag => ({
           member_id: id,
-          tag: tag
+          tag: tag,
         }));
-        
+
         if (tagInserts.length > 0) {
           const { error: insertError } = await supabase
             .from('member_tags')
             .insert(tagInserts);
-          
+
           if (insertError) throw insertError;
         }
       }
-      
-      setUsers(prev => 
-        prev.map(user => user.id === id ? { ...user, ...updatedUserData } : user)
-      );
-      
+
+      // Refresh user list
       await fetchUsers();
-      
       return Promise.resolve();
     } catch (error: any) {
       console.error('Error updating user:', error);
