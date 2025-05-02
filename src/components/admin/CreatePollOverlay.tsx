@@ -24,6 +24,7 @@ export const CreatePollOverlay: React.FC<CreatePollOverlayProps> = ({
   const { createPoll } = useData();
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [newPoll, setNewPoll] = useState({
     title: '',
@@ -68,82 +69,92 @@ export const CreatePollOverlay: React.FC<CreatePollOverlayProps> = ({
     });
   };
 
-  const handleCreatePoll = () => {
-    // Validate poll data
-    if (!newPoll.title.trim()) {
+  const handleCreatePoll = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Validate poll data
+      if (!newPoll.title.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter a poll title",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (newPoll.options.some(option => !option.trim())) {
+        toast({
+          title: "Error",
+          description: "All poll options must have text",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!newPoll.startDate || !newPoll.endDate) {
+        toast({
+          title: "Error",
+          description: "Please select start and end dates",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (newPoll.endDate < newPoll.startDate) {
+        toast({
+          title: "Error",
+          description: "End date must be after start date",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create poll options
+      const pollOptions: PollOption[] = newPoll.options.map((option) => ({
+        id: `temp-${Date.now()}-${Math.random()}`, // This will be replaced by Supabase
+        text: option,
+        votes: []
+      }));
+
+      // Create the poll
+      const pollData: any = {
+        title: newPoll.title,
+        description: newPoll.description,
+        options: pollOptions,
+        startDate: newPoll.startDate,
+        endDate: newPoll.endDate,
+        createdBy: currentUser?.id || '',
+        isActive: true,
+        isArchived: false,
+        createdAt: new Date()
+      };
+
+      console.log('Creating poll with data:', pollData);
+      await createPoll(pollData);
+      
+      // Reset the form
+      setNewPoll({
+        title: '',
+        description: '',
+        options: ['', ''],
+        startDate: new Date(),
+        endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+      });
+      
+      // Close the overlay
+      onClose();
+      
+    } catch (error) {
+      console.error('Error creating poll:', error);
       toast({
         title: "Error",
-        description: "Please enter a poll title",
+        description: "Failed to create poll. Please try again.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    if (newPoll.options.some(option => !option.trim())) {
-      toast({
-        title: "Error",
-        description: "All poll options must have text",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!newPoll.startDate || !newPoll.endDate) {
-      toast({
-        title: "Error",
-        description: "Please select start and end dates",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (newPoll.endDate < newPoll.startDate) {
-      toast({
-        title: "Error",
-        description: "End date must be after start date",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create poll options
-    const pollOptions: PollOption[] = newPoll.options.map((option, index) => ({
-      id: `option-${Date.now()}-${index}`,
-      text: option,
-      votes: []
-    }));
-
-    // Create the poll
-    const pollData: any = {
-      title: newPoll.title,
-      description: newPoll.description,
-      options: pollOptions,
-      startDate: newPoll.startDate,
-      endDate: newPoll.endDate,
-      createdBy: currentUser?.id || '',
-      isActive: true,
-      isArchived: false,
-      createdAt: new Date()
-    };
-
-    createPoll(pollData);
-    
-    // Reset the form
-    setNewPoll({
-      title: '',
-      description: '',
-      options: ['', ''],
-      startDate: new Date(),
-      endDate: new Date(new Date().setDate(new Date().getDate() + 7)),
-    });
-
-    toast({
-      title: "Poll created",
-      description: "Your poll has been created successfully",
-    });
-    
-    // Close the overlay
-    onClose();
   };
   
   return (
@@ -278,11 +289,15 @@ export const CreatePollOverlay: React.FC<CreatePollOverlayProps> = ({
         </div>
 
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleCreatePoll} className="bg-maroon hover:bg-maroon/90">
-            Create Poll
+          <Button 
+            onClick={handleCreatePoll} 
+            className="bg-maroon hover:bg-maroon/90"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Creating..." : "Create Poll"}
           </Button>
         </div>
       </div>

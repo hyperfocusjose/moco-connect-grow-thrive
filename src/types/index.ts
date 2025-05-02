@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   firstName: string;
@@ -147,7 +146,7 @@ export interface DataContextType {
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, eventData: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  fetchEvents: () => Promise<void>; // Changed from Promise<boolean> to Promise<void>
+  fetchEvents: () => Promise<void>;
 
   // Visitor-related methods
   addVisitor: (visitor: Partial<Visitor>) => Promise<void>;
@@ -171,6 +170,7 @@ export interface DataContextType {
   deletePoll: (id: string) => Promise<void>;
   votePoll: (pollId: string, optionId: string) => Promise<void>;
   hasVoted: (pollId: string, userId: string) => boolean;
+  fetchPolls: () => Promise<void>;
 
   // Loading and error states
   isLoading: boolean;

@@ -66,7 +66,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updatePoll,
     deletePoll,
     votePoll,
-    hasVoted
+    hasVoted,
+    isLoading: pollsLoading,
+    loadError: pollsError,
+    fetchPolls,
+    cleanup: cleanupPolls
   } = usePollOperations();
 
   const {
@@ -82,8 +86,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupUsers();
       cleanupEvents();
       cleanupActivities();
+      cleanupPolls();
     };
-  }, [cleanupUsers, cleanupEvents, cleanupActivities]);
+  }, [cleanupUsers, cleanupEvents, cleanupActivities, cleanupPolls]);
 
   // Wrap the fetchEvents function to match the DataContextType
   const wrappedFetchEvents = async (): Promise<void> => {
@@ -94,6 +99,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Wrap the fetchActivities function in the same way
   const wrappedFetchActivities = async (): Promise<void> => {
     await fetchActivities();
+    // We ignore the return value since the DataContextType expects Promise<void>
+  };
+
+  // Wrap the fetchPolls function in the same way
+  const wrappedFetchPolls = async (): Promise<void> => {
+    await fetchPolls();
     // We ignore the return value since the DataContextType expects Promise<void>
   };
 
@@ -131,9 +142,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getActivityForAllMembers,
       fetchUsers,
       fetchActivities: wrappedFetchActivities,
-      // New properties
-      isLoading: usersLoading || eventsLoading || activitiesLoading,
-      loadError: usersError || eventsError || activitiesError,
+      fetchPolls: wrappedFetchPolls,
+      // Loading and error states
+      isLoading: usersLoading || eventsLoading || activitiesLoading || pollsLoading,
+      loadError: usersError || eventsError || activitiesError || pollsError,
       resetFetchState: () => {
         resetUsersState();
         resetEventsState();
