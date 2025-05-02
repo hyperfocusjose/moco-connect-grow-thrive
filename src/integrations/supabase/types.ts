@@ -653,15 +653,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-// Extended type for admin-only vote visibility
-export type PollOption = {
-  id: string;
-  text: string;
-  votes: string[];
-  voteDetails?: {
-    userId: string;
-    name: string;
-    email: string;
-  }[];
-};
