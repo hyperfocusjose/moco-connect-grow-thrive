@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -79,9 +80,9 @@ export interface Event {
   isApproved: boolean;
   isFeatured: boolean;
   isPresentationMeeting: boolean;
-  isCancelled?: boolean;
   presenter?: string;
   createdAt: Date;
+  isCancelled?: boolean;
 }
 
 export interface Poll {
@@ -146,7 +147,7 @@ export interface DataContextType {
   createEvent: (event: Partial<Event>) => Promise<void>;
   updateEvent: (id: string, eventData: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  fetchEvents: () => Promise<boolean>; // Updated return type to Promise<boolean>
+  fetchEvents: () => Promise<void>; // Changed from Promise<boolean> to Promise<void>
 
   // Visitor-related methods
   addVisitor: (visitor: Partial<Visitor>) => Promise<void>;
@@ -170,4 +171,9 @@ export interface DataContextType {
   deletePoll: (id: string) => Promise<void>;
   votePoll: (pollId: string, optionId: string) => Promise<void>;
   hasVoted: (pollId: string, userId: string) => boolean;
+
+  // Loading and error states
+  isLoading: boolean;
+  loadError: string | null;
+  resetFetchState: () => void;
 }

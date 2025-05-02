@@ -85,6 +85,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [cleanupUsers, cleanupEvents, cleanupActivities]);
 
+  // Wrap the fetchEvents function to match the DataContextType
+  const wrappedFetchEvents = async (): Promise<void> => {
+    await fetchEvents();
+    // We ignore the return value since the DataContextType expects Promise<void>
+  };
+
+  // Wrap the fetchActivities function in the same way if needed
+  const wrappedFetchActivities = async (): Promise<void> => {
+    await fetchActivities();
+    // We ignore the return value since the DataContextType expects Promise<void>
+  };
+
   return (
     <DataContext.Provider value={{
       users,
@@ -100,7 +112,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createEvent,
       updateEvent,
       deleteEvent,
-      fetchEvents,
+      fetchEvents: wrappedFetchEvents,
       getUserMetrics,
       addVisitor,
       updateVisitor,
@@ -118,7 +130,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       markVisitorNoShow,
       getActivityForAllMembers,
       fetchUsers,
-      fetchActivities,
+      fetchActivities: wrappedFetchActivities,
       // New properties
       isLoading: usersLoading || eventsLoading || activitiesLoading,
       loadError: usersError || eventsError || activitiesError,

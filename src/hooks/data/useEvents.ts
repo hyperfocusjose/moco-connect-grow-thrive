@@ -12,16 +12,16 @@ export const useEvents = () => {
   const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
-  const fetchEvents = useCallback(async (): Promise<boolean> => {
+  const fetchEvents = useCallback(async (): Promise<void> => {
     // Prevent fetching if already loading
-    if (isLoading) return false;
+    if (isLoading) return;
     
     // Implement a simple cooldown to prevent rapid refetching
     const now = Date.now();
     const cooldownPeriod = 5000; // 5 seconds cooldown
     if (now - lastFetchTimeRef.current < cooldownPeriod) {
       console.log('Events fetch cooldown active, skipping request');
-      return false;
+      return;
     }
     
     // Track fetch attempts and implement exponential backoff
@@ -37,7 +37,7 @@ export const useEvents = () => {
         });
       }
       console.warn(`Events fetch exceeded ${maxRetries} attempts, stopping`);
-      return false;
+      return;
     }
 
     // Only show loading state on first attempt 
@@ -54,7 +54,7 @@ export const useEvents = () => {
         .select('*');
 
       // Always check if the component is still mounted before updating state
-      if (!isMountedRef.current) return false;
+      if (!isMountedRef.current) return;
 
       if (error) {
         console.error('Error fetching events:', error);
@@ -65,7 +65,7 @@ export const useEvents = () => {
             id: 'events-load-error'
           });
         }
-        return false;
+        return;
       }
 
       // Don't show any error toast if data is empty - this is normal
@@ -95,7 +95,6 @@ export const useEvents = () => {
       // Reset error state and fetch attempts on success
       setLoadError(null);
       fetchAttemptRef.current = 0;
-      return true;
     } catch (error) {
       console.error('Error in fetchEvents:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
@@ -106,7 +105,6 @@ export const useEvents = () => {
           id: 'events-load-error' 
         });
       }
-      return false;
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
