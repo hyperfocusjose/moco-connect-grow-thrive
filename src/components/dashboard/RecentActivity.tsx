@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Activity } from '@/types';
@@ -14,18 +13,21 @@ export const RecentActivity: React.FC = () => {
     // Skip the initial fetch since Dashboard will trigger it
     if (!hasInitiallyFetched) {
       setHasInitiallyFetched(true);
+      console.log('RecentActivity: initial mount, activities count:', activities.length);
       return;
     }
     
     // We don't need to fetch again here since Dashboard already does it
-    // This is commented out to avoid duplicate fetches
     // fetchActivities();
-  }, [fetchActivities, hasInitiallyFetched]);
+  }, [fetchActivities, hasInitiallyFetched, activities.length]);
   
   // Get the 5 most recent activities
   const recentActivities = [...activities].sort((a, b) => 
     b.date.getTime() - a.date.getTime()
   ).slice(0, 5);
+
+  console.log('RecentActivity: Rendering with activities count:', activities.length);
+  console.log('RecentActivity: Recent activities:', recentActivities);
 
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {

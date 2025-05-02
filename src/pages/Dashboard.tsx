@@ -14,7 +14,6 @@ import { ArrowUpRight, Users, Calendar, ListCheck, Star, Clock } from 'lucide-re
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format, isAfter, startOfToday, addWeeks } from 'date-fns';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
@@ -35,11 +34,12 @@ const Dashboard = () => {
     const loadDashboardData = async () => {
       try {
         // We only need to show one loading toast for the dashboard
-        const userPromise = fetchUsers();
-        const activitiesPromise = fetchActivities();
-        const eventsPromise = fetchEvents();
-        
-        await Promise.allSettled([userPromise, activitiesPromise, eventsPromise]);
+        console.log('Fetching dashboard data...');
+        await Promise.all([
+          fetchUsers(),
+          fetchActivities(),
+          fetchEvents()
+        ]);
         console.log('Dashboard data initialization complete');
       } catch (error) {
         console.error('Error initializing dashboard data:', error);
