@@ -102,6 +102,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // We ignore the return value since the DataContextType expects Promise<void>
   };
 
+  // Wrap the fetchUsers function in the same way
+  const wrappedFetchUsers = async (): Promise<void> => {
+    await fetchUsers();
+    // We ignore the return value since the DataContextType expects Promise<void>
+  };
+
   // Wrap the fetchPolls function in the same way
   const wrappedFetchPolls = async (): Promise<void> => {
     await fetchPolls();
@@ -140,7 +146,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateUser,
       markVisitorNoShow,
       getActivityForAllMembers,
-      fetchUsers,
+      fetchUsers: wrappedFetchUsers,
       fetchActivities: wrappedFetchActivities,
       fetchPolls: wrappedFetchPolls,
       // Loading and error states

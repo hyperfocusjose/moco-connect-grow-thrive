@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +40,7 @@ export const useUsers = () => {
           id: 'users-load-error' // This prevents duplicate toasts
         });
       }
-      console.warn(Users fetch exceeded ${maxRetries} attempts, stopping);
+      console.warn(`Users fetch exceeded ${maxRetries} attempts, stopping`);
       return false;
     }
 
@@ -150,7 +151,7 @@ export const useUsers = () => {
         createdAt: new Date(profile.created_at),
       }));
 
-      console.log(Transformed ${transformedUsers.length} users from profiles data);
+      console.log(`Transformed ${transformedUsers.length} users from profiles data`);
       setUsers(transformedUsers);
       
       // Reset error state and fetch attempts on success
