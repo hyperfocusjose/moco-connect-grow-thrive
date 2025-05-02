@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,47 +16,40 @@ export const useUsers = () => {
   const isMountedRef = useRef(true);
 
   const fetchUsers = useCallback(async () => {
-    // Prevent fetching if already loading
     if (isLoading) return false;
-    
-    // Implement a simple cooldown to prevent rapid refetching
+
     const now = Date.now();
-    const cooldownPeriod = 5000; // 5 seconds cooldown
+    const cooldownPeriod = 5000;
     if (now - lastFetchTimeRef.current < cooldownPeriod) {
       console.log('Users fetch cooldown active, skipping request');
       return false;
     }
-    
-    // Track fetch attempts and implement exponential backoff
+
     fetchAttemptRef.current += 1;
     const maxRetries = 3;
     if (fetchAttemptRef.current > maxRetries) {
-      // Only show error toast on the first time we hit max retries
       if (fetchAttemptRef.current === maxRetries + 1) {
         setLoadError('Too many failed attempts to load users. Please try again later.');
-        toast.error('Users could not be loaded', { 
+        toast.error('Users could not be loaded', {
           description: 'Check your network connection and try again later.',
-          id: 'users-load-error' // This prevents duplicate toasts
+          id: 'users-load-error'
         });
       }
       console.warn(`Users fetch exceeded ${maxRetries} attempts, stopping`);
       return false;
     }
 
-    // Only show loading state on first attempt 
     if (fetchAttemptRef.current === 1) {
       setIsLoading(true);
     }
-    
+
     lastFetchTimeRef.current = now;
 
     try {
       console.log('Fetching users...');
 
-      // Hardcoded Admin User ID to exclude from directory
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
 
-      // Fetch user_roles to identify who is an admin
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
@@ -68,9 +60,7 @@ export const useUsers = () => {
         console.error('Error fetching user roles:', userRolesError);
         setLoadError(userRolesError.message);
         if (fetchAttemptRef.current === 1) {
-          toast.error('Failed to load user data', {
-            id: 'users-load-error'
-          });
+          toast.error('Failed to load user data', { id: 'users-load-error' });
         }
         return false;
       }
@@ -79,7 +69,6 @@ export const useUsers = () => {
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
 
-      // Fetch all profiles, excluding the admin
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -91,23 +80,18 @@ export const useUsers = () => {
         console.error('Error fetching user profiles:', profilesError);
         setLoadError(profilesError.message);
         if (fetchAttemptRef.current === 1) {
-          toast.error('Failed to load user profiles', {
-            id: 'users-load-error'
-          });
+          toast.error('Failed to load user profiles', { id: 'users-load-error' });
         }
         return false;
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.log('No user profiles found');
         setUsers([]);
-        // Reset error state and fetch attempts on success (even if empty)
         setLoadError(null);
         fetchAttemptRef.current = 0;
         return true;
       }
 
-      // Fetch member tags for only the included users
       const memberIds = profilesData.map(p => p.id);
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
@@ -118,10 +102,8 @@ export const useUsers = () => {
 
       if (memberTagsError) {
         console.error('Error fetching member tags:', memberTagsError);
-        // Continue processing even if tags fail - this isn't critical
       }
 
-      // Organize tags by member_id
       const memberTagsMap = new Map();
       memberTagsData?.forEach(tagObj => {
         if (!memberTagsMap.has(tagObj.member_id)) {
@@ -130,7 +112,6 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      // Transform profiles into User objects
       const transformedUsers: User[] = profilesData.map(profile => ({
         id: profile.id,
         firstName: profile.first_name || '',
@@ -151,22 +132,15 @@ export const useUsers = () => {
         createdAt: new Date(profile.created_at),
       }));
 
-      console.log(`Transformed ${transformedUsers.length} users from profiles data`);
       setUsers(transformedUsers);
-      
-      // Reset error state and fetch attempts on success
       setLoadError(null);
       fetchAttemptRef.current = 0;
       return true;
     } catch (error) {
       console.error('Error in fetchUsers:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      
-      // Only show toast on first error
       if (fetchAttemptRef.current === 1) {
-        toast.error('Failed to load users', {
-          id: 'users-load-error'
-        });
+        toast.error('Failed to load users', { id: 'users-load-error' });
       }
       return false;
     } finally {
@@ -176,12 +150,10 @@ export const useUsers = () => {
     }
   }, [isLoading]);
 
-  // Reset mounted ref on cleanup
   const cleanup = useCallback(() => {
     isMountedRef.current = false;
   }, []);
 
-  // Reset fetch attempt count and error state
   const resetFetchState = useCallback(() => {
     fetchAttemptRef.current = 0;
     setLoadError(null);
@@ -200,8 +172,6 @@ export const useUsers = () => {
 
   const updateUser = async (id: string, updatedUserData: Partial<User>) => {
     try {
-      console.log('Updating user with data:', { id, ...updatedUserData });
-
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -222,30 +192,22 @@ export const useUsers = () => {
 
       if (error) throw error;
 
-      // Replace tags
       if (updatedUserData.tags) {
         const { error: deleteError } = await supabase
           .from('member_tags')
           .delete()
           .eq('member_id', id);
-
         if (deleteError) throw deleteError;
 
-        const tagInserts = updatedUserData.tags.map(tag => ({
-          member_id: id,
-          tag: tag,
-        }));
-
+        const tagInserts = updatedUserData.tags.map(tag => ({ member_id: id, tag }));
         if (tagInserts.length > 0) {
           const { error: insertError } = await supabase
             .from('member_tags')
             .insert(tagInserts);
-
           if (insertError) throw insertError;
         }
       }
 
-      // Refresh user list
       await fetchUsers();
       return Promise.resolve();
     } catch (error: any) {
