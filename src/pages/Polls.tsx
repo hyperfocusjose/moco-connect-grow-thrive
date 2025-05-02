@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -526,7 +527,7 @@ const Polls = () => {
                             {option.votes.length > 0 ? (
                               <span>Voters: {option.votes.map(userId => {
                                 const user = useData().getUser(userId);
-                                return user ? `${user.firstName} ${user.lastName || ''}`.trim() || user.email : 'Unknown';
+                                return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
                               }).join(', ')}</span>
                             ) : (
                               <span>No votes yet</span>
@@ -803,7 +804,6 @@ const PollResultCard: React.FC<PollResultCardProps> = ({
 }) => {
   const isAdmin = currentUser?.isAdmin;
   const [showDetails, setShowDetails] = useState(false);
-  const { getUser } = useData(); // Add this line to get the getUser function
   
   const results = calculateResults(poll);
   
@@ -813,24 +813,6 @@ const PollResultCard: React.FC<PollResultCardProps> = ({
   // Find the winning option(s)
   const maxVotes = Math.max(...poll.options.map(option => option.votes.length));
   const winningOptions = poll.options.filter(option => option.votes.length === maxVotes);
-  
-  // Helper function to format voter names
-  const formatVoterName = (userId: string) => {
-    const user = getUser(userId);
-    if (user) {
-      // If we have both first and last name, use them
-      if (user.firstName && user.lastName) {
-        return `${user.firstName} ${user.lastName}`;
-      } 
-      // If we only have first name
-      else if (user.firstName) {
-        return user.firstName;
-      }
-      // Fall back to email
-      return user.email;
-    }
-    return 'Unknown';
-  };
   
   return (
     <Card className={`overflow-hidden ${isArchived ? 'bg-gray-50' : ''}`}>
@@ -874,7 +856,10 @@ const PollResultCard: React.FC<PollResultCardProps> = ({
                   {isAdmin && (
                     <div className="text-xs text-gray-500 mt-1">
                       {option.votes.length > 0 ? (
-                        <span>Voters: {option.votes.map(formatVoterName).join(', ')}</span>
+                        <span>Voters: {option.votes.map(userId => {
+                          const user = useData().getUser(userId);
+                          return user ? `${user.firstName} ${user.lastName}` : 'Unknown';
+                        }).join(', ')}</span>
                       ) : (
                         <span>No votes</span>
                       )}

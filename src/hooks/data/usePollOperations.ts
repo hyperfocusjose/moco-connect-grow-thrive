@@ -10,9 +10,6 @@ export const usePollOperations = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const { toast } = useToast();
   const { currentUser } = useAuth();
-  
-  // Added userMap to store user information
-  const [userMap, setUserMap] = useState<Record<string, { firstName: string, lastName: string, email: string }>>({}); 
 
   const fetchPolls = async (): Promise<void> => {
     try {
@@ -35,32 +32,6 @@ export const usePollOperations = () => {
         .from('poll_votes')
         .select('*');
       if (votesError) throw new Error(votesError.message);
-      
-      // Fetch profiles data for all users who voted
-      const voterIds = new Set<string>();
-      votesData.forEach(vote => {
-        if (vote.user_id) voterIds.add(vote.user_id);
-      });
-      
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email')
-        .in('id', Array.from(voterIds));
-        
-      if (profilesError) throw new Error(profilesError.message);
-      
-      // Create a map of user IDs to profile data
-      const userProfiles: Record<string, { firstName: string, lastName: string, email: string }> = {};
-      profilesData?.forEach(profile => {
-        userProfiles[profile.id] = {
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          email: profile.email || ''
-        };
-      });
-      
-      // Update the userMap state
-      setUserMap(userProfiles);
 
       const processedPolls: Poll[] = pollsData.map(poll => {
         const pollOptions = optionsData
@@ -258,26 +229,6 @@ export const usePollOperations = () => {
     return poll.options.some(opt => opt.votes.includes(userId));
   };
 
-  const getUser = (userId: string) => {
-    if (userMap[userId]) {
-      const user = userMap[userId];
-      if (user.firstName || user.lastName) {
-        return {
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          email: user.email
-        };
-      }
-      // Fall back to email if name isn't available
-      return {
-        firstName: user.email.split('@')[0] || '',
-        lastName: '',
-        email: user.email
-      };
-    }
-    return null;
-  };
-
   useEffect(() => {
     fetchPolls();
   }, []);
@@ -296,7 +247,6 @@ export const usePollOperations = () => {
     deletePoll,
     votePoll,
     hasVoted,
-    getUser, // Export the getUser function
     cleanup,
   };
 };
