@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+
+import { useState, useCallback, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -9,8 +10,47 @@ type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
 export const useUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const fetchAttemptRef = useRef(0);
+  const lastFetchTimeRef = useRef(0);
+  const isMountedRef = useRef(true);
 
   const fetchUsers = useCallback(async () => {
+    // Prevent fetching if already loading
+    if (isLoading) return false;
+    
+    // Implement a simple cooldown to prevent rapid refetching
+    const now = Date.now();
+    const cooldownPeriod = 5000; // 5 seconds cooldown
+    if (now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Users fetch cooldown active, skipping request');
+      return false;
+    }
+    
+    // Track fetch attempts and implement exponential backoff
+    fetchAttemptRef.current += 1;
+    const maxRetries = 3;
+    if (fetchAttemptRef.current > maxRetries) {
+      // Only show error toast on the first time we hit max retries
+      if (fetchAttemptRef.current === maxRetries + 1) {
+        setLoadError('Too many failed attempts to load users. Please try again later.');
+        toast.error('Users could not be loaded', { 
+          description: 'Check your network connection and try again later.',
+          id: 'users-load-error' // This prevents duplicate toasts
+        });
+      }
+      console.warn(`Users fetch exceeded ${maxRetries} attempts, stopping`);
+      return false;
+    }
+
+    // Only show loading state on first attempt 
+    if (fetchAttemptRef.current === 1) {
+      setIsLoading(true);
+    }
+    
+    lastFetchTimeRef.current = now;
+
     try {
       console.log('Fetching users...');
 
@@ -22,9 +62,17 @@ export const useUsers = () => {
         .from('user_roles')
         .select('*');
 
+      if (!isMountedRef.current) return false;
+
       if (userRolesError) {
         console.error('Error fetching user roles:', userRolesError);
-        return;
+        setLoadError(userRolesError.message);
+        if (fetchAttemptRef.current === 1) {
+          toast.error('Failed to load user data', {
+            id: 'users-load-error'
+          });
+        }
+        return false;
       }
 
       const adminUserIds = userRolesData
@@ -37,14 +85,26 @@ export const useUsers = () => {
         .select('*')
         .neq('id', adminUserId);
 
+      if (!isMountedRef.current) return false;
+
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
-        return;
+        setLoadError(profilesError.message);
+        if (fetchAttemptRef.current === 1) {
+          toast.error('Failed to load user profiles', {
+            id: 'users-load-error'
+          });
+        }
+        return false;
       }
 
       if (!profilesData || profilesData.length === 0) {
         console.log('No user profiles found');
-        return;
+        setUsers([]);
+        // Reset error state and fetch attempts on success (even if empty)
+        setLoadError(null);
+        fetchAttemptRef.current = 0;
+        return true;
       }
 
       // Fetch member tags for only the included users
@@ -54,8 +114,11 @@ export const useUsers = () => {
         .select('*')
         .in('member_id', memberIds);
 
+      if (!isMountedRef.current) return false;
+
       if (memberTagsError) {
         console.error('Error fetching member tags:', memberTagsError);
+        // Continue processing even if tags fail - this isn't critical
       }
 
       // Organize tags by member_id
@@ -88,11 +151,41 @@ export const useUsers = () => {
         createdAt: new Date(profile.created_at),
       }));
 
+      console.log(`Transformed ${transformedUsers.length} users from profiles data`);
       setUsers(transformedUsers);
+      
+      // Reset error state and fetch attempts on success
+      setLoadError(null);
+      fetchAttemptRef.current = 0;
+      return true;
     } catch (error) {
       console.error('Error in fetchUsers:', error);
-      toast.error('Failed to load users');
+      setLoadError(error instanceof Error ? error.message : 'Unknown error');
+      
+      // Only show toast on first error
+      if (fetchAttemptRef.current === 1) {
+        toast.error('Failed to load users', {
+          id: 'users-load-error'
+        });
+      }
+      return false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
+  }, [isLoading]);
+
+  // Reset mounted ref on cleanup
+  const cleanup = useCallback(() => {
+    isMountedRef.current = false;
+  }, []);
+
+  // Reset fetch attempt count and error state
+  const resetFetchState = useCallback(() => {
+    fetchAttemptRef.current = 0;
+    setLoadError(null);
+    lastFetchTimeRef.current = 0;
   }, []);
 
   const getUser = useCallback((userId: string | undefined) => {
@@ -164,9 +257,13 @@ export const useUsers = () => {
 
   return {
     users,
+    isLoading,
+    loadError,
     getUser,
     addUser,
     updateUser,
-    fetchUsers
+    fetchUsers,
+    resetFetchState,
+    cleanup
   };
 };

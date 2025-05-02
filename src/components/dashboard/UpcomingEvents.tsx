@@ -3,28 +3,28 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from 'lucide-react';
+import { Calendar, AlertCircle } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { format, isSameDay, startOfToday, addDays, isAfter, isBefore } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatDateForComparison } from '@/utils/dateUtils';
 
 export const UpcomingEvents = () => {
-  const { events, fetchEvents } = useData();
-  const [eventsLoadError, setEventsLoadError] = useState(false);
+  const { events, fetchEvents, isLoading, loadError } = useData();
+  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
   const today = useMemo(() => startOfToday(), []);
   const in14Days = useMemo(() => addDays(today, 14), [today]);
   
   useEffect(() => {
-    console.log('UpcomingEvents component mounted, fetching events...');
-    const loadEvents = async () => {
-      const success = await fetchEvents();
-      setEventsLoadError(!success);
-    };
+    // Skip the initial fetch since Dashboard will trigger it
+    if (!hasInitiallyFetched) {
+      setHasInitiallyFetched(true);
+      return;
+    }
     
-    loadEvents();
-  }, [fetchEvents]);
+    // We don't need to fetch here since Dashboard already handles it
+    // fetchEvents();
+  }, [fetchEvents, hasInitiallyFetched]);
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
@@ -79,59 +79,77 @@ export const UpcomingEvents = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {todayEvents.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Today</h3>
-            <div className="space-y-3">
-              {todayEvents.map(event => (
-                <div key={event.id} className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <div className="flex justify-between">
-                    <h4 className="font-medium text-blue-800">{event.name}</h4>
-                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                      Today
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {formatTime(event.startTime)} • {event.location}
-                  </p>
-                </div>
-              ))}
+        {isLoading && !events.length ? (
+          <div className="flex items-center justify-center h-24">
+            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
+          </div>
+        ) : loadError ? (
+          <div className="p-4 border border-red-200 bg-red-50 rounded-md">
+            <div className="flex items-start">
+              <AlertCircle className="h-5 w-5 text-red-600 mr-2 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Failed to load events</p>
+                <p className="text-xs text-red-700">Please try again later</p>
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            {todayEvents.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Today</h3>
+                <div className="space-y-3">
+                  {todayEvents.map(event => (
+                    <div key={event.id} className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                      <div className="flex justify-between">
+                        <h4 className="font-medium text-blue-800">{event.name}</h4>
+                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                          Today
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {formatTime(event.startTime)} • {event.location}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {upcomingEvents.length > 0 ? (
+              <ScrollArea className="h-[260px] pr-4">
+                <div className="space-y-3">
+                  {upcomingEvents.map(event => (
+                    <div key={event.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex gap-3">
+                      <div className="flex-shrink-0 w-12 h-12 flex flex-col items-center justify-center bg-white rounded border border-gray-200">
+                        <span className="text-xs font-medium text-gray-500">
+                          {format(new Date(event.date), "MMM")}
+                        </span>
+                        <span className="text-lg font-bold">
+                          {format(new Date(event.date), "d")}
+                        </span>
+                      </div>
+                      <div className="flex-grow">
+                        <h4 className="font-medium">{event.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {formatTime(event.startTime)} • {event.location}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : todayEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[200px] text-center">
+                <Calendar className="h-12 w-12 text-gray-300 mb-2" />
+                <p className="text-gray-500">No upcoming events in the next 14 days</p>
+                <Button variant="link" asChild className="mt-2">
+                  <Link to="/events">Add an Event</Link>
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
-        
-        {upcomingEvents.length > 0 ? (
-          <ScrollArea className="h-[260px] pr-4">
-            <div className="space-y-3">
-              {upcomingEvents.map(event => (
-                <div key={event.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex gap-3">
-                  <div className="flex-shrink-0 w-12 h-12 flex flex-col items-center justify-center bg-white rounded border border-gray-200">
-                    <span className="text-xs font-medium text-gray-500">
-                      {format(new Date(event.date), "MMM")}
-                    </span>
-                    <span className="text-lg font-bold">
-                      {format(new Date(event.date), "d")}
-                    </span>
-                  </div>
-                  <div className="flex-grow">
-                    <h4 className="font-medium">{event.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {formatTime(event.startTime)} • {event.location}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        ) : todayEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[200px] text-center">
-            <Calendar className="h-12 w-12 text-gray-300 mb-2" />
-            <p className="text-gray-500">No upcoming events in the next 14 days</p>
-            <Button variant="link" asChild className="mt-2">
-              <Link to="/events">Add an Event</Link>
-            </Button>
-          </div>
-        ) : null}
       </CardContent>
       
       {hasEvents && (

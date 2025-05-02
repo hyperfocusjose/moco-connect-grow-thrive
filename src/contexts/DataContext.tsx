@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
 import { useVisitors } from '@/hooks/data/useVisitors';
@@ -19,7 +19,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getUser, 
     addUser, 
     updateUser,
-    fetchUsers 
+    fetchUsers,
+    isLoading: usersLoading,
+    loadError: usersError,
+    resetFetchState: resetUsersState,
+    cleanup: cleanupUsers
   } = useUsers();
 
   const {
@@ -27,7 +31,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     createEvent,
     updateEvent,
     deleteEvent,
-    fetchEvents
+    fetchEvents,
+    isLoading: eventsLoading,
+    loadError: eventsError,
+    resetFetchState: resetEventsState,
+    cleanup: cleanupEvents
   } = useEvents();
 
   const {
@@ -45,7 +53,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addReferral,
     addOneToOne,
     addTYFCB,
-    fetchActivities
+    fetchActivities,
+    isLoading: activitiesLoading,
+    loadError: activitiesError,
+    resetFetchState: resetActivitiesState,
+    cleanup: cleanupActivities
   } = useActivities();
 
   const {
@@ -63,6 +75,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getTopPerformers,
     getActivityForAllMembers
   } = useMetrics({ users, referrals, visitors, oneToOnes, tyfcbs });
+
+  // Handle component unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      cleanupUsers();
+      cleanupEvents();
+      cleanupActivities();
+    };
+  }, [cleanupUsers, cleanupEvents, cleanupActivities]);
 
   return (
     <DataContext.Provider value={{
@@ -98,6 +119,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getActivityForAllMembers,
       fetchUsers,
       fetchActivities,
+      // New properties
+      isLoading: usersLoading || eventsLoading || activitiesLoading,
+      loadError: usersError || eventsError || activitiesError,
+      resetFetchState: () => {
+        resetUsersState();
+        resetEventsState();
+        resetActivitiesState();
+      }
     }}>
       {children}
     </DataContext.Provider>

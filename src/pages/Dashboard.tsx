@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { MetricCard } from '@/components/dashboard/MetricCard';
@@ -18,8 +18,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const { getUserMetrics, visitors } = useData();
+  const { 
+    getUserMetrics, 
+    visitors,
+    fetchUsers,
+    fetchActivities,
+    fetchEvents
+  } = useData();
   const navigate = useNavigate();
+
+  // Initialize dashboard data with a single coordinated fetch
+  useEffect(() => {
+    console.log('Dashboard mounted, initializing data...');
+    
+    // Create a coordinated data loading function to prevent multiple toast notifications
+    const loadDashboardData = async () => {
+      try {
+        // We only need to show one loading toast for the dashboard
+        const userPromise = fetchUsers();
+        const activitiesPromise = fetchActivities();
+        const eventsPromise = fetchEvents();
+        
+        await Promise.allSettled([userPromise, activitiesPromise, eventsPromise]);
+        console.log('Dashboard data initialization complete');
+      } catch (error) {
+        console.error('Error initializing dashboard data:', error);
+        // Toast is already shown by individual hooks
+      }
+    };
+    
+    loadDashboardData();
+    
+    // No need to include the fetch functions in the dependency array
+    // as we only want this to run once on mount
+  }, []);
 
   // If user is logged in, get their metrics
   const metrics = currentUser ? getUserMetrics(currentUser.id) : null;

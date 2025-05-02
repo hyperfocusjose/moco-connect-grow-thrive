@@ -1,15 +1,54 @@
-
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, Referral, OneToOne, TYFCB } from '@/types';
+import { toast } from 'sonner';
 
 export const useActivities = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [oneToOnes, setOneToOnes] = useState<OneToOne[]>([]);
   const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const fetchAttemptRef = useRef(0);
+  const lastFetchTimeRef = useRef(0);
+  const isMountedRef = useRef(true);
 
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
+    // Prevent fetching if already loading
+    if (isLoading) return false;
+    
+    // Implement a simple cooldown to prevent rapid refetching
+    const now = Date.now();
+    const cooldownPeriod = 5000; // 5 seconds cooldown
+    if (now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Activities fetch cooldown active, skipping request');
+      return false;
+    }
+    
+    // Track fetch attempts and implement exponential backoff
+    fetchAttemptRef.current += 1;
+    const maxRetries = 3;
+    if (fetchAttemptRef.current > maxRetries) {
+      // Only show error toast on the first time we hit max retries
+      if (fetchAttemptRef.current === maxRetries + 1) {
+        setLoadError('Too many failed attempts to load activities. Please try again later.');
+        toast.error('Activities could not be loaded', { 
+          description: 'Check your network connection and try again later.',
+          id: 'activities-load-error' // This prevents duplicate toasts
+        });
+      }
+      console.warn(`Activities fetch exceeded ${maxRetries} attempts, stopping`);
+      return false;
+    }
+
+    // Only show loading state on first attempt 
+    if (fetchAttemptRef.current === 1) {
+      setIsLoading(true);
+    }
+    
+    lastFetchTimeRef.current = now;
+
     try {
       console.log('Fetching activities...');
       const { data: activitiesData, error: activitiesError } = await supabase
@@ -17,9 +56,19 @@ export const useActivities = () => {
         .select('*')
         .order('date', { ascending: false });
         
+      if (!isMountedRef.current) return false;
+        
       if (activitiesError) {
         console.error('Error fetching activities:', activitiesError);
-        return;
+        setLoadError(activitiesError.message);
+        
+        // Only show toast on first error
+        if (fetchAttemptRef.current === 1) {
+          toast.error('Failed to load activities', {
+            id: 'activities-load-error'
+          });
+        }
+        return false;
       }
       
       if (activitiesData) {
@@ -37,14 +86,50 @@ export const useActivities = () => {
         setActivities(transformedActivities);
       }
 
-      // Fetch all referrals
+      // Fetch all referrals in one batch operation
+      const allData = await Promise.allSettled([
+        fetchReferralsData(),
+        fetchOneToOnesData(),
+        fetchTYFCBsData()
+      ]);
+      
+      console.log('All data fetches completed:', allData.map(r => r.status));
+      
+      // Reset error state and fetch attempts on success
+      setLoadError(null);
+      fetchAttemptRef.current = 0;
+      return true;
+    } catch (error) {
+      console.error('Error in fetchActivities:', error);
+      setLoadError(error instanceof Error ? error.message : 'Unknown error');
+      
+      // Only show toast on first error
+      if (fetchAttemptRef.current === 1) {
+        toast.error('Failed to load activities data', {
+          id: 'activities-load-error' 
+        });
+      }
+      return false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [isLoading]);
+
+  // Helper function to fetch referrals
+  const fetchReferralsData = async () => {
+    try {
       const { data: referralsData, error: referralsError } = await supabase
         .from('referrals')
         .select('*')
         .order('date', { ascending: false });
         
+      if (!isMountedRef.current) return null;
+      
       if (referralsError) {
         console.error('Error fetching referrals:', referralsError);
+        return null;
       } else if (referralsData) {
         console.log('Referrals data received:', referralsData.length, 'records');
         const transformedReferrals: Referral[] = referralsData.map(referral => ({
@@ -59,16 +144,28 @@ export const useActivities = () => {
         }));
         
         setReferrals(transformedReferrals);
+        return transformedReferrals;
       }
+      return null;
+    } catch (error) {
+      console.error('Error fetching referrals:', error);
+      return null;
+    }
+  };
 
-      // Fetch all one-to-ones
+  // Helper function to fetch one-to-ones
+  const fetchOneToOnesData = async () => {
+    try {
       const { data: oneToOnesData, error: oneToOnesError } = await supabase
         .from('one_to_ones')
         .select('*')
         .order('date', { ascending: false });
         
+      if (!isMountedRef.current) return null;
+      
       if (oneToOnesError) {
         console.error('Error fetching one-to-ones:', oneToOnesError);
+        return null;
       } else if (oneToOnesData) {
         console.log('One-to-ones data received:', oneToOnesData.length, 'records');
         const transformedOneToOnes: OneToOne[] = oneToOnesData.map(oneToOne => ({
@@ -83,16 +180,28 @@ export const useActivities = () => {
         }));
         
         setOneToOnes(transformedOneToOnes);
+        return transformedOneToOnes;
       }
+      return null;
+    } catch (error) {
+      console.error('Error fetching one-to-ones:', error);
+      return null;
+    }
+  };
 
-      // Fetch all TYFCBs (Thank You For Closed Business)
+  // Helper function to fetch TYFCBs
+  const fetchTYFCBsData = async () => {
+    try {
       const { data: tyfcbsData, error: tyfcbsError } = await supabase
         .from('tyfcb')
         .select('*')
         .order('date', { ascending: false });
         
+      if (!isMountedRef.current) return null;
+      
       if (tyfcbsError) {
         console.error('Error fetching TYFCBs:', tyfcbsError);
+        return null;
       } else if (tyfcbsData) {
         console.log('TYFCBs data received:', tyfcbsData.length, 'records');
         const transformedTYFCBs: TYFCB[] = tyfcbsData.map(tyfcb => ({
@@ -108,11 +217,26 @@ export const useActivities = () => {
         }));
         
         setTYFCBs(transformedTYFCBs);
+        return transformedTYFCBs;
       }
+      return null;
     } catch (error) {
-      console.error('Error in fetchActivities:', error);
+      console.error('Error fetching TYFCBs:', error);
+      return null;
     }
   };
+
+  // Reset mounted ref on cleanup
+  const cleanup = useCallback(() => {
+    isMountedRef.current = false;
+  }, []);
+
+  // Reset fetch attempt count and error state
+  const resetFetchState = useCallback(() => {
+    fetchAttemptRef.current = 0;
+    setLoadError(null);
+    lastFetchTimeRef.current = 0;
+  }, []);
 
   const addReferral = async (referral: Partial<Referral>) => {
     try {
@@ -152,9 +276,13 @@ export const useActivities = () => {
     referrals,
     oneToOnes,
     tyfcbs,
+    isLoading,
+    loadError,
     addReferral,
     addOneToOne,
     addTYFCB,
-    fetchActivities
+    fetchActivities,
+    resetFetchState,
+    cleanup
   };
 };

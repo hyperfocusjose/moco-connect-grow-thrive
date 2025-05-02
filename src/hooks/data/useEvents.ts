@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Event } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -6,17 +6,65 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const fetchAttemptRef = useRef(0);
+  const lastFetchTimeRef = useRef(0);
+  const isMountedRef = useRef(true);
 
-  const fetchEvents = async (): Promise<boolean> => {
+  const fetchEvents = useCallback(async (): Promise<boolean> => {
+    // Prevent fetching if already loading
+    if (isLoading) return false;
+    
+    // Implement a simple cooldown to prevent rapid refetching
+    const now = Date.now();
+    const cooldownPeriod = 5000; // 5 seconds cooldown
+    if (now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Events fetch cooldown active, skipping request');
+      return false;
+    }
+    
+    // Track fetch attempts and implement exponential backoff
+    fetchAttemptRef.current += 1;
+    const maxRetries = 3;
+    if (fetchAttemptRef.current > maxRetries) {
+      // Only show error toast on the first time we hit max retries
+      if (fetchAttemptRef.current === maxRetries + 1) {
+        setLoadError('Too many failed attempts to load events. Please try again later.');
+        toast.error('Events could not be loaded', { 
+          description: 'Check your network connection and try again later.',
+          id: 'events-load-error' // This prevents duplicate toasts
+        });
+      }
+      console.warn(`Events fetch exceeded ${maxRetries} attempts, stopping`);
+      return false;
+    }
+
+    // Only show loading state on first attempt 
+    if (fetchAttemptRef.current === 1) {
+      setIsLoading(true);
+    }
+    
+    lastFetchTimeRef.current = now;
+
     try {
       console.log('Fetching events from Supabase...');
       const { data, error } = await supabase
         .from('events')
         .select('*');
 
+      // Always check if the component is still mounted before updating state
+      if (!isMountedRef.current) return false;
+
       if (error) {
         console.error('Error fetching events:', error);
-        toast.error('Failed to load events');
+        setLoadError(error.message);
+        // Only show toast on first error, not on every retry
+        if (fetchAttemptRef.current === 1) {
+          toast.error('Failed to load events', {
+            id: 'events-load-error'
+          });
+        }
         return false;
       }
 
@@ -43,13 +91,40 @@ export const useEvents = () => {
 
       console.log('Events transformed to client format:', formattedEvents.length);
       setEvents(formattedEvents);
+      
+      // Reset error state and fetch attempts on success
+      setLoadError(null);
+      fetchAttemptRef.current = 0;
       return true;
     } catch (error) {
       console.error('Error in fetchEvents:', error);
-      toast.error('Failed to load events');
+      setLoadError(error instanceof Error ? error.message : 'Unknown error');
+      
+      // Only show toast on first error
+      if (fetchAttemptRef.current === 1) {
+        toast.error('Failed to load events', {
+          id: 'events-load-error' 
+        });
+      }
       return false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [isLoading]);
+
+  // Reset mounted ref on cleanup
+  const cleanup = useCallback(() => {
+    isMountedRef.current = false;
+  }, []);
+
+  // Reset fetch attempt count and error state
+  const resetFetchState = useCallback(() => {
+    fetchAttemptRef.current = 0;
+    setLoadError(null);
+    lastFetchTimeRef.current = 0;
+  }, []);
 
   const createEvent = async (event: Partial<Event>) => {
     try {
@@ -159,9 +234,13 @@ export const useEvents = () => {
 
   return {
     events,
+    isLoading,
+    loadError,
     createEvent,
     updateEvent,
     deleteEvent,
-    fetchEvents
+    fetchEvents,
+    resetFetchState,
+    cleanup
   };
 };

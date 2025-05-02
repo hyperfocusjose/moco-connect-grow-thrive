@@ -15,6 +15,8 @@ interface MembersSectionProps {
   onSelectMember: (member: User) => void;
   isAdmin: boolean;
   onEditMember: (member: User) => void;
+  isLoading?: boolean;
+  loadError?: string | null;
 }
 
 export const MembersSection = ({
@@ -25,6 +27,8 @@ export const MembersSection = ({
   onSelectMember,
   isAdmin,
   onEditMember,
+  isLoading = false,
+  loadError = null,
 }: MembersSectionProps) => {
   return (
     <>
@@ -55,29 +59,47 @@ export const MembersSection = ({
         />
       </div>
 
-      {filteredMembers.length === 0 && (
+      {isLoading && (
+        <div className="w-full py-12 flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-maroon"></div>
+        </div>
+      )}
+
+      {loadError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading members</AlertTitle>
+          <AlertDescription>
+            There was a problem loading the member directory. Please try again later.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!isLoading && !loadError && filteredMembers.length === 0 && (
         <Alert variant="default" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No members found</AlertTitle>
           <AlertDescription>
             {searchTerm ? 
               "No members match your search criteria. Try adjusting your search terms." : 
-              "There are no members in the directory yet. If you believe this is an error, please check the console logs or contact the administrator."}
+              "There are no members in the directory yet. If you believe this is an error, please contact the administrator."}
           </AlertDescription>
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredMembers.map((member) => (
-          <MemberCard 
-            key={member.id} 
-            member={member} 
-            onClick={() => onSelectMember(member)}
-            showEditButton={isAdmin}
-            onEdit={() => onEditMember(member)}
-          />
-        ))}
-      </div>
+      {!isLoading && !loadError && filteredMembers.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredMembers.map((member) => (
+            <MemberCard 
+              key={member.id} 
+              member={member} 
+              onClick={() => onSelectMember(member)}
+              showEditButton={isAdmin}
+              onEdit={() => onEditMember(member)}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 };
