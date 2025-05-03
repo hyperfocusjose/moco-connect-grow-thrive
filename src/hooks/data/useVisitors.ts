@@ -13,114 +13,82 @@ export const useVisitors = () => {
   const isMountedRef = useRef(true);
 
   const fetchVisitors = useCallback(async (): Promise<void> => {
-    // Prevent fetching if already loading
-    if (isLoading) return;
-    
-    // Implement a simple cooldown to prevent rapid refetching
     const now = Date.now();
-    const cooldownPeriod = 5000; // 5 seconds cooldown
-    if (now - lastFetchTimeRef.current < cooldownPeriod) {
-      console.log('Visitors fetch cooldown active, skipping request');
-      return;
-    }
-    
-    // Track fetch attempts and implement exponential backoff
-    fetchAttemptRef.current += 1;
-    const maxRetries = 3;
-    if (fetchAttemptRef.current > maxRetries) {
-      // Only show error toast on the first time we hit max retries
-      if (fetchAttemptRef.current === maxRetries + 1) {
-        setLoadError('Too many failed attempts to load visitors. Please try again later.');
-        toast.error('Visitors could not be loaded', { 
-          description: 'Check your network connection and try again later.',
-          id: 'visitors-load-error' // This prevents duplicate toasts
-        });
-      }
-      console.warn(`Visitors fetch exceeded ${maxRetries} attempts, stopping`);
+    const cooldownPeriod = 5000;
+
+    if (isLoading || now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Visitors fetch skipped (loading or cooldown)');
       return;
     }
 
-    // Only show loading state on first attempt 
-    if (fetchAttemptRef.current === 1) {
-      setIsLoading(true);
+    fetchAttemptRef.current += 1;
+    const maxRetries = 3;
+
+    if (fetchAttemptRef.current > maxRetries) {
+      if (fetchAttemptRef.current === maxRetries + 1) {
+        setLoadError('Too many failed attempts to load visitors.');
+        toast.error('Visitors could not be loaded', {
+          description: 'Please try again later.',
+          id: 'visitors-load-error',
+        });
+      }
+      return;
     }
-    
+
+    if (fetchAttemptRef.current === 1) setIsLoading(true);
     lastFetchTimeRef.current = now;
 
     try {
-      console.log('Fetching visitors from Supabase...');
-      const { data, error } = await supabase
-        .from('visitors')
-        .select('*');
+      const { data, error } = await supabase.from('visitors').select('*');
 
-      // Always check if the component is still mounted before updating state
       if (!isMountedRef.current) return;
 
       if (error) {
         console.error('Error fetching visitors:', error);
         setLoadError(error.message);
-        // Only show toast on first error, not on every retry
         if (fetchAttemptRef.current === 1) {
-          toast.error('Failed to load visitors', {
-            id: 'visitors-load-error'
-          });
+          toast.error('Failed to load visitors', { id: 'visitors-load-error' });
         }
         return;
       }
 
-      console.log(`Retrieved ${data?.length || 0} visitors from Supabase`);
-      
-      const formattedVisitors: Visitor[] = data ? data.map(visitor => ({
-        id: visitor.id,
-        visitorName: visitor.visitor_name,
-        visitorBusiness: visitor.visitor_business,
-        visitDate: new Date(visitor.visit_date),
-        hostMemberId: visitor.host_member_id,
-        isSelfEntered: visitor.is_self_entered || false,
-        phoneNumber: visitor.phone_number,
-        email: visitor.email,
-        industry: visitor.industry,
-        createdAt: new Date(visitor.created_at),
-        didNotShow: visitor.did_not_show || false,
-      })) : [];
+      const formatted: Visitor[] = (data || []).map(v => ({
+        id: v.id,
+        visitorName: v.visitor_name,
+        visitorBusiness: v.visitor_business,
+        visitDate: new Date(v.visit_date),
+        hostMemberId: v.host_member_id,
+        isSelfEntered: v.is_self_entered || false,
+        phoneNumber: v.phone_number,
+        email: v.email,
+        industry: v.industry,
+        createdAt: new Date(v.created_at),
+        didNotShow: v.did_not_show || false,
+      }));
 
-      console.log('Visitors transformed to client format:', formattedVisitors.length);
-      setVisitors(formattedVisitors);
-      
-      // Reset error state and fetch attempts on success
+      setVisitors(formatted);
       setLoadError(null);
       fetchAttemptRef.current = 0;
     } catch (error) {
       console.error('Error in fetchVisitors:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      
-      // Only show toast on first error
       if (fetchAttemptRef.current === 1) {
-        toast.error('Failed to load visitors', {
-          id: 'visitors-load-error' 
-        });
+        toast.error('Failed to load visitors', { id: 'visitors-load-error' });
       }
     } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [isLoading]);
 
-  // Add auto-fetching on mount
   useEffect(() => {
-    console.log('Visitors hook mounted, fetching visitors...');
     fetchVisitors();
-    
-    return () => {
-      isMountedRef.current = false;
-    };
+    return () => { isMountedRef.current = false; };
   }, [fetchVisitors]);
 
   const resetFetchState = useCallback(() => {
     fetchAttemptRef.current = 0;
-    setLoadError(null);
     lastFetchTimeRef.current = 0;
+    setLoadError(null);
   }, []);
 
   const cleanup = useCallback(() => {
@@ -157,11 +125,7 @@ export const useVisitors = () => {
         did_not_show: newVisitor.didNotShow,
       });
 
-      if (error) {
-        console.error('Error adding visitor:', error);
-        toast.error('Failed to add visitor');
-        return;
-      }
+      if (error) throw error;
 
       setVisitors(prev => [...prev, newVisitor]);
       toast.success('Visitor added successfully');
@@ -173,28 +137,21 @@ export const useVisitors = () => {
 
   const updateVisitor = async (id: string, visitor: Partial<Visitor>) => {
     try {
-      const { error } = await supabase
-        .from('visitors')
-        .update({
-          visitor_name: visitor.visitorName,
-          visitor_business: visitor.visitorBusiness,
-          visit_date: visitor.visitDate?.toISOString(),
-          host_member_id: visitor.hostMemberId,
-          is_self_entered: visitor.isSelfEntered,
-          phone_number: visitor.phoneNumber,
-          email: visitor.email,
-          industry: visitor.industry,
-          did_not_show: visitor.didNotShow,
-        })
-        .eq('id', id);
+      const { error } = await supabase.from('visitors').update({
+        visitor_name: visitor.visitorName,
+        visitor_business: visitor.visitorBusiness,
+        visit_date: visitor.visitDate?.toISOString(),
+        host_member_id: visitor.hostMemberId,
+        is_self_entered: visitor.isSelfEntered,
+        phone_number: visitor.phoneNumber,
+        email: visitor.email,
+        industry: visitor.industry,
+        did_not_show: visitor.didNotShow,
+      }).eq('id', id);
 
-      if (error) {
-        console.error('Error updating visitor:', error);
-        toast.error('Failed to update visitor');
-        return;
-      }
+      if (error) throw error;
 
-      setVisitors(prev => 
+      setVisitors(prev =>
         prev.map(item => item.id === id ? { ...item, ...visitor } : item)
       );
       toast.success('Visitor updated successfully');
@@ -211,18 +168,11 @@ export const useVisitors = () => {
         .update({ did_not_show: true })
         .eq('id', id);
 
-      if (error) {
-        console.error('Error marking visitor as no-show:', error);
-        toast.error('Failed to mark visitor as no-show');
-        return;
-      }
+      if (error) throw error;
 
       setVisitors(prev =>
-        prev.map(visitor =>
-          visitor.id === id ? { ...visitor, didNotShow: true } : visitor
-        )
+        prev.map(v => v.id === id ? { ...v, didNotShow: true } : v)
       );
-      
       toast.success('Visitor marked as no-show');
     } catch (error) {
       console.error('Error in markVisitorNoShow:', error);
@@ -232,12 +182,12 @@ export const useVisitors = () => {
 
   return {
     visitors,
+    isLoading,
+    loadError,
     addVisitor,
     updateVisitor,
     markVisitorNoShow,
     fetchVisitors,
-    isLoading,
-    loadError,
     resetFetchState,
     cleanup
   };
