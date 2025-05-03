@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Activity } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,20 +7,14 @@ import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 
 export const RecentActivity: React.FC = () => {
-  const { activities, getUser, fetchActivities, isLoading, loadError } = useData();
-  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
+  const { activities, getUser, isLoading, loadError } = useData();
+  const [hasLoaded, setHasLoaded] = useState(false);
   
-  useEffect(() => {
-    // Skip the initial fetch since Dashboard will trigger it
-    if (!hasInitiallyFetched) {
-      setHasInitiallyFetched(true);
-      console.log('RecentActivity: initial mount, activities count:', activities.length);
-      return;
+  React.useEffect(() => {
+    if (!isLoading && activities.length > 0) {
+      setHasLoaded(true);
     }
-    
-    // We don't need to fetch again here since Dashboard already does it
-    // fetchActivities();
-  }, [fetchActivities, hasInitiallyFetched, activities.length]);
+  }, [isLoading, activities.length]);
   
   // Get the 5 most recent activities
   const recentActivities = [...activities].sort((a, b) => 
@@ -59,7 +54,7 @@ export const RecentActivity: React.FC = () => {
         <CardDescription>Latest network activity across the group</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && !activities.length ? (
+        {isLoading ? (
           <div className="flex items-center justify-center h-24">
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
           </div>

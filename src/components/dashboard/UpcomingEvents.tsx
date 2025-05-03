@@ -1,5 +1,5 @@
 
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,21 +10,16 @@ import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export const UpcomingEvents = () => {
-  const { events, fetchEvents, isLoading, loadError } = useData();
-  const [hasInitiallyFetched, setHasInitiallyFetched] = useState(false);
+  const { events, isLoading, loadError } = useData();
+  const [hasLoaded, setHasLoaded] = useState(false);
   const today = useMemo(() => startOfToday(), []);
   const in14Days = useMemo(() => addDays(today, 14), [today]);
   
-  useEffect(() => {
-    // Skip the initial fetch since Dashboard will trigger it
-    if (!hasInitiallyFetched) {
-      setHasInitiallyFetched(true);
-      return;
+  React.useEffect(() => {
+    if (!isLoading && events.length >= 0) {
+      setHasLoaded(true);
     }
-    
-    // We don't need to fetch here since Dashboard already handles it
-    // fetchEvents();
-  }, [fetchEvents, hasInitiallyFetched]);
+  }, [isLoading, events.length]);
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
@@ -79,7 +74,7 @@ export const UpcomingEvents = () => {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading && !events.length ? (
+        {isLoading ? (
           <div className="flex items-center justify-center h-24">
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
           </div>

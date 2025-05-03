@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
 import { useVisitors } from '@/hooks/data/useVisitors';
@@ -14,6 +14,8 @@ const DataContext = createContext<DataContextType>({} as DataContextType);
 export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
   const { 
     users, 
     getUser, 
@@ -85,6 +87,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getActivityForAllMembers
   } = useMetrics({ users, referrals, visitors, oneToOnes, tyfcbs });
 
+  // When we load the app first time, do a coordinated fetch of all data
+  useEffect(() => {
+    if (isInitialLoad) {
+      console.log("DataContext: Doing initial data load");
+      const loadAllData = async () => {
+        try {
+          console.log("DataContext: Loading users...");
+          await fetchUsers();
+          console.log("DataContext: Loading events...");
+          await fetchEvents();
+          console.log("DataContext: Loading visitors...");
+          await fetchVisitors();
+          console.log("DataContext: Loading activities...");
+          await fetchActivities();
+          console.log("DataContext: Loading polls...");
+          await fetchPolls();
+          console.log("DataContext: Initial data load complete!");
+        } catch (error) {
+          console.error("DataContext: Error during initial data load:", error);
+        } finally {
+          setIsInitialLoad(false);
+        }
+      };
+      
+      loadAllData();
+    }
+  }, [isInitialLoad, fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
+
   // Handle component unmount to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -95,52 +125,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupPolls();
     };
   }, [cleanupUsers, cleanupEvents, cleanupVisitors, cleanupActivities, cleanupPolls]);
-
-  // Wrap the hook functions to match DataContextType's Promise<void> return types
-  const wrappedFetchUsers = async (): Promise<void> => {
-    try {
-      console.log("DataContext: wrapping fetchUsers call");
-      await fetchUsers();
-    } catch (error) {
-      console.error("Error in wrappedFetchUsers:", error);
-    }
-  };
-
-  const wrappedFetchEvents = async (): Promise<void> => {
-    try {
-      console.log("DataContext: wrapping fetchEvents call");
-      await fetchEvents();
-    } catch (error) {
-      console.error("Error in wrappedFetchEvents:", error);
-    }
-  };
-
-  const wrappedFetchActivities = async (): Promise<void> => {
-    try {
-      console.log("DataContext: wrapping fetchActivities call");
-      await fetchActivities();
-    } catch (error) {
-      console.error("Error in wrappedFetchActivities:", error);
-    }
-  };
-
-  const wrappedFetchVisitors = async (): Promise<void> => {
-    try {
-      console.log("DataContext: wrapping fetchVisitors call");
-      await fetchVisitors();
-    } catch (error) {
-      console.error("Error in wrappedFetchVisitors:", error);
-    }
-  };
-
-  const wrappedFetchPolls = async (): Promise<void> => {
-    try {
-      console.log("DataContext: wrapping fetchPolls call");
-      await fetchPolls();
-    } catch (error) {
-      console.error("Error in wrappedFetchPolls:", error);
-    }
-  };
 
   // Diagnostic logging
   useEffect(() => {
@@ -166,7 +150,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createEvent,
       updateEvent,
       deleteEvent,
-      fetchEvents: wrappedFetchEvents,
+      fetchEvents,
       getUserMetrics,
       addVisitor,
       updateVisitor,
@@ -183,12 +167,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateUser,
       markVisitorNoShow,
       getActivityForAllMembers,
-      fetchUsers: wrappedFetchUsers,
-      fetchActivities: wrappedFetchActivities,
-      fetchVisitors: wrappedFetchVisitors,
-      fetchPolls: wrappedFetchPolls,
+      fetchUsers,
+      fetchActivities,
+      fetchVisitors,
+      fetchPolls,
       // Loading and error states
-      isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading,
+      isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading || isInitialLoad,
       loadError: usersError || eventsError || activitiesError || visitorsError || pollsError,
       resetFetchState: () => {
         resetUsersState();

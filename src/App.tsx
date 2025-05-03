@@ -20,7 +20,14 @@ import AdminPanel from "./pages/AdminPanel";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 2,
+    },
+  },
+});
 
 // Home redirect component to handle redirects based on auth state
 const HomeRedirect = () => {

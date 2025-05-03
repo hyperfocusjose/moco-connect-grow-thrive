@@ -16,16 +16,16 @@ export const useUsers = () => {
   const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
-  const fetchUsers = useCallback(async (): Promise<boolean> => {
+  const fetchUsers = useCallback(async (): Promise<void> => {
     // Prevent fetching if already loading
-    if (isLoading) return false;
+    if (isLoading) return;
     
     // Implement a simple cooldown to prevent rapid refetching
     const now = Date.now();
     const cooldownPeriod = 5000; // 5 seconds cooldown
     if (now - lastFetchTimeRef.current < cooldownPeriod) {
       console.log('Users fetch cooldown active, skipping request');
-      return false;
+      return;
     }
     
     // Track fetch attempts and implement exponential backoff
@@ -41,7 +41,7 @@ export const useUsers = () => {
         });
       }
       console.warn(`Users fetch exceeded ${maxRetries} attempts, stopping`);
-      return false;
+      return;
     }
 
     // Only show loading state on first attempt 
@@ -62,7 +62,7 @@ export const useUsers = () => {
         .from('user_roles')
         .select('*');
 
-      if (!isMountedRef.current) return false;
+      if (!isMountedRef.current) return;
 
       if (userRolesError) {
         console.error('Error fetching user roles:', userRolesError);
@@ -72,7 +72,7 @@ export const useUsers = () => {
             id: 'users-load-error'
           });
         }
-        return false;
+        return;
       }
 
       console.log('User roles data:', userRolesData);
@@ -88,7 +88,7 @@ export const useUsers = () => {
         .select('*')
         .neq('id', adminUserId);
 
-      if (!isMountedRef.current) return false;
+      if (!isMountedRef.current) return;
 
       if (profilesError) {
         console.error('Error fetching user profiles:', profilesError);
@@ -98,7 +98,7 @@ export const useUsers = () => {
             id: 'users-load-error'
           });
         }
-        return false;
+        return;
       }
 
       console.log('Profiles data:', profilesData);
@@ -109,7 +109,7 @@ export const useUsers = () => {
         // Reset error state and fetch attempts on success (even if empty)
         setLoadError(null);
         fetchAttemptRef.current = 0;
-        return true;
+        return;
       }
 
       // Fetch member tags for only the included users
@@ -119,7 +119,7 @@ export const useUsers = () => {
         .select('*')
         .in('member_id', memberIds);
 
-      if (!isMountedRef.current) return false;
+      if (!isMountedRef.current) return;
 
       if (memberTagsError) {
         console.error('Error fetching member tags:', memberTagsError);
@@ -164,7 +164,6 @@ export const useUsers = () => {
       // Reset error state and fetch attempts on success
       setLoadError(null);
       fetchAttemptRef.current = 0;
-      return true;
     } catch (error) {
       console.error('Error in fetchUsers:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
@@ -175,7 +174,6 @@ export const useUsers = () => {
           id: 'users-load-error'
         });
       }
-      return false;
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
