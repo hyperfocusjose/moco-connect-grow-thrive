@@ -8,70 +8,17 @@ export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const fetchAttemptRef = useRef(0);
-  const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
   const fetchEvents = useCallback(async (): Promise<void> => {
-    // Prevent fetching if already loading
-    if (isLoading) return;
-    
-    // Implement a simple cooldown to prevent rapid refetching
-    const now = Date.now();
-    const cooldownPeriod = 5000; // 5 seconds cooldown
-    if (now - lastFetchTimeRef.current < cooldownPeriod) {
-      console.log('Events fetch cooldown active, skipping request');
-      return;
-    }
-    
-    // Track fetch attempts and implement exponential backoff
-    fetchAttemptRef.current += 1;
-    const maxRetries = 3;
-    if (fetchAttemptRef.current > maxRetries) {
-      // Only show error toast on the first time we hit max retries
-      if (fetchAttemptRef.current === maxRetries + 1) {
-        setLoadError('Too many failed attempts to load events. Please try again later.');
-        toast.error('Events could not be loaded', { 
-          description: 'Check your network connection and try again later.',
-          id: 'events-load-error' // This prevents duplicate toasts
-        });
-      }
-      console.warn(`Events fetch exceeded ${maxRetries} attempts, stopping`);
-      return;
-    }
-
-    // Only show loading state on first attempt 
-    if (fetchAttemptRef.current === 1) {
-      setIsLoading(true);
-    }
-    
-    lastFetchTimeRef.current = now;
+    setIsLoading(true);
+    setLoadError(null);
 
     try {
-      console.log('Fetching events from Supabase...');
-      const { data, error } = await supabase
-        .from('events')
-        .select('*');
+      const { data, error } = await supabase.from('events').select('*');
+      if (error) throw new Error(error.message);
 
-      // Always check if the component is still mounted before updating state
-      if (!isMountedRef.current) return;
-
-      if (error) {
-        console.error('Error fetching events:', error);
-        setLoadError(error.message);
-        // Only show toast on first error, not on every retry
-        if (fetchAttemptRef.current === 1) {
-          toast.error('Failed to load events', {
-            id: 'events-load-error'
-          });
-        }
-        return;
-      }
-
-      console.log(`Retrieved ${data?.length || 0} events from Supabase`);
-      
-      // Always set events to data or an empty array if data is null
-      const formattedEvents: Event[] = data ? data.map(event => ({
+      const formattedEvents: Event[] = (data || []).map(event => ({
         id: event.id,
         name: event.name,
         date: new Date(event.date),
@@ -86,36 +33,24 @@ export const useEvents = () => {
         presenter: event.presenter,
         createdAt: new Date(event.created_at),
         isCancelled: event.is_cancelled || false,
-      })) : [];
+      }));
 
-      console.log('Events transformed to client format:', formattedEvents.length);
-      setEvents(formattedEvents);
-      
-      // Reset error state and fetch attempts on success
-      setLoadError(null);
-      fetchAttemptRef.current = 0;
-    } catch (error) {
-      console.error('Error in fetchEvents:', error);
-      setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      
-      // Only show toast on first error
-      if (fetchAttemptRef.current === 1) {
-        toast.error('Failed to load events', {
-          id: 'events-load-error' 
-        });
+      if (isMountedRef.current) {
+        setEvents(formattedEvents);
       }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setLoadError(error instanceof Error ? error.message : 'Unknown error');
+      toast.error('Failed to load events');
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [isLoading]);
+  }, []);
 
-  // Add auto-fetching on mount
   useEffect(() => {
-    console.log('Events hook mounted, fetching events...');
     fetchEvents();
-    
     return () => {
       isMountedRef.current = false;
     };
@@ -126,9 +61,7 @@ export const useEvents = () => {
   }, []);
 
   const resetFetchState = useCallback(() => {
-    fetchAttemptRef.current = 0;
     setLoadError(null);
-    lastFetchTimeRef.current = 0;
   }, []);
 
   const createEvent = async (event: Partial<Event>) => {
@@ -167,16 +100,12 @@ export const useEvents = () => {
         is_cancelled: newEvent.isCancelled,
       });
 
-      if (error) {
-        console.error('Error creating event:', error);
-        toast.error('Failed to create event');
-        return;
-      }
+      if (error) throw new Error(error.message);
 
       setEvents(prev => [...prev, newEvent]);
       toast.success('Event created successfully');
     } catch (error) {
-      console.error('Error in createEvent:', error);
+      console.error('Error creating event:', error);
       toast.error('Failed to create event');
     }
   };
@@ -200,39 +129,25 @@ export const useEvents = () => {
         })
         .eq('id', id);
 
-      if (error) {
-        console.error('Error updating event:', error);
-        toast.error('Failed to update event');
-        return;
-      }
+      if (error) throw new Error(error.message);
 
-      setEvents(prev =>
-        prev.map(item => item.id === id ? { ...item, ...event } : item)
-      );
+      setEvents(prev => prev.map(item => item.id === id ? { ...item, ...event } : item));
       toast.success('Event updated successfully');
     } catch (error) {
-      console.error('Error in updateEvent:', error);
+      console.error('Error updating event:', error);
       toast.error('Failed to update event');
     }
   };
 
   const deleteEvent = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting event:', error);
-        toast.error('Failed to delete event');
-        return;
-      }
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) throw new Error(error.message);
 
       setEvents(prev => prev.filter(item => item.id !== id));
       toast.success('Event deleted successfully');
     } catch (error) {
-      console.error('Error in deleteEvent:', error);
+      console.error('Error deleting event:', error);
       toast.error('Failed to delete event');
     }
   };
@@ -246,6 +161,6 @@ export const useEvents = () => {
     deleteEvent,
     fetchEvents,
     resetFetchState,
-    cleanup
+    cleanup,
   };
 };
