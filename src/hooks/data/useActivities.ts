@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Activity, Referral, OneToOne, TYFCB } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,15 +84,21 @@ export const useActivities = () => {
         createdAt: new Date(tyfcb.created_at),
       })) || [];
 
-      const formattedActivities: Activity[] = activitiesData?.map(activity => ({
-        id: activity.id,
-        type: activity.type,
-        description: activity.description || '',
-        date: new Date(activity.date),
-        userId: activity.user_id || '',
-        relatedUserId: activity.related_user_id || undefined,
-        referenceId: activity.reference_id || '',
-      })) || [];
+      // Fix: Validate and cast activity type to ensure it matches the union type in the Activity interface
+      const formattedActivities: Activity[] = (activitiesData || []).map(activity => {
+        // Ensure the type is one of the valid types defined in the Activity interface
+        const validType = validateActivityType(activity.type);
+        
+        return {
+          id: activity.id,
+          type: validType,
+          description: activity.description || '',
+          date: new Date(activity.date),
+          userId: activity.user_id || '',
+          relatedUserId: activity.related_user_id || undefined,
+          referenceId: activity.reference_id || '',
+        };
+      });
 
       setReferrals(formattedReferrals);
       setOneToOnes(formattedOneToOnes);
@@ -110,6 +117,19 @@ export const useActivities = () => {
       console.log('fetchActivities: Completed');
     }
   }, [isLoading]);
+
+  // Helper function to validate activity type
+  const validateActivityType = (type: string): Activity['type'] => {
+    const validTypes: Activity['type'][] = ['referral', 'visitor', 'oneToOne', 'tyfcb', 'event', 'poll'];
+    
+    if (validTypes.includes(type as Activity['type'])) {
+      return type as Activity['type'];
+    }
+    
+    // Default to 'referral' if the type is not valid
+    console.warn(`Invalid activity type: ${type}, defaulting to 'referral'`);
+    return 'referral';
+  };
 
   useEffect(() => {
     console.log('useActivities: Initial mount, fetching activities');
