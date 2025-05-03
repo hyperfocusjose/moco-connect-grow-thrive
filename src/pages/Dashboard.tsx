@@ -19,33 +19,25 @@ const Dashboard = () => {
   const {
     getUserMetrics,
     visitors,
-    fetchUsers,
-    fetchActivities,
-    fetchEvents,
-    fetchVisitors
+    isLoading,
+    users,
+    events,
+    activities,
   } = useData();
+
   const navigate = useNavigate();
-  const [dataInitialized, setDataInitialized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [dataReady, setDataReady] = useState(false);
 
   useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        console.log('Dashboard mounted, initializing data...');
-        await fetchUsers();
-        await fetchActivities();
-        await fetchEvents();
-        await fetchVisitors();
-        setDataInitialized(true);
-      } catch (error) {
-        console.error('Error initializing dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboardData();
-  }, []);
+    if (
+      visitors.length > 0 ||
+      users.length > 0 ||
+      events.length > 0 ||
+      activities.length > 0
+    ) {
+      setDataReady(true);
+    }
+  }, [visitors, users, events, activities]);
 
   const metrics = currentUser ? getUserMetrics(currentUser.id) : null;
 
@@ -58,23 +50,13 @@ const Dashboard = () => {
   const fourWeeksLater = addWeeks(today, 4);
 
   const upcomingVisitors = visitors
-    ? visitors.filter(visitor => {
-        const visitDate = new Date(visitor.visitDate);
-        return isAfter(visitDate, today) && visitDate <= fourWeeksLater;
-      }).sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
-    : [];
+    .filter(visitor => {
+      const visitDate = new Date(visitor.visitDate);
+      return isAfter(visitDate, today) && visitDate <= fourWeeksLater;
+    })
+    .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
 
-  const handleVisitorFormComplete = () => {
-    // No-op: form handles dialog close
-  };
-
-  if (loading || !dataInitialized) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-maroon" />
-      </div>
-    );
-  }
+  const handleVisitorFormComplete = () => {};
 
   return (
     <div className="space-y-6">
@@ -85,6 +67,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Referrals"
@@ -120,12 +103,25 @@ const Dashboard = () => {
         />
       </div>
 
+      {/* Activity Feed, Events, Visitors */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <RecentActivity />
+          {isLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
+            </div>
+          ) : (
+            <RecentActivity />
+          )}
         </div>
         <div className="lg:col-span-1">
-          <UpcomingEvents />
+          {isLoading ? (
+            <div className="h-32 flex items-center justify-center">
+              <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
+            </div>
+          ) : (
+            <UpcomingEvents />
+          )}
         </div>
         <div className="lg:col-span-1">
           <Card>
@@ -137,7 +133,11 @@ const Dashboard = () => {
               <CardDescription>People visiting our meetings in the next 4 weeks</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingVisitors.length > 0 ? (
+              {isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                  <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
+                </div>
+              ) : upcomingVisitors.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingVisitors.map(visitor => (
                     <div key={visitor.id} className="p-3 border rounded-md">
@@ -154,7 +154,7 @@ const Dashboard = () => {
                       </div>
                       <div className="mt-2 text-xs flex items-center text-muted-foreground">
                         <Clock className="mr-1 h-3 w-3" />
-                        <span>Visiting on {format(new Date(visitor.visitDate), "EEEE, MMMM d")}</span>
+                        <span>Visiting on {format(new Date(visitor.visitDate), 'EEEE, MMMM d')}</span>
                       </div>
                     </div>
                   ))}
@@ -169,6 +169,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Quick Links */}
       <div className="bg-white p-6 shadow rounded-lg">
         <h2 className="text-lg font-medium mb-4">Quick Links</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
