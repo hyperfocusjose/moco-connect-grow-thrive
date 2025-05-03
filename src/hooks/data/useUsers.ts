@@ -14,8 +14,11 @@ export const useUsers = () => {
   const isMountedRef = useRef(true);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
+    if (isLoading) return;
+
     setIsLoading(true);
     setLoadError(null);
+    console.log('fetchUsers: Starting to fetch users');
 
     try {
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
@@ -25,6 +28,7 @@ export const useUsers = () => {
         .select('*');
 
       if (userRolesError) throw new Error(userRolesError.message);
+      console.log('fetchUsers: Fetched user roles:', userRolesData?.length || 0);
 
       const adminUserIds = userRolesData
         ?.filter(role => role.role === 'admin')
@@ -36,6 +40,7 @@ export const useUsers = () => {
         .neq('id', adminUserId);
 
       if (profilesError) throw new Error(profilesError.message);
+      console.log('fetchUsers: Fetched profiles:', profilesData?.length || 0);
 
       const memberIds = profilesData?.map(p => p.id) || [];
 
@@ -45,6 +50,7 @@ export const useUsers = () => {
         .in('member_id', memberIds);
 
       if (memberTagsError) console.warn('Failed to fetch member tags:', memberTagsError.message);
+      console.log('fetchUsers: Fetched member tags:', memberTagsData?.length || 0);
 
       const memberTagsMap = new Map();
       memberTagsData?.forEach(tagObj => {
@@ -75,6 +81,7 @@ export const useUsers = () => {
       })) || [];
 
       if (isMountedRef.current) {
+        console.log('fetchUsers: Setting users state with:', transformedUsers.length);
         setUsers(transformedUsers);
       }
     } catch (error) {
@@ -85,10 +92,12 @@ export const useUsers = () => {
       if (isMountedRef.current) {
         setIsLoading(false);
       }
+      console.log('fetchUsers: Completed');
     }
-  }, []);
+  }, [isLoading]);
 
   useEffect(() => {
+    console.log('useUsers: Initial mount, fetching users');
     fetchUsers();
     return () => {
       isMountedRef.current = false;

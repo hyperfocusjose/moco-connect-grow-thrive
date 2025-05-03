@@ -15,7 +15,7 @@ import { MembersSection } from '@/components/directory/MembersSection';
 import { VisitorsSection } from '@/components/directory/VisitorsSection';
 
 const Directory: React.FC = () => {
-  const { users, visitors, markVisitorNoShow, fetchUsers } = useData();
+  const { users, visitors, markVisitorNoShow, fetchUsers, isLoading, loadError } = useData();
   const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -30,16 +30,20 @@ const Directory: React.FC = () => {
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
-    console.log("Directory: Fetching users");
+    console.log("Directory: Manually fetching users");
     fetchUsers();
   }, [fetchUsers]);
 
-  // Log user data to debug admin visibility
+  // Log data to debug data loading issues
   useEffect(() => {
+    console.log("Directory component mounted/updated");
     console.log("Current user:", currentUser);
     console.log("All users:", users);
+    console.log("Users count:", users.length);
     console.log("Admin status:", isAdmin);
-  }, [currentUser, users, isAdmin]);
+    console.log("Data loading state:", isLoading);
+    console.log("Data error state:", loadError);
+  }, [currentUser, users, isAdmin, isLoading, loadError]);
 
   const filteredMembers = users.filter(member => {
     if (!member.firstName || !member.lastName) {
@@ -152,6 +156,8 @@ const Directory: React.FC = () => {
             onSelectMember={handleSelectMember}
             isAdmin={isAdmin}
             onEditMember={handleEditMember}
+            isLoading={isLoading}
+            loadError={loadError}
           />
         </TabsContent>
         
@@ -171,6 +177,7 @@ const Directory: React.FC = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Member detail dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="sm:max-w-md p-0" onInteractOutside={(e) => e.preventDefault()}>
           {selectedMember && (
@@ -186,6 +193,7 @@ const Directory: React.FC = () => {
         </DialogContent>
       </Dialog>
       
+      {/* Edit member form dialog */}
       <Dialog open={isEditFormOpen} onOpenChange={setIsEditFormOpen}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
           {memberToEdit && (
@@ -197,6 +205,7 @@ const Directory: React.FC = () => {
         </DialogContent>
       </Dialog>
       
+      {/* Add member form dialog */}
       <Dialog open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
         <DialogContent className="sm:max-w-lg p-0" onInteractOutside={(e) => e.preventDefault()}>
           <MemberForm 
@@ -205,6 +214,7 @@ const Directory: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Visitor detail dialog */}
       <Dialog open={isVisitorDetailOpen} onOpenChange={setIsVisitorDetailOpen}>
         <DialogContent className="sm:max-w-md p-0" onInteractOutside={(e) => e.preventDefault()}>
           {selectedVisitor && (

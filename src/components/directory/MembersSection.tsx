@@ -30,6 +30,13 @@ export const MembersSection = ({
   isLoading = false,
   loadError = null,
 }: MembersSectionProps) => {
+  console.log('MembersSection rendered with:', { 
+    membersCount: filteredMembers.length, 
+    totalMembers, 
+    isLoading, 
+    hasError: !!loadError 
+  });
+
   return (
     <>
       <div className="flex justify-between items-center mb-6">

@@ -10,39 +10,14 @@ export const useActivities = () => {
   const [tyfcbs, setTYFCBs] = useState<TYFCB[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const fetchAttemptRef = useRef(0);
-  const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
   const fetchActivities = useCallback(async (): Promise<void> => {
     if (isLoading) return;
 
-    const now = Date.now();
-    const cooldownPeriod = 5000;
-    if (now - lastFetchTimeRef.current < cooldownPeriod) {
-      console.log('Activities fetch cooldown active, skipping request');
-      return;
-    }
-
-    fetchAttemptRef.current += 1;
-    const maxRetries = 3;
-    if (fetchAttemptRef.current > maxRetries) {
-      if (fetchAttemptRef.current === maxRetries + 1) {
-        setLoadError('Too many failed attempts to load activities. Please try again later.');
-        toast.error('Activities could not be loaded', {
-          description: 'Check your network connection and try again later.',
-          id: 'activities-load-error',
-        });
-      }
-      console.warn(`Activities fetch exceeded ${maxRetries} attempts, stopping`);
-      return;
-    }
-
-    if (fetchAttemptRef.current === 1) {
-      setIsLoading(true);
-    }
-
-    lastFetchTimeRef.current = now;
+    setIsLoading(true);
+    setLoadError(null);
+    console.log('fetchActivities: Starting to fetch activities data');
 
     try {
       const [
@@ -63,9 +38,16 @@ export const useActivities = () => {
         const errors = [referralsError, oneToOneError, tyfcbError, activitiesError].filter(Boolean);
         console.error('Error(s) fetching activity data:', errors);
         setLoadError(errors[0]?.message || 'Unknown error');
-        if (fetchAttemptRef.current === 1) toast.error('Failed to load activity data');
+        toast.error('Failed to load activity data');
         return;
       }
+
+      console.log('fetchActivities: Fetched data counts -', 
+        'referrals:', referralsData?.length || 0,
+        'oneToOnes:', oneToOneData?.length || 0,
+        'tyfcbs:', tyfcbData?.length || 0,
+        'activities:', activitiesData?.length || 0
+      );
 
       const formattedReferrals: Referral[] = referralsData?.map(referral => ({
         id: referral.id,
@@ -117,18 +99,20 @@ export const useActivities = () => {
       setActivities(formattedActivities);
 
       setLoadError(null);
-      fetchAttemptRef.current = 0;
     } catch (error) {
       console.error('Error in fetchActivities:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      if (fetchAttemptRef.current === 1) toast.error('Failed to load activities');
+      toast.error('Failed to load activities');
     } finally {
-      if (isMountedRef.current) setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      console.log('fetchActivities: Completed');
     }
   }, [isLoading]);
 
   useEffect(() => {
-    console.log('Activities hook mounted, fetching activities...');
+    console.log('useActivities: Initial mount, fetching activities');
     fetchActivities();
     return () => {
       isMountedRef.current = false;
@@ -140,9 +124,7 @@ export const useActivities = () => {
   }, []);
 
   const resetFetchState = useCallback(() => {
-    fetchAttemptRef.current = 0;
     setLoadError(null);
-    lastFetchTimeRef.current = 0;
   }, []);
 
   const addReferral = async (referral: Partial<Referral>) => {

@@ -8,38 +8,14 @@ export const useVisitors = () => {
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const fetchAttemptRef = useRef(0);
-  const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
   const fetchVisitors = useCallback(async (): Promise<void> => {
     if (isLoading) return;
 
-    const now = Date.now();
-    const cooldownPeriod = 5000;
-    if (now - lastFetchTimeRef.current < cooldownPeriod) {
-      console.log('Visitors fetch cooldown active, skipping request');
-      return;
-    }
-
-    fetchAttemptRef.current += 1;
-    const maxRetries = 3;
-    if (fetchAttemptRef.current > maxRetries) {
-      if (fetchAttemptRef.current === maxRetries + 1) {
-        setLoadError('Too many failed attempts to load visitors.');
-        toast.error('Visitors could not be loaded', {
-          description: 'Please try again later.',
-          id: 'visitors-load-error',
-        });
-      }
-      return;
-    }
-
-    if (fetchAttemptRef.current === 1) {
-      setIsLoading(true);
-    }
-
-    lastFetchTimeRef.current = now;
+    setIsLoading(true);
+    setLoadError(null);
+    console.log('fetchVisitors: Starting to fetch visitors');
 
     try {
       const { data, error } = await supabase.from('visitors').select('*');
@@ -48,11 +24,11 @@ export const useVisitors = () => {
       if (error) {
         console.error('Error fetching visitors:', error);
         setLoadError(error.message);
-        if (fetchAttemptRef.current === 1) {
-          toast.error('Failed to load visitors', { id: 'visitors-load-error' });
-        }
+        toast.error('Failed to load visitors', { id: 'visitors-load-error' });
         return;
       }
+
+      console.log('fetchVisitors: Fetched visitors:', data?.length || 0);
 
       const formatted: Visitor[] = (data || []).map(v => ({
         id: v.id,
@@ -70,21 +46,20 @@ export const useVisitors = () => {
 
       setVisitors(formatted);
       setLoadError(null);
-      fetchAttemptRef.current = 0;
     } catch (error) {
       console.error('Error in fetchVisitors:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      if (fetchAttemptRef.current === 1) {
-        toast.error('Failed to load visitors', { id: 'visitors-load-error' });
-      }
+      toast.error('Failed to load visitors', { id: 'visitors-load-error' });
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
       }
+      console.log('fetchVisitors: Completed');
     }
   }, [isLoading]);
 
   useEffect(() => {
+    console.log('useVisitors: Initial mount, fetching visitors');
     fetchVisitors();
     return () => {
       isMountedRef.current = false;
@@ -92,8 +67,6 @@ export const useVisitors = () => {
   }, [fetchVisitors]);
 
   const resetFetchState = useCallback(() => {
-    fetchAttemptRef.current = 0;
-    lastFetchTimeRef.current = 0;
     setLoadError(null);
   }, []);
 

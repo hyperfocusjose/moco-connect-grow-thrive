@@ -90,8 +90,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // When we load the app first time, do a coordinated fetch of all data
   useEffect(() => {
     if (isInitialLoad) {
-      console.log("DataContext: Doing initial data load");
-      const loadAllData = async () => {
+      console.log("DataContext: Starting initial coordinated data load");
+      setIsInitialLoad(false);
+      
+      const loadData = async () => {
         try {
           console.log("DataContext: Loading users...");
           await fetchUsers();
@@ -103,15 +105,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await fetchActivities();
           console.log("DataContext: Loading polls...");
           await fetchPolls();
-          console.log("DataContext: Initial data load complete!");
+          console.log("DataContext: Initial data load complete");
         } catch (error) {
           console.error("DataContext: Error during initial data load:", error);
-        } finally {
-          setIsInitialLoad(false);
         }
       };
       
-      loadAllData();
+      loadData();
     }
   }, [isInitialLoad, fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
 
@@ -128,12 +128,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Diagnostic logging
   useEffect(() => {
-    console.log("DataContext: Users count:", users.length);
-    console.log("DataContext: Events count:", events.length);
-    console.log("DataContext: Visitors count:", visitors.length);
-    console.log("DataContext: Activities count:", activities.length);
-    console.log("DataContext: Polls count:", polls.length);
-  }, [users.length, events.length, visitors.length, activities.length, polls.length]);
+    console.log("DataContext: Data state changed -", 
+      "Users:", users.length, 
+      "Events:", events.length, 
+      "Visitors:", visitors.length, 
+      "Activities:", activities.length,
+      "Polls:", polls.length,
+      "Loading:", usersLoading || eventsLoading || visitorsLoading || activitiesLoading || pollsLoading || isInitialLoad
+    );
+  }, [
+    users.length, events.length, visitors.length, activities.length, polls.length,
+    usersLoading, eventsLoading, visitorsLoading, activitiesLoading, pollsLoading, isInitialLoad
+  ]);
 
   return (
     <DataContext.Provider value={{
