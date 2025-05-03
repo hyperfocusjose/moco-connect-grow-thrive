@@ -5,42 +5,59 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
-import { format, isSameDay, startOfToday, addDays, isAfter, isBefore } from 'date-fns';
+import { format, isSameDay, startOfToday, addDays, isAfter, isBefore, isToday } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export const UpcomingEvents = () => {
   const { events, isLoading, loadError } = useData();
-  const [hasLoaded, setHasLoaded] = useState(false);
   const today = useMemo(() => startOfToday(), []);
   const in14Days = useMemo(() => addDays(today, 14), [today]);
   
-  React.useEffect(() => {
-    if (!isLoading && events.length >= 0) {
-      setHasLoaded(true);
-    }
-  }, [isLoading, events.length]);
+  console.log('UpcomingEvents: Events count:', events.length);
+  console.log('UpcomingEvents: Today date:', today);
+  console.log('UpcomingEvents: Events dates:', events.map(e => ({ id: e.id, date: new Date(e.date), isCancelled: e.isCancelled, isApproved: e.isApproved })));
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
-    return events
+    // First convert all dates to proper Date objects for comparison
+    const eventsWithParsedDates = events.map(event => ({
+      ...event,
+      parsedDate: new Date(event.date)
+    }));
+    
+    const filtered = eventsWithParsedDates
       .filter(event => 
         event.isApproved && 
-        !event.isCancelled && 
-        isAfter(new Date(event.date), today) && 
-        isBefore(new Date(event.date), in14Days)
+        !event.isCancelled &&
+        // Handle edge case where dates might be strings or invalid dates
+        event.parsedDate instanceof Date && !isNaN(event.parsedDate.getTime()) &&
+        // Either the event is today or it's in the future
+        (isToday(event.parsedDate) || isAfter(event.parsedDate, today)) && 
+        isBefore(event.parsedDate, in14Days)
       )
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+    
+    console.log('UpcomingEvents: Filtered upcoming events:', filtered.length);
+    return filtered;
   }, [events, today, in14Days]);
 
   // Get today's events
   const todayEvents = useMemo(() => {
-    return events
-      .filter(event => 
-        event.isApproved && 
-        !event.isCancelled && 
-        isSameDay(new Date(event.date), today)
-      );
+    const filtered = events
+      .filter(event => {
+        const eventDate = new Date(event.date);
+        return (
+          event.isApproved && 
+          !event.isCancelled && 
+          eventDate instanceof Date && 
+          !isNaN(eventDate.getTime()) &&
+          isSameDay(eventDate, today)
+        );
+      });
+    
+    console.log('UpcomingEvents: Today\'s events:', filtered.length);
+    return filtered;
   }, [events, today]);
 
   const hasEvents = upcomingEvents.length > 0 || todayEvents.length > 0;
@@ -160,3 +177,4 @@ export const UpcomingEvents = () => {
     </Card>
   );
 };
+

@@ -33,8 +33,22 @@ const Events = () => {
 
   useEffect(() => {
     console.log('Events component mounted, fetching events...');
-    fetchEvents();
+    // Add a slight delay to ensure any pending async operations complete
+    const fetchData = async () => {
+      await fetchEvents();
+      console.log('Events fetched in Events component, count:', events.length);
+    };
+    
+    fetchData();
   }, [fetchEvents]);
+
+  // Debug the events
+  useEffect(() => {
+    console.log('Events component has', events.length, 'events');
+    if (events.length > 0) {
+      console.log('Sample event:', events[0]);
+    }
+  }, [events]);
 
   const isAdmin = currentUser?.isAdmin;
 
