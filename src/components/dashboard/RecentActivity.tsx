@@ -1,20 +1,17 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Activity } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const RecentActivity: React.FC = () => {
   const { activities, getUser, isLoading, loadError } = useData();
-  const [hasLoaded, setHasLoaded] = useState(false);
   
-  React.useEffect(() => {
-    if (!isLoading && activities.length > 0) {
-      setHasLoaded(true);
-    }
-  }, [isLoading, activities.length]);
+  // Check if we're loading or if we have activities
+  const showLoading = isLoading && activities.length === 0;
   
   // Get the 5 most recent activities
   const recentActivities = [...activities].sort((a, b) => 
@@ -22,6 +19,7 @@ export const RecentActivity: React.FC = () => {
   ).slice(0, 5);
 
   console.log('RecentActivity: Rendering with activities count:', activities.length);
+  console.log('RecentActivity: Loading state:', isLoading);
   console.log('RecentActivity: Recent activities:', recentActivities);
 
   const getActivityIcon = (type: Activity['type']) => {
@@ -54,9 +52,18 @@ export const RecentActivity: React.FC = () => {
         <CardDescription>Latest network activity across the group</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-24">
-            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
+        {showLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((index) => (
+              <div key={index} className="flex items-start space-x-2">
+                <Skeleton className="h-6 w-6 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-1/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : loadError ? (
           <div className="p-4 border border-red-200 bg-red-50 rounded-md">
