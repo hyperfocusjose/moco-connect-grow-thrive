@@ -36,12 +36,8 @@ export const useUsers = () => {
 
       if (profilesError) throw new Error(profilesError.message);
 
-      if (!profilesData) {
-        setUsers([]);
-        return;
-      }
+      const memberIds = profilesData?.map(p => p.id) || [];
 
-      const memberIds = profilesData.map(p => p.id);
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
         .select('*')
@@ -57,7 +53,7 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      const transformedUsers: User[] = profilesData.map(profile => ({
+      const transformedUsers: User[] = profilesData?.map(profile => ({
         id: profile.id,
         firstName: profile.first_name || '',
         lastName: profile.last_name || '',
@@ -75,7 +71,7 @@ export const useUsers = () => {
         tiktok: profile.tiktok || '',
         instagram: profile.instagram || '',
         createdAt: new Date(profile.created_at),
-      }));
+      })) || [];
 
       if (isMountedRef.current) {
         setUsers(transformedUsers);
@@ -85,7 +81,9 @@ export const useUsers = () => {
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
       toast.error('Failed to load users');
     } finally {
-      if (isMountedRef.current) setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
