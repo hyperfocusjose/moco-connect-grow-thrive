@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Event } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -68,7 +68,6 @@ export const useEvents = () => {
         return;
       }
 
-      // Don't show any error toast if data is empty - this is normal
       console.log(`Retrieved ${data?.length || 0} events from Supabase`);
       
       // Always set events to data or an empty array if data is null
@@ -112,12 +111,20 @@ export const useEvents = () => {
     }
   }, [isLoading]);
 
-  // Reset mounted ref on cleanup
+  // Add auto-fetching on mount
+  useEffect(() => {
+    console.log('Events hook mounted, fetching events...');
+    fetchEvents();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchEvents]);
+
   const cleanup = useCallback(() => {
     isMountedRef.current = false;
   }, []);
 
-  // Reset fetch attempt count and error state
   const resetFetchState = useCallback(() => {
     fetchAttemptRef.current = 0;
     setLoadError(null);

@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   firstName: string;
@@ -152,6 +153,7 @@ export interface DataContextType {
   addVisitor: (visitor: Partial<Visitor>) => Promise<void>;
   updateVisitor: (id: string, visitorData: Partial<Visitor>) => Promise<void>;
   markVisitorNoShow: (visitorId: string) => Promise<void>;
+  fetchVisitors: () => Promise<void>;
 
   // Activity-related methods
   addReferral: (referral: Partial<Referral>) => Promise<void>;

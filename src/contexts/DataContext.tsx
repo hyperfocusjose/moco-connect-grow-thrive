@@ -42,7 +42,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     visitors,
     addVisitor,
     updateVisitor,
-    markVisitorNoShow
+    markVisitorNoShow,
+    fetchVisitors,
+    isLoading: visitorsLoading,
+    loadError: visitorsError,
+    resetFetchState: resetVisitorsState,
+    cleanup: cleanupVisitors
   } = useVisitors();
 
   const {
@@ -85,34 +90,66 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       cleanupUsers();
       cleanupEvents();
+      cleanupVisitors();
       cleanupActivities();
       cleanupPolls();
     };
-  }, [cleanupUsers, cleanupEvents, cleanupActivities, cleanupPolls]);
+  }, [cleanupUsers, cleanupEvents, cleanupVisitors, cleanupActivities, cleanupPolls]);
 
-  // Wrap the fetchEvents function to match the DataContextType
-  const wrappedFetchEvents = async (): Promise<void> => {
-    await fetchEvents();
-    // We ignore the return value since the DataContextType expects Promise<void>
-  };
-
-  // Wrap the fetchActivities function in the same way
-  const wrappedFetchActivities = async (): Promise<void> => {
-    await fetchActivities();
-    // We ignore the return value since the DataContextType expects Promise<void>
-  };
-
-  // Wrap the fetchUsers function in the same way
+  // Wrap the hook functions to match DataContextType's Promise<void> return types
   const wrappedFetchUsers = async (): Promise<void> => {
-    await fetchUsers();
-    // We ignore the return value since the DataContextType expects Promise<void>
+    try {
+      console.log("DataContext: wrapping fetchUsers call");
+      await fetchUsers();
+    } catch (error) {
+      console.error("Error in wrappedFetchUsers:", error);
+    }
   };
 
-  // Wrap the fetchPolls function in the same way
-  const wrappedFetchPolls = async (): Promise<void> => {
-    await fetchPolls();
-    // We ignore the return value since the DataContextType expects Promise<void>
+  const wrappedFetchEvents = async (): Promise<void> => {
+    try {
+      console.log("DataContext: wrapping fetchEvents call");
+      await fetchEvents();
+    } catch (error) {
+      console.error("Error in wrappedFetchEvents:", error);
+    }
   };
+
+  const wrappedFetchActivities = async (): Promise<void> => {
+    try {
+      console.log("DataContext: wrapping fetchActivities call");
+      await fetchActivities();
+    } catch (error) {
+      console.error("Error in wrappedFetchActivities:", error);
+    }
+  };
+
+  const wrappedFetchVisitors = async (): Promise<void> => {
+    try {
+      console.log("DataContext: wrapping fetchVisitors call");
+      await fetchVisitors();
+    } catch (error) {
+      console.error("Error in wrappedFetchVisitors:", error);
+    }
+  };
+
+  const wrappedFetchPolls = async (): Promise<void> => {
+    try {
+      console.log("DataContext: wrapping fetchPolls call");
+      await fetchPolls();
+    } catch (error) {
+      console.error("Error in wrappedFetchPolls:", error);
+    }
+  };
+
+  // Diagnostic logging
+  useEffect(() => {
+    console.log("DataContext: Users count:", users.length);
+    console.log("DataContext: Events count:", events.length);
+    console.log("DataContext: Visitors count:", visitors.length);
+    console.log("DataContext: Activities count:", activities.length);
+    console.log("DataContext: Polls count:", polls.length);
+  }, [users.length, events.length, visitors.length, activities.length, polls.length]);
 
   return (
     <DataContext.Provider value={{
@@ -148,14 +185,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getActivityForAllMembers,
       fetchUsers: wrappedFetchUsers,
       fetchActivities: wrappedFetchActivities,
+      fetchVisitors: wrappedFetchVisitors,
       fetchPolls: wrappedFetchPolls,
       // Loading and error states
-      isLoading: usersLoading || eventsLoading || activitiesLoading || pollsLoading,
-      loadError: usersError || eventsError || activitiesError || pollsError,
+      isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading,
+      loadError: usersError || eventsError || activitiesError || visitorsError || pollsError,
       resetFetchState: () => {
         resetUsersState();
         resetEventsState();
         resetActivitiesState();
+        resetVisitorsState();
       }
     }}>
       {children}

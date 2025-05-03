@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,7 +16,7 @@ export const useUsers = () => {
   const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (): Promise<boolean> => {
     // Prevent fetching if already loading
     if (isLoading) return false;
     
@@ -52,7 +52,7 @@ export const useUsers = () => {
     lastFetchTimeRef.current = now;
 
     try {
-      console.log('Fetching users...');
+      console.log('Fetching users from Supabase...');
 
       // Hardcoded Admin User ID to exclude from directory
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
@@ -75,9 +75,12 @@ export const useUsers = () => {
         return false;
       }
 
+      console.log('User roles data:', userRolesData);
       const adminUserIds = userRolesData
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
+      
+      console.log('Admin user IDs:', adminUserIds);
 
       // Fetch all profiles, excluding the admin
       const { data: profilesData, error: profilesError } = await supabase
@@ -97,6 +100,8 @@ export const useUsers = () => {
         }
         return false;
       }
+
+      console.log('Profiles data:', profilesData);
 
       if (!profilesData || profilesData.length === 0) {
         console.log('No user profiles found');
@@ -120,6 +125,8 @@ export const useUsers = () => {
         console.error('Error fetching member tags:', memberTagsError);
         // Continue processing even if tags fail - this isn't critical
       }
+
+      console.log('Member tags data:', memberTagsData);
 
       // Organize tags by member_id
       const memberTagsMap = new Map();
@@ -175,6 +182,16 @@ export const useUsers = () => {
       }
     }
   }, [isLoading]);
+
+  // Add auto-fetching on mount
+  useEffect(() => {
+    console.log('Users hook mounted, fetching users...');
+    fetchUsers();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchUsers]);
 
   // Reset mounted ref on cleanup
   const cleanup = useCallback(() => {

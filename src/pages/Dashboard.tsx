@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { MetricCard } from '@/components/dashboard/MetricCard';
@@ -22,28 +22,37 @@ const Dashboard = () => {
     visitors,
     fetchUsers,
     fetchActivities,
-    fetchEvents
+    fetchEvents,
+    fetchVisitors,
+    isLoading
   } = useData();
   const navigate = useNavigate();
+  const [dataInitialized, setDataInitialized] = useState(false);
 
-  // Initialize dashboard data with a single coordinated fetch
+  // Initialize dashboard data with coordinated fetch
   useEffect(() => {
-    console.log('Dashboard mounted, initializing data...');
-    
-    // Create a coordinated data loading function to prevent multiple toast notifications
     const loadDashboardData = async () => {
+      console.log('Dashboard mounted, initializing data...');
+      
       try {
-        // We only need to show one loading toast for the dashboard
-        console.log('Fetching dashboard data...');
-        await Promise.all([
-          fetchUsers(),
-          fetchActivities(),
-          fetchEvents()
-        ]);
-        console.log('Dashboard data initialization complete');
+        // Sequential fetching to reduce concurrent load
+        console.log('Fetching users data...');
+        await fetchUsers();
+        
+        console.log('Fetching activities data...');
+        await fetchActivities();
+        
+        console.log('Fetching events data...');
+        await fetchEvents();
+        
+        console.log('Fetching visitors data...');
+        await fetchVisitors();
+        
+        console.log('All dashboard data fetched successfully');
+        setDataInitialized(true);
       } catch (error) {
         console.error('Error initializing dashboard data:', error);
-        // Toast is already shown by individual hooks
+        // Individual fetch errors are already handled in their respective hooks
       }
     };
     
@@ -79,6 +88,8 @@ const Dashboard = () => {
     // No need for specific functionality here as the MetricCard component 
     // will handle closing the dialog
   };
+
+  console.log('Dashboard rendering. Data initialized:', dataInitialized, 'Loading:', isLoading);
 
   return (
     <div className="space-y-6">
@@ -146,7 +157,11 @@ const Dashboard = () => {
               <CardDescription>People visiting our meetings in the next 4 weeks</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingVisitors.length > 0 ? (
+              {isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
+                </div>
+              ) : upcomingVisitors.length > 0 ? (
                 <div className="space-y-4">
                   {upcomingVisitors.map((visitor) => (
                     <div key={visitor.id} className="p-3 border rounded-md">

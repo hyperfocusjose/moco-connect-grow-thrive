@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Activity, Referral, OneToOne, TYFCB } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -67,6 +67,7 @@ export const useActivities = () => {
           toast.error('Failed to load referrals');
         }
       } else {
+        console.log('Referrals data:', referralsData);
         const formattedReferrals = referralsData?.map(referral => ({
           id: referral.id,
           fromMemberId: referral.from_member_id || '',
@@ -77,6 +78,7 @@ export const useActivities = () => {
           date: new Date(referral.date),
           createdAt: new Date(referral.created_at),
         })) || [];
+        console.log('Formatted referrals:', formattedReferrals.length);
         setReferrals(formattedReferrals);
       }
 
@@ -152,6 +154,7 @@ export const useActivities = () => {
           toast.error('Failed to load activities');
         }
       } else {
+        console.log('Activities data:', activitiesData);
         const formattedActivities = activitiesData?.map(activity => ({
           id: activity.id,
           type: activity.type as Activity['type'],
@@ -161,11 +164,12 @@ export const useActivities = () => {
           relatedUserId: activity.related_user_id || undefined,
           referenceId: activity.reference_id || '',
         })) || [];
+        console.log('Formatted activities:', formattedActivities.length);
         setActivities(formattedActivities);
       }
 
       // Reset error state and fetch attempts on success if there were no errors
-      if (!referralsError && !oneToOneError && !tyfcbError && !activitiesError) {
+      if (!referralsError && !activitiesError) {
         setLoadError(null);
         fetchAttemptRef.current = 0;
       }
@@ -183,6 +187,16 @@ export const useActivities = () => {
       }
     }
   }, [isLoading]);
+
+  // Add auto-fetching on mount
+  useEffect(() => {
+    console.log('Activities hook mounted, fetching activities...');
+    fetchActivities();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchActivities]);
 
   // Reset mounted ref on cleanup to prevent memory leaks
   const cleanup = useCallback(() => {
