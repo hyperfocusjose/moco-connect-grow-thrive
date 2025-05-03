@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
+
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -86,6 +87,13 @@ export const useUsers = () => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchUsers]);
 
   const cleanup = useCallback(() => {
     isMountedRef.current = false;
