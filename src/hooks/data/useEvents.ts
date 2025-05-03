@@ -8,15 +8,51 @@ export const useEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const fetchAttemptRef = useRef(0);
+  const lastFetchTimeRef = useRef(0);
   const isMountedRef = useRef(true);
 
   const fetchEvents = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setLoadError(null);
+    if (isLoading) return;
+
+    const now = Date.now();
+    const cooldownPeriod = 5000;
+    if (now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Events fetch cooldown active, skipping request');
+      return;
+    }
+
+    fetchAttemptRef.current += 1;
+    const maxRetries = 3;
+    if (fetchAttemptRef.current > maxRetries) {
+      if (fetchAttemptRef.current === maxRetries + 1) {
+        setLoadError('Too many failed attempts to load events.');
+        toast.error('Events could not be loaded', {
+          description: 'Check your network connection and try again later.',
+          id: 'events-load-error'
+        });
+      }
+      return;
+    }
+
+    if (fetchAttemptRef.current === 1) {
+      setIsLoading(true);
+    }
+
+    lastFetchTimeRef.current = now;
 
     try {
       const { data, error } = await supabase.from('events').select('*');
-      if (error) throw new Error(error.message);
+      if (!isMountedRef.current) return;
+
+      if (error) {
+        console.error('Error fetching events:', error);
+        setLoadError(error.message);
+        if (fetchAttemptRef.current === 1) {
+          toast.error('Failed to load events', { id: 'events-load-error' });
+        }
+        return;
+      }
 
       const formattedEvents: Event[] = (data || []).map(event => ({
         id: event.id,
@@ -35,19 +71,21 @@ export const useEvents = () => {
         isCancelled: event.is_cancelled || false,
       }));
 
-      if (isMountedRef.current) {
-        setEvents(formattedEvents);
-      }
+      setEvents(formattedEvents);
+      setLoadError(null);
+      fetchAttemptRef.current = 0;
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('Error in fetchEvents:', error);
       setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      toast.error('Failed to load events');
+      if (fetchAttemptRef.current === 1) {
+        toast.error('Failed to load events', { id: 'events-load-error' });
+      }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [isLoading]);
 
   useEffect(() => {
     fetchEvents();
@@ -61,7 +99,9 @@ export const useEvents = () => {
   }, []);
 
   const resetFetchState = useCallback(() => {
+    fetchAttemptRef.current = 0;
     setLoadError(null);
+    lastFetchTimeRef.current = 0;
   }, []);
 
   const createEvent = async (event: Partial<Event>) => {
