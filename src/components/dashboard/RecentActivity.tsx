@@ -4,23 +4,48 @@ import { useData } from '@/contexts/DataContext';
 import { Activity } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 export const RecentActivity: React.FC = () => {
-  const { activities, getUser, isLoading, loadError } = useData();
+  const { activities, getUser, isLoading, loadError, fetchActivities } = useData();
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchActivities();
+    } catch (error) {
+      console.error("Error refreshing activities:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   
   // Check if we're loading or if we have activities
   const showLoading = isLoading && activities.length === 0;
   
   // Get the 5 most recent activities
   const recentActivities = [...activities].sort((a, b) => 
-    b.date.getTime() - a.date.getTime()
+    new Date(b.date).getTime() - new Date(a.date).getTime()
   ).slice(0, 5);
 
   console.log('RecentActivity: Rendering with activities count:', activities.length);
   console.log('RecentActivity: Loading state:', isLoading);
-  console.log('RecentActivity: Recent activities:', recentActivities);
+  
+  if (recentActivities.length > 0) {
+    console.log('RecentActivity: First recent activity:', {
+      id: recentActivities[0].id,
+      type: recentActivities[0].type,
+      description: recentActivities[0].description,
+      date: recentActivities[0].date,
+      userId: recentActivities[0].userId,
+    });
+  } else {
+    console.log('RecentActivity: No recent activities found');
+  }
 
   const getActivityIcon = (type: Activity['type']) => {
     switch (type) {
@@ -42,14 +67,25 @@ export const RecentActivity: React.FC = () => {
   };
 
   const formatDate = (date: Date) => {
-    return format(date, 'MMM d, yyyy');
+    return format(new Date(date), 'MMM d, yyyy');
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Latest network activity across the group</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest network activity across the group</CardDescription>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleRefresh} 
+          disabled={refreshing || isLoading}
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing || isLoading ? 'animate-spin' : ''}`} />
+          <span className="sr-only">Refresh</span>
+        </Button>
       </CardHeader>
       <CardContent>
         {showLoading ? (

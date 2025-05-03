@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
-import { format, isSameDay, startOfToday, addDays, isAfter, isBefore, isToday } from 'date-fns';
+import { format, isAfter, isBefore, isToday } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatTime } from '@/components/events/EventDataProcessor';
@@ -16,7 +16,9 @@ export const UpcomingEvents = () => {
   // Create dates in UTC to match how they're stored in the database
   const today = useMemo(() => {
     const now = new Date();
-    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    // We don't want to transform to UTC here as it leads to date confusion
+    // Just set the time to beginning of day
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
   }, []);
   
   const in14Days = useMemo(() => {
@@ -25,106 +27,98 @@ export const UpcomingEvents = () => {
     return future;
   }, [today]);
   
-  console.log('UpcomingEvents: Events count:', events.length);
-  console.log('UpcomingEvents: Today date (UTC):', today.toISOString());
-  console.log('UpcomingEvents: 14 days from now (UTC):', in14Days.toISOString());
+  console.log('UpcomingEvents: Events total count:', events.length);
+  console.log('UpcomingEvents: Today date:', today.toISOString());
+  console.log('UpcomingEvents: 14 days from now:', in14Days.toISOString());
   
   // Debug all events dates
-  console.log('UpcomingEvents: Raw events dates:', events.map(e => ({
+  console.log('UpcomingEvents: All events:', events.map(e => ({
     id: e.id,
     name: e.name,
-    date: e.date,
-    dateObj: new Date(e.date),
+    rawDate: e.date,
+    date: new Date(e.date),
     dateISO: new Date(e.date).toISOString(),
     isCancelled: e.isCancelled,
-    isApproved: e.isApproved
+    isApproved: e.isApproved,
+    eventYear: new Date(e.date).getFullYear(),
+    eventMonth: new Date(e.date).getMonth(),
+    eventDay: new Date(e.date).getDate()
   })));
   
   // Get upcoming approved events in the next 14 days
   const upcomingEvents = useMemo(() => {
     // First normalize all the dates to ensure consistent comparison
-    const normalized = events.map(event => {
-      // Handle case where event.date might be a string
+    const filtered = events.filter(event => {
+      // Handle case where event.date might be a string or Date
       const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
-      return {
-        ...event,
-        parsedDate: eventDate
-      };
+      
+      // Make sure date is valid
+      if (!(eventDate instanceof Date) || isNaN(eventDate.getTime())) {
+        console.log(`UpcomingEvents: Invalid date for event ${event.id}:`, event.date);
+        return false;
+      }
+      
+      // Check approval and cancelled status
+      if (!event.isApproved || event.isCancelled) {
+        return false;
+      }
+      
+      // Compare just the date parts, not times
+      const eventDay = new Date(
+        eventDate.getFullYear(),
+        eventDate.getMonth(),
+        eventDate.getDate()
+      );
+      
+      // Logging each event's date comparison results
+      const isAfterToday = !isBefore(eventDay, today) || isToday(eventDay);
+      const isBeforeOrEqual14Days = !isAfter(eventDay, in14Days);
+      
+      console.log(`UpcomingEvents: Event "${event.name}" (${eventDay.toISOString()}):`, {
+        isAfterToday,
+        isBeforeOrEqual14Days,
+        approved: event.isApproved,
+        cancelled: event.isCancelled,
+        will_include: (isAfterToday && isBeforeOrEqual14Days && event.isApproved && !event.isCancelled)
+      });
+      
+      return isAfterToday && isBeforeOrEqual14Days;
     });
     
-    console.log('UpcomingEvents: Normalized event dates:', 
-      normalized.map(e => ({
-        id: e.id,
-        name: e.name,
-        parsedDate: e.parsedDate,
-        parsedDateISO: e.parsedDate.toISOString(),
-        diff: e.parsedDate.getTime() - today.getTime(),
-        isAfterToday: e.parsedDate >= today,
-        isBeforeIn14Days: e.parsedDate <= in14Days
-      }))
-    );
+    const sorted = filtered.sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
     
-    const filtered = normalized
-      .filter(event => {
-        // Make sure date is valid
-        if (!(event.parsedDate instanceof Date) || isNaN(event.parsedDate.getTime())) {
-          console.log(`UpcomingEvents: Invalid date for event ${event.id}:`, event.date);
-          return false;
-        }
-        
-        // Check approval and cancelled status
-        if (!event.isApproved || event.isCancelled) {
-          return false;
-        }
-        
-        // Compare dates - event must be today or in the future but before 14 days
-        const isEventAfterOrEqualToday = event.parsedDate >= today;
-        const isEventBeforeOrEqual14Days = event.parsedDate <= in14Days;
-        
-        console.log(`UpcomingEvents: Event ${event.id} date checks:`, {
-          name: event.name,
-          date: event.parsedDate.toISOString(),
-          isEventAfterOrEqualToday,
-          isEventBeforeOrEqual14Days
-        });
-        
-        return isEventAfterOrEqualToday && isEventBeforeOrEqual14Days;
-      })
-      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
-    
-    console.log('UpcomingEvents: Filtered upcoming events:', filtered.length, filtered);
-    return filtered;
+    console.log('UpcomingEvents: Filtered upcoming events:', sorted.length, sorted);
+    return sorted;
   }, [events, today, in14Days]);
 
   // Get today's events
   const todayEvents = useMemo(() => {
-    const filtered = events
-      .filter(event => {
-        // Handle case where event.date might be a string
-        const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
-        
-        // Check if event is valid
-        if (!(eventDate instanceof Date) || isNaN(eventDate.getTime())) {
-          return false;
-        }
-        
-        // Create date objects with time set to midnight for accurate day comparison
-        const eventDay = new Date(Date.UTC(eventDate.getUTCFullYear(), eventDate.getUTCMonth(), eventDate.getUTCDate()));
-        const todayDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-        
-        // Check if dates are the same day
-        const isSameDate = eventDay.getTime() === todayDay.getTime();
-        
-        return (
-          event.isApproved && 
-          !event.isCancelled && 
-          isSameDate
-        );
-      });
+    const filtered = events.filter(event => {
+      // Handle case where event.date might be a string
+      const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+      
+      // Check if event is valid
+      if (!(eventDate instanceof Date) || isNaN(eventDate.getTime())) {
+        return false;
+      }
+      
+      // Compare just the date parts, not times
+      const isEventToday = isToday(eventDate);
+      
+      return (
+        event.isApproved && 
+        !event.isCancelled && 
+        isEventToday
+      );
+    });
     
     console.log('UpcomingEvents: Today\'s events:', filtered.length, filtered);
     return filtered;
-  }, [events, today]);
+  }, [events]);
 
   const hasEvents = upcomingEvents.length > 0 || todayEvents.length > 0;
 

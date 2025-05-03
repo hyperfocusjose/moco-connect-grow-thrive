@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -9,10 +10,12 @@ import { VisitorForm } from '@/components/forms/VisitorForm';
 import { OneToOneForm } from '@/components/forms/OneToOneForm';
 import { TYFCBForm } from '@/components/forms/TYFCBForm';
 import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Users, Calendar, ListCheck, Star, Clock } from 'lucide-react';
+import { ArrowUpRight, Users, Calendar, ListCheck, Star, Clock, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { format, isAfter, startOfToday, addWeeks } from 'date-fns';
+import { toast } from 'sonner';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
@@ -23,26 +26,42 @@ const Dashboard = () => {
     fetchActivities,
     fetchEvents,
     fetchVisitors,
+    reloadData,
     isLoading
   } = useData();
 
   const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
+
+  // Function to manually reload all data
+  const handleRefreshData = async () => {
+    setRefreshing(true);
+    toast.info("Refreshing data...");
+    try {
+      await reloadData();
+      toast.success("Data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh some data");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        await fetchUsers();
-        await fetchActivities();
-        await fetchEvents();
-        await fetchVisitors();
+        console.log("Dashboard: Initial data load starting");
+        await reloadData();
+        console.log("Dashboard: Initial data load completed");
         setDataInitialized(true);
       } catch (error) {
         console.error('Dashboard load error:', error);
       }
     };
     loadDashboardData();
-  }, []);
+  }, [reloadData]);
 
   const metrics = currentUser ? getUserMetrics(currentUser.id) : null;
 
@@ -67,8 +86,20 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <div className="text-sm text-muted-foreground">
-          Welcome back, {currentUser?.firstName}!
+        <div className="flex items-center gap-4">
+          <Button 
+            onClick={handleRefreshData} 
+            variant="outline" 
+            size="sm"
+            disabled={refreshing || isLoading}
+            className="flex items-center"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${(refreshing || isLoading) ? 'animate-spin' : ''}`} />
+            {refreshing || isLoading ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+          <div className="text-sm text-muted-foreground">
+            Welcome back, {currentUser?.firstName}!
+          </div>
         </div>
       </div>
 

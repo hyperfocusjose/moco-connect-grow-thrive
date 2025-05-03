@@ -27,7 +27,11 @@ export const useUsers = () => {
         .from('user_roles')
         .select('*');
 
-      if (userRolesError) throw new Error(userRolesError.message);
+      if (userRolesError) {
+        console.error('Error fetching user roles:', userRolesError.message);
+        throw new Error(userRolesError.message);
+      }
+      
       console.log('fetchUsers: Fetched user roles:', userRolesData?.length || 0);
 
       const adminUserIds = userRolesData
@@ -39,17 +43,28 @@ export const useUsers = () => {
         .select('*')
         .neq('id', adminUserId);
 
-      if (profilesError) throw new Error(profilesError.message);
-      console.log('fetchUsers: Fetched profiles:', profilesData?.length || 0);
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError.message);
+        throw new Error(profilesError.message);
+      }
+      
+      console.log('fetchUsers: Fetched profiles:', profilesData?.length || 0, 
+        profilesData && profilesData.length > 0 
+          ? { "sample": profilesData.slice(0, 2) }
+          : { "notes": "No profiles found" }
+      );
 
       const memberIds = profilesData?.map(p => p.id) || [];
 
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
         .select('*')
-        .in('member_id', memberIds);
+        .in('member_id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
 
-      if (memberTagsError) console.warn('Failed to fetch member tags:', memberTagsError.message);
+      if (memberTagsError) {
+        console.warn('Failed to fetch member tags:', memberTagsError.message);
+      }
+      
       console.log('fetchUsers: Fetched member tags:', memberTagsData?.length || 0);
 
       const memberTagsMap = new Map();
@@ -60,34 +75,40 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      const transformedUsers: User[] = profilesData?.map(profile => ({
-        id: profile.id,
-        firstName: profile.first_name || '',
-        lastName: profile.last_name || '',
-        email: profile.email || '',
-        phoneNumber: profile.phone_number || '',
-        businessName: profile.business_name || '',
-        industry: profile.industry || '',
-        bio: profile.bio || '',
-        tags: memberTagsMap.get(profile.id) || [],
-        profilePicture: profile.profile_picture || '',
-        isAdmin: adminUserIds.includes(profile.id),
-        website: profile.website || '',
-        linkedin: profile.linkedin || '',
-        facebook: profile.facebook || '',
-        tiktok: profile.tiktok || '',
-        instagram: profile.instagram || '',
-        createdAt: new Date(profile.created_at),
-      })) || [];
+      const transformedUsers: User[] = profilesData?.map(profile => {
+        const user: User = {
+          id: profile.id,
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          email: profile.email || '',
+          phoneNumber: profile.phone_number || '',
+          businessName: profile.business_name || '',
+          industry: profile.industry || '',
+          bio: profile.bio || '',
+          tags: memberTagsMap.get(profile.id) || [],
+          profilePicture: profile.profile_picture || '',
+          isAdmin: adminUserIds.includes(profile.id),
+          website: profile.website || '',
+          linkedin: profile.linkedin || '',
+          facebook: profile.facebook || '',
+          tiktok: profile.tiktok || '',
+          instagram: profile.instagram || '',
+          createdAt: new Date(profile.created_at),
+        };
+        return user;
+      }) || [];
 
       if (isMountedRef.current) {
         console.log('fetchUsers: Setting users state with:', transformedUsers.length);
         setUsers(transformedUsers);
+        setLoadError(null);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      setLoadError(error instanceof Error ? error.message : 'Unknown error');
-      toast.error('Failed to load users');
+      if (isMountedRef.current) {
+        setLoadError(error instanceof Error ? error.message : 'Unknown error');
+        toast.error('Failed to load users');
+      }
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
@@ -155,7 +176,12 @@ export const useUsers = () => {
         }
       }
 
-      await fetchUsers();
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === id ? { ...user, ...updatedUserData } : user
+      ));
+      
+      toast.success('User profile updated');
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('Failed to update user');

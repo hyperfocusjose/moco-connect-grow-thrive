@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
 import { useVisitors } from '@/hooks/data/useVisitors';
@@ -15,6 +15,7 @@ export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const initialLoadCompleteRef = useRef(false);
   
   const { 
     users, 
@@ -87,33 +88,52 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getActivityForAllMembers
   } = useMetrics({ users, referrals, visitors, oneToOnes, tyfcbs });
 
-  // When we load the app first time, do a coordinated fetch of all data
-  useEffect(() => {
-    if (isInitialLoad) {
-      console.log("DataContext: Starting initial coordinated data load");
+  // Create a single coordinated data fetch function to load all data
+  const loadAllData = useCallback(async () => {
+    console.log("DataContext: Starting coordinated data load");
+    
+    try {
+      // Set loading state to true for the data context
+      setIsInitialLoad(true);
+      
+      // Fetch all data in parallel with proper error handling
+      await Promise.all([
+        fetchUsers().catch(err => console.error("Error fetching users:", err)),
+        fetchEvents().catch(err => console.error("Error fetching events:", err)),
+        fetchVisitors().catch(err => console.error("Error fetching visitors:", err)),
+        fetchActivities().catch(err => console.error("Error fetching activities:", err)),
+        fetchPolls().catch(err => console.error("Error fetching polls:", err))
+      ]);
+      
+      console.log("DataContext: Initial coordinated data load complete");
+      initialLoadCompleteRef.current = true;
+    } catch (error) {
+      console.error("DataContext: Unhandled error during data load:", error);
+    } finally {
+      // Always set loading state to false once we're done
       setIsInitialLoad(false);
-      
-      const loadData = async () => {
-        try {
-          console.log("DataContext: Loading users...");
-          await fetchUsers();
-          console.log("DataContext: Loading events...");
-          await fetchEvents();
-          console.log("DataContext: Loading visitors...");
-          await fetchVisitors();
-          console.log("DataContext: Loading activities...");
-          await fetchActivities();
-          console.log("DataContext: Loading polls...");
-          await fetchPolls();
-          console.log("DataContext: Initial data load complete");
-        } catch (error) {
-          console.error("DataContext: Error during initial data load:", error);
-        }
-      };
-      
-      loadData();
     }
-  }, [isInitialLoad, fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
+  }, [fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
+
+  // When the app first loads, do a coordinated fetch of all data
+  useEffect(() => {
+    if (!initialLoadCompleteRef.current) {
+      loadAllData();
+    }
+    
+    // Set up a refresh interval to periodically reload data
+    const refreshInterval = setInterval(() => {
+      // Only refresh if we've completed the initial load
+      if (initialLoadCompleteRef.current) {
+        console.log("DataContext: Performing periodic data refresh");
+        loadAllData();
+      }
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
+    
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [loadAllData]);
 
   // Handle component unmount to prevent memory leaks
   useEffect(() => {
@@ -140,6 +160,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     users.length, events.length, visitors.length, activities.length, polls.length,
     usersLoading, eventsLoading, visitorsLoading, activitiesLoading, pollsLoading, isInitialLoad
   ]);
+
+  const reloadData = useCallback(async () => {
+    console.log("DataContext: Manual reload triggered");
+    await loadAllData();
+  }, [loadAllData]);
 
   return (
     <DataContext.Provider value={{
@@ -177,6 +202,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchActivities,
       fetchVisitors,
       fetchPolls,
+      reloadData, // New utility function to manually reload all data
       // Loading and error states
       isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading || isInitialLoad,
       loadError: usersError || eventsError || activitiesError || visitorsError || pollsError,

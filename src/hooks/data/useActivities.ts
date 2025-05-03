@@ -147,6 +147,55 @@ export const useActivities = () => {
     setLoadError(null);
   }, []);
 
+  // Helper function to create activity record
+  const createActivityRecord = async (
+    type: Activity['type'],
+    description: string,
+    userId: string,
+    referenceId: string,
+    relatedUserId?: string
+  ) => {
+    try {
+      const newActivity = {
+        type,
+        description,
+        date: new Date(),
+        user_id: userId,
+        reference_id: referenceId,
+        related_user_id: relatedUserId
+      };
+
+      console.log('Creating activity record:', newActivity);
+      
+      const { data, error } = await supabase.from('activities').insert(newActivity).select();
+      
+      if (error) {
+        console.error('Error creating activity record:', error);
+        return false;
+      }
+      
+      // If successful, update local state
+      if (data && data.length > 0) {
+        const formattedActivity: Activity = {
+          id: data[0].id,
+          type,
+          description,
+          date: new Date(data[0].date),
+          userId,
+          relatedUserId,
+          referenceId
+        };
+        
+        setActivities(prev => [...prev, formattedActivity]);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error in createActivityRecord:', error);
+      return false;
+    }
+  };
+
   const addReferral = async (referral: Partial<Referral>) => {
     try {
       if (!referral.fromMemberId || !referral.toMemberId || !referral.description || !referral.date) {
@@ -165,7 +214,8 @@ export const useActivities = () => {
         createdAt: new Date(),
       };
 
-      const { error } = await supabase.from('referrals').insert({
+      // Convert newReferral to the format expected by Supabase
+      const referralForDb = {
         id: newReferral.id,
         from_member_id: newReferral.fromMemberId,
         from_member_name: newReferral.fromMemberName,
@@ -174,11 +224,30 @@ export const useActivities = () => {
         description: newReferral.description,
         date: newReferral.date.toISOString(),
         created_at: newReferral.createdAt.toISOString(),
-      });
+      };
 
-      if (error) throw error;
+      console.log('Inserting referral into Supabase:', referralForDb);
+      
+      const { error } = await supabase.from('referrals').insert(referralForDb);
 
+      if (error) {
+        console.error('Error inserting referral:', error);
+        toast.error('Failed to add referral');
+        throw error;
+      }
+
+      // Update local state
       setReferrals(prev => [...prev, newReferral]);
+      
+      // Create activity record for this referral
+      await createActivityRecord(
+        'referral',
+        `Made a referral to ${newReferral.toMemberName}`,
+        newReferral.fromMemberId,
+        newReferral.id,
+        newReferral.toMemberId
+      );
+      
       toast.success('Referral added successfully');
     } catch (error) {
       console.error('Error in addReferral:', error);
@@ -204,7 +273,8 @@ export const useActivities = () => {
         createdAt: new Date(),
       };
 
-      const { error } = await supabase.from('one_to_ones').insert({
+      // Convert newOneToOne to the format expected by Supabase
+      const oneToOneForDb = {
         id: newOneToOne.id,
         member1_id: newOneToOne.member1Id,
         member1_name: newOneToOne.member1Name,
@@ -213,11 +283,30 @@ export const useActivities = () => {
         date: newOneToOne.date.toISOString(),
         notes: newOneToOne.notes,
         created_at: newOneToOne.createdAt.toISOString(),
-      });
+      };
 
-      if (error) throw error;
+      console.log('Inserting one-to-one into Supabase:', oneToOneForDb);
+      
+      const { error } = await supabase.from('one_to_ones').insert(oneToOneForDb);
 
+      if (error) {
+        console.error('Error inserting one-to-one:', error);
+        toast.error('Failed to add one-to-one meeting');
+        throw error;
+      }
+
+      // Update local state
       setOneToOnes(prev => [...prev, newOneToOne]);
+      
+      // Create activity record for this one-to-one
+      await createActivityRecord(
+        'oneToOne',
+        `Had a one-to-one meeting with ${newOneToOne.member2Name}`,
+        newOneToOne.member1Id,
+        newOneToOne.id,
+        newOneToOne.member2Id
+      );
+      
       toast.success('One-to-one meeting added successfully');
     } catch (error) {
       console.error('Error in addOneToOne:', error);
@@ -244,7 +333,8 @@ export const useActivities = () => {
         createdAt: new Date(),
       };
 
-      const { error } = await supabase.from('tyfcb').insert({
+      // Convert newTYFCB to the format expected by Supabase
+      const tyfcbForDb = {
         id: newTYFCB.id,
         from_member_id: newTYFCB.fromMemberId,
         from_member_name: newTYFCB.fromMemberName,
@@ -254,11 +344,30 @@ export const useActivities = () => {
         description: newTYFCB.description,
         date: newTYFCB.date.toISOString(),
         created_at: newTYFCB.createdAt.toISOString(),
-      });
+      };
 
-      if (error) throw error;
+      console.log('Inserting TYFCB into Supabase:', tyfcbForDb);
+      
+      const { error } = await supabase.from('tyfcb').insert(tyfcbForDb);
 
+      if (error) {
+        console.error('Error inserting TYFCB:', error);
+        toast.error('Failed to add TYFCB');
+        throw error;
+      }
+
+      // Update local state
       setTYFCBs(prev => [...prev, newTYFCB]);
+      
+      // Create activity record for this TYFCB
+      await createActivityRecord(
+        'tyfcb',
+        `Recorded closed business with ${newTYFCB.toMemberName} for $${newTYFCB.amount}`,
+        newTYFCB.fromMemberId,
+        newTYFCB.id,
+        newTYFCB.toMemberId
+      );
+      
       toast.success('TYFCB added successfully');
     } catch (error) {
       console.error('Error in addTYFCB:', error);

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Event } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,14 +31,17 @@ export const useEvents = () => {
       
       console.log('fetchEvents: Fetched events:', data?.length || 0);
 
+      if (data && data.length > 0) {
+        console.log('Sample first event from database:', data[0]);
+      }
+
       const formattedEvents: Event[] = (data || []).map(event => {
-        // Parse date strings into proper Date objects, preserving UTC
+        // Parse date strings into proper Date objects
         const eventDate = new Date(event.date);
         
         return {
           id: event.id,
           name: event.name,
-          // Ensure we keep the date as a Date object for consistent handling
           date: eventDate,
           startTime: event.start_time,
           endTime: event.end_time,
@@ -53,14 +57,16 @@ export const useEvents = () => {
         };
       });
 
-      console.log('fetchEvents: Formatted events sample:', 
-        formattedEvents.length > 0 ? {
-          first: formattedEvents[0],
+      if (formattedEvents.length > 0) {
+        console.log('fetchEvents: First formatted event:', {
+          name: formattedEvents[0].name,
           rawDate: formattedEvents[0].date,
           dateObj: new Date(formattedEvents[0].date),
-          dateISOString: new Date(formattedEvents[0].date).toISOString()
-        } : 'No events'
-      );
+          dateISOString: new Date(formattedEvents[0].date).toISOString(),
+          isApproved: formattedEvents[0].isApproved,
+          isCancelled: formattedEvents[0].isCancelled
+        });
+      }
 
       setEvents(formattedEvents);
       setLoadError(null);
@@ -111,6 +117,11 @@ export const useEvents = () => {
         isCancelled: false,
       };
 
+      console.log('Creating new event:', {
+        ...newEvent,
+        dateISO: newEvent.date.toISOString()
+      });
+
       const { error } = await supabase.from('events').insert({
         id: newEvent.id,
         name: newEvent.name,
@@ -128,10 +139,29 @@ export const useEvents = () => {
         is_cancelled: newEvent.isCancelled,
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Error creating event:', error);
+        throw new Error(error.message);
+      }
 
       setEvents(prev => [...prev, newEvent]);
       toast.success('Event created successfully');
+      
+      // Create an activity for this event
+      if (newEvent.createdBy) {
+        try {
+          await supabase.from('activities').insert({
+            type: 'event',
+            description: `Created event: ${newEvent.name}`,
+            date: new Date().toISOString(),
+            user_id: newEvent.createdBy,
+            reference_id: newEvent.id
+          });
+        } catch (activityError) {
+          console.error('Error creating activity for event:', activityError);
+          // Don't fail the event creation if activity creation fails
+        }
+      }
     } catch (error) {
       console.error('Error creating event:', error);
       toast.error('Failed to create event');
@@ -140,26 +170,44 @@ export const useEvents = () => {
 
   const updateEvent = async (id: string, event: Partial<Event>) => {
     try {
+      console.log('Updating event:', id, event);
+      
+      const updateData: any = {};
+      
+      // Only include fields that are provided in the update
+      if (event.name !== undefined) updateData.name = event.name;
+      if (event.date !== undefined) updateData.date = event.date.toISOString();
+      if (event.startTime !== undefined) updateData.start_time = event.startTime;
+      if (event.endTime !== undefined) updateData.end_time = event.endTime;
+      if (event.location !== undefined) updateData.location = event.location;
+      if (event.description !== undefined) updateData.description = event.description;
+      if (event.isApproved !== undefined) updateData.is_approved = event.isApproved;
+      if (event.isFeatured !== undefined) updateData.is_featured = event.isFeatured;
+      if (event.isPresentationMeeting !== undefined) updateData.is_presentation_meeting = event.isPresentationMeeting;
+      if (event.presenter !== undefined) updateData.presenter = event.presenter;
+      if (event.isCancelled !== undefined) updateData.is_cancelled = event.isCancelled;
+      
       const { error } = await supabase
         .from('events')
-        .update({
-          name: event.name,
-          date: event.date?.toISOString(),
-          start_time: event.startTime,
-          end_time: event.endTime,
-          location: event.location,
-          description: event.description,
-          is_approved: event.isApproved,
-          is_featured: event.isFeatured,
-          is_presentation_meeting: event.isPresentationMeeting,
-          presenter: event.presenter,
-          is_cancelled: event.isCancelled,
-        })
+        .update(updateData)
         .eq('id', id);
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Error updating event:', error);
+        throw new Error(error.message);
+      }
 
-      setEvents(prev => prev.map(item => item.id === id ? { ...item, ...event } : item));
+      setEvents(prev => prev.map(item => 
+        item.id === id 
+          ? { 
+              ...item, 
+              ...event, 
+              // Ensure date is a Date object
+              date: event.date ? new Date(event.date) : item.date 
+            } 
+          : item
+      ));
+      
       toast.success('Event updated successfully');
     } catch (error) {
       console.error('Error updating event:', error);
