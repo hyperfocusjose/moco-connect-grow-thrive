@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Activity, Referral, OneToOne, TYFCB } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -159,7 +158,7 @@ export const useActivities = () => {
       const newActivity = {
         type,
         description,
-        date: new Date(),
+        date: new Date().toISOString(), // Convert Date to ISO string for Supabase
         user_id: userId,
         reference_id: referenceId,
         related_user_id: relatedUserId

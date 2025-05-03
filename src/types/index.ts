@@ -174,6 +174,9 @@ export interface DataContextType {
   hasVoted: (pollId: string, userId: string) => boolean;
   fetchPolls: () => Promise<void>;
 
+  // Data management methods
+  reloadData: () => Promise<void>; // Added this function to the type definition
+
   // Loading and error states
   isLoading: boolean;
   loadError: string | null;
