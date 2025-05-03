@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
@@ -17,64 +16,47 @@ import { format, isAfter, startOfToday, addWeeks } from 'date-fns';
 
 const Dashboard = () => {
   const { currentUser } = useAuth();
-  const { 
-    getUserMetrics, 
+  const {
+    getUserMetrics,
     visitors,
     fetchUsers,
     fetchActivities,
     fetchEvents,
-    fetchVisitors,
-    isLoading
+    fetchVisitors
   } = useData();
   const navigate = useNavigate();
   const [dataInitialized, setDataInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Initialize dashboard data with coordinated fetch
   useEffect(() => {
     const loadDashboardData = async () => {
-      console.log('Dashboard mounted, initializing data...');
-      
       try {
-        // Sequential fetching to reduce concurrent load
-        console.log('Fetching users data...');
+        console.log('Dashboard mounted, initializing data...');
         await fetchUsers();
-        
-        console.log('Fetching activities data...');
         await fetchActivities();
-        
-        console.log('Fetching events data...');
         await fetchEvents();
-        
-        console.log('Fetching visitors data...');
         await fetchVisitors();
-        
-        console.log('All dashboard data fetched successfully');
         setDataInitialized(true);
       } catch (error) {
         console.error('Error initializing dashboard data:', error);
-        // Individual fetch errors are already handled in their respective hooks
+      } finally {
+        setLoading(false);
       }
     };
-    
+
     loadDashboardData();
-    
-    // No need to include the fetch functions in the dependency array
-    // as we only want this to run once on mount
   }, []);
 
-  // If user is logged in, get their metrics
   const metrics = currentUser ? getUserMetrics(currentUser.id) : null;
 
-  // Icons for metric cards
   const referralIcon = <ArrowUpRight className="h-4 w-4 text-white" />;
   const visitorIcon = <Users className="h-4 w-4 text-white" />;
   const oneToOneIcon = <ListCheck className="h-4 w-4 text-white" />;
   const tyfcbIcon = <Calendar className="h-4 w-4 text-white" />;
 
-  // Get upcoming visitors
   const today = startOfToday();
   const fourWeeksLater = addWeeks(today, 4);
-  
+
   const upcomingVisitors = visitors
     ? visitors.filter(visitor => {
         const visitDate = new Date(visitor.visitDate);
@@ -82,14 +64,17 @@ const Dashboard = () => {
       }).sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
     : [];
 
-  // Add an onComplete handler for the VisitorForm
   const handleVisitorFormComplete = () => {
-    // This function will be called when a visitor is successfully added
-    // No need for specific functionality here as the MetricCard component 
-    // will handle closing the dialog
+    // No-op: form handles dialog close
   };
 
-  console.log('Dashboard rendering. Data initialized:', dataInitialized, 'Loading:', isLoading);
+  if (loading || !dataInitialized) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-maroon" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -100,7 +85,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Referrals"
@@ -110,7 +94,6 @@ const Dashboard = () => {
           iconColor="bg-green-600"
           formComponent={<ReferralForm />}
         />
-
         <MetricCard
           title="Visitors"
           value={metrics?.visitors || 0}
@@ -119,7 +102,6 @@ const Dashboard = () => {
           iconColor="bg-blue-600"
           formComponent={<VisitorForm onComplete={handleVisitorFormComplete} />}
         />
-
         <MetricCard
           title="One-to-Ones"
           value={metrics?.oneToOnes || 0}
@@ -128,7 +110,6 @@ const Dashboard = () => {
           iconColor="bg-orange-600"
           formComponent={<OneToOneForm />}
         />
-
         <MetricCard
           title="Closed Business"
           value={`$${(metrics?.tyfcb.amount || 0).toLocaleString()}`}
@@ -139,7 +120,6 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Activity, Events, and Visitors */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <RecentActivity />
@@ -157,13 +137,9 @@ const Dashboard = () => {
               <CardDescription>People visiting our meetings in the next 4 weeks</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center h-24">
-                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
-                </div>
-              ) : upcomingVisitors.length > 0 ? (
+              {upcomingVisitors.length > 0 ? (
                 <div className="space-y-4">
-                  {upcomingVisitors.map((visitor) => (
+                  {upcomingVisitors.map(visitor => (
                     <div key={visitor.id} className="p-3 border rounded-md">
                       <div className="flex justify-between">
                         <div>
@@ -193,7 +169,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Quick Links */}
       <div className="bg-white p-6 shadow rounded-lg">
         <h2 className="text-lg font-medium mb-4">Quick Links</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
