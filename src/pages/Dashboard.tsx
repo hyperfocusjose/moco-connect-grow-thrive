@@ -19,25 +19,30 @@ const Dashboard = () => {
   const {
     getUserMetrics,
     visitors,
-    isLoading,
-    users,
-    events,
-    activities,
+    fetchUsers,
+    fetchActivities,
+    fetchEvents,
+    fetchVisitors,
+    isLoading
   } = useData();
 
   const navigate = useNavigate();
-  const [dataReady, setDataReady] = useState(false);
+  const [dataInitialized, setDataInitialized] = useState(false);
 
   useEffect(() => {
-    if (
-      visitors.length > 0 ||
-      users.length > 0 ||
-      events.length > 0 ||
-      activities.length > 0
-    ) {
-      setDataReady(true);
-    }
-  }, [visitors, users, events, activities]);
+    const loadDashboardData = async () => {
+      try {
+        await fetchUsers();
+        await fetchActivities();
+        await fetchEvents();
+        await fetchVisitors();
+        setDataInitialized(true);
+      } catch (error) {
+        console.error('Dashboard load error:', error);
+      }
+    };
+    loadDashboardData();
+  }, []);
 
   const metrics = currentUser ? getUserMetrics(currentUser.id) : null;
 
@@ -50,11 +55,11 @@ const Dashboard = () => {
   const fourWeeksLater = addWeeks(today, 4);
 
   const upcomingVisitors = visitors
-    .filter(visitor => {
-      const visitDate = new Date(visitor.visitDate);
-      return isAfter(visitDate, today) && visitDate <= fourWeeksLater;
-    })
-    .sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime());
+    ? visitors.filter(visitor => {
+        const visitDate = new Date(visitor.visitDate);
+        return isAfter(visitDate, today) && visitDate <= fourWeeksLater;
+      }).sort((a, b) => new Date(a.visitDate).getTime() - new Date(b.visitDate).getTime())
+    : [];
 
   const handleVisitorFormComplete = () => {};
 
@@ -67,7 +72,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Metrics */}
+      {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Referrals"
@@ -103,25 +108,13 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Activity Feed, Events, Visitors */}
+      {/* Activity + Events + Visitors */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          {isLoading ? (
-            <div className="h-32 flex items-center justify-center">
-              <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
-            </div>
-          ) : (
-            <RecentActivity />
-          )}
+          <RecentActivity />
         </div>
         <div className="lg:col-span-1">
-          {isLoading ? (
-            <div className="h-32 flex items-center justify-center">
-              <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
-            </div>
-          ) : (
-            <UpcomingEvents />
-          )}
+          <UpcomingEvents />
         </div>
         <div className="lg:col-span-1">
           <Card>
@@ -135,7 +128,7 @@ const Dashboard = () => {
             <CardContent>
               {isLoading ? (
                 <div className="flex items-center justify-center h-24">
-                  <div className="animate-spin h-6 w-6 border-2 border-t-maroon rounded-full"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-maroon"></div>
                 </div>
               ) : upcomingVisitors.length > 0 ? (
                 <div className="space-y-4">
