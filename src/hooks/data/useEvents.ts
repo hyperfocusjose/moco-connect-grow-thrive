@@ -30,22 +30,37 @@ export const useEvents = () => {
       
       console.log('fetchEvents: Fetched events:', data?.length || 0);
 
-      const formattedEvents: Event[] = (data || []).map(event => ({
-        id: event.id,
-        name: event.name,
-        date: new Date(event.date),
-        startTime: event.start_time,
-        endTime: event.end_time,
-        location: event.location,
-        description: event.description || '',
-        createdBy: event.created_by || '',
-        isApproved: event.is_approved || false,
-        isFeatured: event.is_featured || false,
-        isPresentationMeeting: event.is_presentation_meeting || false,
-        presenter: event.presenter,
-        createdAt: new Date(event.created_at),
-        isCancelled: event.is_cancelled || false,
-      }));
+      const formattedEvents: Event[] = (data || []).map(event => {
+        // Parse date strings into proper Date objects, preserving UTC
+        const eventDate = new Date(event.date);
+        
+        return {
+          id: event.id,
+          name: event.name,
+          // Ensure we keep the date as a Date object for consistent handling
+          date: eventDate,
+          startTime: event.start_time,
+          endTime: event.end_time,
+          location: event.location,
+          description: event.description || '',
+          createdBy: event.created_by || '',
+          isApproved: event.is_approved || false,
+          isFeatured: event.is_featured || false,
+          isPresentationMeeting: event.is_presentation_meeting || false,
+          presenter: event.presenter,
+          createdAt: new Date(event.created_at),
+          isCancelled: event.is_cancelled || false,
+        };
+      });
+
+      console.log('fetchEvents: Formatted events sample:', 
+        formattedEvents.length > 0 ? {
+          first: formattedEvents[0],
+          rawDate: formattedEvents[0].date,
+          dateObj: new Date(formattedEvents[0].date),
+          dateISOString: new Date(formattedEvents[0].date).toISOString()
+        } : 'No events'
+      );
 
       setEvents(formattedEvents);
       setLoadError(null);
