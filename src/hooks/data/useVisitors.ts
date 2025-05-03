@@ -13,17 +13,17 @@ export const useVisitors = () => {
   const isMountedRef = useRef(true);
 
   const fetchVisitors = useCallback(async (): Promise<void> => {
+    if (isLoading) return;
+
     const now = Date.now();
     const cooldownPeriod = 5000;
-
-    if (isLoading || now - lastFetchTimeRef.current < cooldownPeriod) {
-      console.log('Visitors fetch skipped (loading or cooldown)');
+    if (now - lastFetchTimeRef.current < cooldownPeriod) {
+      console.log('Visitors fetch cooldown active, skipping request');
       return;
     }
 
     fetchAttemptRef.current += 1;
     const maxRetries = 3;
-
     if (fetchAttemptRef.current > maxRetries) {
       if (fetchAttemptRef.current === maxRetries + 1) {
         setLoadError('Too many failed attempts to load visitors.');
@@ -35,12 +35,14 @@ export const useVisitors = () => {
       return;
     }
 
-    if (fetchAttemptRef.current === 1) setIsLoading(true);
+    if (fetchAttemptRef.current === 1) {
+      setIsLoading(true);
+    }
+
     lastFetchTimeRef.current = now;
 
     try {
       const { data, error } = await supabase.from('visitors').select('*');
-
       if (!isMountedRef.current) return;
 
       if (error) {
@@ -76,13 +78,17 @@ export const useVisitors = () => {
         toast.error('Failed to load visitors', { id: 'visitors-load-error' });
       }
     } finally {
-      if (isMountedRef.current) setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [isLoading]);
 
   useEffect(() => {
     fetchVisitors();
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [fetchVisitors]);
 
   const resetFetchState = useCallback(() => {
@@ -137,17 +143,20 @@ export const useVisitors = () => {
 
   const updateVisitor = async (id: string, visitor: Partial<Visitor>) => {
     try {
-      const { error } = await supabase.from('visitors').update({
-        visitor_name: visitor.visitorName,
-        visitor_business: visitor.visitorBusiness,
-        visit_date: visitor.visitDate?.toISOString(),
-        host_member_id: visitor.hostMemberId,
-        is_self_entered: visitor.isSelfEntered,
-        phone_number: visitor.phoneNumber,
-        email: visitor.email,
-        industry: visitor.industry,
-        did_not_show: visitor.didNotShow,
-      }).eq('id', id);
+      const { error } = await supabase
+        .from('visitors')
+        .update({
+          visitor_name: visitor.visitorName,
+          visitor_business: visitor.visitorBusiness,
+          visit_date: visitor.visitDate?.toISOString(),
+          host_member_id: visitor.hostMemberId,
+          is_self_entered: visitor.isSelfEntered,
+          phone_number: visitor.phoneNumber,
+          email: visitor.email,
+          industry: visitor.industry,
+          did_not_show: visitor.didNotShow,
+        })
+        .eq('id', id);
 
       if (error) throw error;
 
