@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Activity, Referral, OneToOne, TYFCB } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +21,13 @@ export const useActivities = () => {
     console.log('fetchActivities: Starting to fetch activities data');
 
     try {
+      // First check if we have a valid session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        console.warn('No active session found when fetching activities, data may be incomplete');
+      }
+      
+      // Fetch all data simultaneously
       const [
         { data: referralsData, error: referralsError },
         { data: oneToOneData, error: oneToOneError },
@@ -197,13 +205,25 @@ export const useActivities = () => {
 
   const addReferral = async (referral: Partial<Referral>) => {
     try {
+      console.log('Adding referral:', referral);
+      
+      // First check if we have a valid session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        const error = 'No active session found. Please log in again.';
+        console.error(error);
+        toast.error(error);
+        throw new Error(error);
+      }
+      
       if (!referral.fromMemberId || !referral.toMemberId || !referral.description || !referral.date) {
-        toast.error('Please fill in all required fields for the referral.');
-        return;
+        const error = 'Please fill in all required fields for the referral.';
+        toast.error(error);
+        throw new Error(error);
       }
 
       const newReferral: Referral = {
-        id: crypto.randomUUID(),
+        id: referral.id || crypto.randomUUID(),
         fromMemberId: referral.fromMemberId,
         fromMemberName: referral.fromMemberName || '',
         toMemberId: referral.toMemberId,
@@ -231,7 +251,7 @@ export const useActivities = () => {
 
       if (error) {
         console.error('Error inserting referral:', error);
-        toast.error('Failed to add referral');
+        toast.error(`Failed to add referral: ${error.message}`);
         throw error;
       }
 
@@ -248,21 +268,35 @@ export const useActivities = () => {
       );
       
       toast.success('Referral added successfully');
+      return newReferral;
     } catch (error) {
       console.error('Error in addReferral:', error);
-      toast.error('Failed to add referral');
+      throw error;
     }
   };
 
+  // Similar updates to addOneToOne and addTYFCB - update date format and improve error handling
   const addOneToOne = async (oneToOne: Partial<OneToOne>) => {
     try {
+      console.log('Adding one-to-one:', oneToOne);
+      
+      // First check if we have a valid session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        const error = 'No active session found. Please log in again.';
+        console.error(error);
+        toast.error(error);
+        throw new Error(error);
+      }
+
       if (!oneToOne.member1Id || !oneToOne.member2Id || !oneToOne.date) {
-        toast.error('Please fill in all required fields for the one-to-one meeting.');
-        return;
+        const error = 'Please fill in all required fields for the one-to-one meeting.';
+        toast.error(error);
+        throw new Error(error);
       }
 
       const newOneToOne: OneToOne = {
-        id: crypto.randomUUID(),
+        id: oneToOne.id || crypto.randomUUID(),
         member1Id: oneToOne.member1Id,
         member1Name: oneToOne.member1Name || '',
         member2Id: oneToOne.member2Id,
@@ -290,7 +324,7 @@ export const useActivities = () => {
 
       if (error) {
         console.error('Error inserting one-to-one:', error);
-        toast.error('Failed to add one-to-one meeting');
+        toast.error(`Failed to add one-to-one meeting: ${error.message}`);
         throw error;
       }
 
@@ -307,21 +341,34 @@ export const useActivities = () => {
       );
       
       toast.success('One-to-one meeting added successfully');
+      return newOneToOne;
     } catch (error) {
       console.error('Error in addOneToOne:', error);
-      toast.error('Failed to add one-to-one meeting');
+      throw error;
     }
   };
 
   const addTYFCB = async (tyfcb: Partial<TYFCB>) => {
     try {
+      console.log('Adding TYFCB:', tyfcb);
+      
+      // First check if we have a valid session
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        const error = 'No active session found. Please log in again.';
+        console.error(error);
+        toast.error(error);
+        throw new Error(error);
+      }
+      
       if (!tyfcb.fromMemberId || !tyfcb.toMemberId || !tyfcb.amount || !tyfcb.date) {
-        toast.error('Please fill in all required fields for the TYFCB.');
-        return;
+        const error = 'Please fill in all required fields for the TYFCB.';
+        toast.error(error);
+        throw new Error(error);
       }
 
       const newTYFCB: TYFCB = {
-        id: crypto.randomUUID(),
+        id: tyfcb.id || crypto.randomUUID(),
         fromMemberId: tyfcb.fromMemberId,
         fromMemberName: tyfcb.fromMemberName || '',
         toMemberId: tyfcb.toMemberId,
@@ -351,7 +398,7 @@ export const useActivities = () => {
 
       if (error) {
         console.error('Error inserting TYFCB:', error);
-        toast.error('Failed to add TYFCB');
+        toast.error(`Failed to add TYFCB: ${error.message}`);
         throw error;
       }
 
@@ -368,9 +415,10 @@ export const useActivities = () => {
       );
       
       toast.success('TYFCB added successfully');
+      return newTYFCB;
     } catch (error) {
       console.error('Error in addTYFCB:', error);
-      toast.error('Failed to add TYFCB');
+      throw error;
     }
   };
 

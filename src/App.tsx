@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import AdminPanel from "./pages/AdminPanel";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { AuthDebug } from "@/components/debug/AuthDebug";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,7 +32,12 @@ const queryClient = new QueryClient({
 
 // Home redirect component to handle redirects based on auth state
 const HomeRedirect = () => {
-  const { currentUser, isLoading } = useAuth();
+  const { currentUser, isLoading, refreshSession } = useAuth();
+  
+  // Always refresh the session when the component mounts
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
   
   if (isLoading) {
     return <div className="h-screen w-full flex items-center justify-center">
@@ -78,6 +84,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <AppRoutes />
+          <AuthDebug />
         </TooltipProvider>
       </DataProvider>
     </AuthProvider>

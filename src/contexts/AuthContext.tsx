@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -12,6 +13,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateCurrentUser: (user: User) => Promise<void>;
+  refreshSession: () => Promise<boolean>;
+  getAuthStatus: () => { isAuthenticated: boolean, sessionValid: boolean };
 }
 
 // Define a type for the profile data from Supabase
@@ -42,6 +45,8 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   updateCurrentUser: async () => {},
+  refreshSession: async () => false,
+  getAuthStatus: () => ({ isAuthenticated: false, sessionValid: false }),
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -51,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [roles, setRoles] = useState<string[]>([]);
+  const [sessionValid, setSessionValid] = useState(false);
 
   // Fetch roles from the Supabase user_roles table
   const fetchRoles = async (userId: string) => {
@@ -97,66 +103,169 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Initialize authentication state from local storage and refresh profile data
-  useEffect(() => {
-    const refreshUserData = async () => {
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser) {
-        try {
-          const user = JSON.parse(storedUser) as User;
-          setCurrentUser(user);
-          setIsAuthenticated(true);
+  // Refresh the Supabase session and return if the session is valid
+  const refreshSession = async (): Promise<boolean> => {
+    try {
+      console.log('Refreshing Supabase session');
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error || !data.session) {
+        console.error('Session refresh error:', error);
+        setIsAuthenticated(false);
+        setSessionValid(false);
+        setCurrentUser(null);
+        return false;
+      }
+      
+      console.log('Session refreshed successfully:', !!data.session);
+      setSessionValid(!!data.session);
+      
+      // If we have a valid session but no current user, let's fetch the user data
+      if (data.session && !currentUser) {
+        const userData = data.session.user;
+        const profileData = await fetchUserProfile(userData.id);
+        
+        if (profileData) {
+          const userRoles = await fetchRoles(userData.id);
+          const isAdmin = userRoles.includes('admin');
           
-          if (user.id) {
-            fetchRoles(user.id);
-            
-            // Refresh profile data to ensure it's current
-            const freshProfileData = await fetchUserProfile(user.id);
-            if (freshProfileData) {
-              const updatedUser: User = {
-                ...user,
-                firstName: freshProfileData.first_name || user.firstName,
-                lastName: freshProfileData.last_name || user.lastName,
-                email: freshProfileData.email || user.email,
-                phoneNumber: freshProfileData.phone_number || user.phoneNumber,
-                businessName: freshProfileData.business_name || user.businessName,
-                industry: freshProfileData.industry || user.industry,
-                bio: freshProfileData.bio || user.bio,
-                profilePicture: freshProfileData.profile_picture || user.profilePicture,
-                website: freshProfileData.website || user.website,
-                linkedin: freshProfileData.linkedin || user.linkedin,
-                facebook: freshProfileData.facebook || user.facebook,
-                tiktok: freshProfileData.tiktok || user.tiktok,
-                instagram: freshProfileData.instagram || user.instagram,
-              };
-              
-              setCurrentUser(updatedUser);
-              localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-            }
-          }
-        } catch (error) {
-          console.error('Failed to parse stored user data:', error);
+          const newUser: User = {
+            id: userData.id,
+            firstName: profileData.first_name || '',
+            lastName: profileData.last_name || '',
+            email: profileData.email || userData.email || '',
+            phoneNumber: profileData.phone_number || '',
+            businessName: profileData.business_name || '',
+            industry: profileData.industry || '',
+            bio: profileData.bio || '',
+            profilePicture: profileData.profile_picture || '',
+            tags: [], // We'll fetch tags separately
+            isAdmin,
+            website: profileData.website || '',
+            linkedin: profileData.linkedin || '',
+            facebook: profileData.facebook || '',
+            tiktok: profileData.tiktok || '',
+            instagram: profileData.instagram || '',
+            createdAt: new Date(profileData.created_at || Date.now()),
+          };
+          
+          setCurrentUser(newUser);
+          setIsAuthenticated(true);
+          localStorage.setItem('currentUser', JSON.stringify(newUser));
         }
       }
-      setIsLoading(false);
+      
+      return !!data.session;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      setSessionValid(false);
+      return false;
+    }
+  };
+  
+  // Get current auth status
+  const getAuthStatus = () => {
+    return { 
+      isAuthenticated,
+      sessionValid 
+    };
+  };
+
+  // Setup auth state listener and initialize session
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsLoading(true);
+      
+      try {
+        // 1. First set up the auth state change listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, session) => {
+            console.log('Auth state changed:', event, !!session);
+            
+            if (session) {
+              setSessionValid(true);
+              
+              // On login events, we'll load the full profile
+              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // Use setTimeout to avoid potential deadlocks with Supabase client
+                setTimeout(async () => {
+                  try {
+                    const userId = session.user.id;
+                    const profileData = await fetchUserProfile(userId);
+                    const userRoles = await fetchRoles(userId);
+                    
+                    if (profileData) {
+                      const newUser: User = {
+                        id: userId,
+                        firstName: profileData.first_name || '',
+                        lastName: profileData.last_name || '',
+                        email: profileData.email || session.user.email || '',
+                        phoneNumber: profileData.phone_number || '',
+                        businessName: profileData.business_name || '',
+                        industry: profileData.industry || '',
+                        bio: profileData.bio || '',
+                        profilePicture: profileData.profile_picture || '',
+                        tags: [], // We'll fetch tags separately
+                        isAdmin: userRoles.includes('admin'),
+                        website: profileData.website || '',
+                        linkedin: profileData.linkedin || '',
+                        facebook: profileData.facebook || '',
+                        tiktok: profileData.tiktok || '',
+                        instagram: profileData.instagram || '',
+                        createdAt: new Date(profileData.created_at || Date.now()),
+                      };
+                      
+                      setCurrentUser(newUser);
+                      setIsAuthenticated(true);
+                      localStorage.setItem('currentUser', JSON.stringify(newUser));
+                    }
+                  } catch (error) {
+                    console.error('Error loading user profile after auth change:', error);
+                  }
+                }, 0);
+              }
+            } else if (event === 'SIGNED_OUT') {
+              setCurrentUser(null);
+              setIsAuthenticated(false);
+              setSessionValid(false);
+              setRoles([]);
+              localStorage.removeItem('currentUser');
+            }
+          }
+        );
+        
+        // 2. Then check for existing session
+        await refreshSession();
+        
+        return () => {
+          subscription.unsubscribe();
+        };
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    refreshUserData();
+    initAuth();
   }, []);
 
   // Handle login with Supabase authentication
   const login = async (email: string, password: string) => {
     try {
+      console.log('Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
       
       if (error) {
+        console.error('Login error:', error);
+        toast.error(`Login failed: ${error.message}`);
         throw error;
       }
       
       if (data.user) {
+        console.log('Login successful for:', data.user.email);
+        
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -210,9 +319,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.error('Error fetching member tags:', tagError);
         }
         
+        console.log('Setting current user:', newUser);
         setCurrentUser(newUser);
         localStorage.setItem('currentUser', JSON.stringify(newUser));
         setIsAuthenticated(true);
+        setSessionValid(true);
+        
+        toast.success(`Welcome back, ${newUser.firstName || 'User'}!`);
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -220,12 +333,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setRoles([]);
-    localStorage.removeItem('currentUser');
-    supabase.auth.signOut();
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setSessionValid(false);
+      setRoles([]);
+      localStorage.removeItem('currentUser');
+      toast.info('You have been logged out');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to log out properly');
+    }
   };
 
   const updateCurrentUser = async (user: User) => {
@@ -242,7 +362,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = roles.includes('admin');
 
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated, isLoading, roles, isAdmin, login, logout, updateCurrentUser }}>
+    <AuthContext.Provider value={{ 
+      currentUser, 
+      isAuthenticated, 
+      isLoading, 
+      roles, 
+      isAdmin, 
+      login, 
+      logout, 
+      updateCurrentUser,
+      refreshSession,
+      getAuthStatus
+    }}>
       {children}
     </AuthContext.Provider>
   );
