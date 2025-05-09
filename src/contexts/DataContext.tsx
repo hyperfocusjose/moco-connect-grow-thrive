@@ -58,15 +58,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     referrals,
     oneToOnes,
     tyfcbs,
-    addReferral,
-    addOneToOne,
-    addTYFCB,
+    addReferral: addReferralOriginal,
+    addOneToOne: addOneToOneOriginal,
+    addTYFCB: addTYFCBOriginal,
     fetchActivities,
     isLoading: activitiesLoading,
     loadError: activitiesError,
     resetFetchState: resetActivitiesState,
     cleanup: cleanupActivities
   } = useActivities();
+
+  // Wrap the original functions to match the expected void return type
+  const addReferral = async (referral: Partial<Referral>): Promise<void> => {
+    await addReferralOriginal(referral);
+  };
+
+  const addOneToOne = async (oneToOne: Partial<OneToOne>): Promise<void> => {
+    await addOneToOneOriginal(oneToOne);
+  };
+
+  const addTYFCB = async (tyfcb: Partial<TYFCB>): Promise<void> => {
+    await addTYFCBOriginal(tyfcb);
+  };
 
   const {
     polls,
