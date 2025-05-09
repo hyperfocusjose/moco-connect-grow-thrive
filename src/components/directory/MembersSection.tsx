@@ -1,11 +1,12 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MembersSectionProps {
   searchTerm: string;
@@ -30,12 +31,60 @@ export const MembersSection = ({
   isLoading = false,
   loadError = null,
 }: MembersSectionProps) => {
+  const [error, setError] = useState<string | null>(loadError);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Keep persistent error state when loadError changes
+  useEffect(() => {
+    if (loadError) {
+      setError(loadError);
+    }
+  }, [loadError]);
+
+  // Direct database debug check
+  const checkDatabaseAccess = async () => {
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      
+      // Check session validity
+      const hasSession = !!authData.session;
+      
+      // Try direct profiles query
+      const { data, error: profilesError, status } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .limit(5);
+        
+      setDebugInfo({
+        hasSession,
+        sessionExpiry: authData.session ? new Date(authData.session.expires_at * 1000).toISOString() : 'No session',
+        currentTime: new Date().toISOString(),
+        profilesQueryStatus: status,
+        profilesCount: data?.length || 0,
+        profilesError: profilesError?.message || null,
+        errorCode: profilesError?.code || null
+      });
+      
+      if (profilesError) {
+        setError(`Database access error: ${profilesError.message} (Code: ${profilesError.code})`);
+      } else if (!data || data.length === 0) {
+        setError("No profiles found in database. Database returned empty result (not a permission error).");
+      } else {
+        setError(`Successfully fetched ${data.length} profiles directly. Auth/RLS is working.`);
+      }
+    } catch (error) {
+      setDebugInfo({ error: error instanceof Error ? error.message : 'Unknown error' });
+      setError(`Error checking database access: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   console.log('MembersSection rendered with:', { 
     membersCount: filteredMembers.length, 
     totalMembers, 
     isLoading, 
-    hasError: !!loadError,
-    errorMessage: loadError
+    hasError: !!error,
+    errorMessage: error
   });
 
   return (
@@ -73,17 +122,46 @@ export const MembersSection = ({
         </div>
       )}
 
-      {loadError && (
+      {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error loading members</AlertTitle>
-          <AlertDescription>
-            {loadError}
+          <AlertDescription className="space-y-2">
+            <p>{error}</p>
+            <div className="flex gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={checkDatabaseAccess}
+              >
+                Check Database Access
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowDebug(!showDebug)}
+              >
+                {showDebug ? 'Hide' : 'Show'} Debug Info
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setError(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+            
+            {showDebug && debugInfo && (
+              <pre className="mt-4 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-60">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            )}
           </AlertDescription>
         </Alert>
       )}
 
-      {!isLoading && !loadError && filteredMembers.length === 0 && (
+      {!isLoading && !error && filteredMembers.length === 0 && (
         <Alert variant="default" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No members found</AlertTitle>
@@ -95,7 +173,7 @@ export const MembersSection = ({
         </Alert>
       )}
 
-      {!isLoading && !loadError && filteredMembers.length > 0 && (
+      {!isLoading && !error && filteredMembers.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMembers.map((member) => (
             <MemberCard 

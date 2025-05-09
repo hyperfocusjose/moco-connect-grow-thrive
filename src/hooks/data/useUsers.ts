@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +13,7 @@ export const useUsers = () => {
   const isMountedRef = useRef(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [fetchAttempted, setFetchAttempted] = useState(false);
+  const [lastRequestDetails, setLastRequestDetails] = useState<any>(null);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     if (isLoading) return;
@@ -28,15 +28,32 @@ export const useUsers = () => {
       // First check if we have a valid session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
+      const sessionDetails = {
+        hasSession: !!sessionData.session,
+        sessionExpiry: sessionData.session ? new Date(sessionData.session.expires_at * 1000).toISOString() : 'No session',
+        currentTime: new Date().toISOString(),
+      };
+      
+      setLastRequestDetails(prevState => ({ ...prevState, sessionDetails }));
+      
       if (sessionError) {
         console.error('Session error:', sessionError.message);
-        throw new Error(`Authentication error: ${sessionError.message}`);
+        const errMsg = `Authentication error: ${sessionError.message}`;
+        setLastRequestDetails(prevState => ({ 
+          ...prevState, 
+          error: errMsg 
+        }));
+        throw new Error(errMsg);
       }
       
       if (!sessionData.session) {
         const authErr = 'No valid authentication session found';
         console.error(authErr);
         setAuthError(authErr);
+        setLastRequestDetails(prevState => ({ 
+          ...prevState, 
+          error: authErr 
+        }));
         throw new Error(authErr);
       }
 
@@ -50,6 +67,15 @@ export const useUsers = () => {
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
+
+      setLastRequestDetails(prevState => ({ 
+        ...prevState, 
+        userRolesQuery: {
+          success: !userRolesError,
+          error: userRolesError?.message || null,
+          count: userRolesData?.length || 0
+        }
+      }));
 
       if (userRolesError) {
         console.error('Error fetching user roles:', userRolesError.message);
@@ -77,10 +103,22 @@ export const useUsers = () => {
         auth: 'Using authenticated session token'
       });
       
+      // Modified direct query to simplify for debugging
       const { data: profilesData, error: profilesError, status: profilesStatus } = await supabase
         .from('profiles')
-        .select('*')
-        .neq('id', adminUserId);
+        .select('*');
+      
+      setLastRequestDetails(prevState => ({ 
+        ...prevState, 
+        profilesQuery: {
+          timestamp: new Date().toISOString(),
+          status: profilesStatus,
+          error: profilesError?.message || null,
+          errorCode: profilesError?.code || null,
+          count: profilesData?.length || 0,
+          sample: profilesData?.slice(0, 1) || []
+        }
+      }));
 
       // Log the status code from the response
       console.log('Profiles request status code:', profilesStatus);
@@ -113,6 +151,15 @@ export const useUsers = () => {
         .from('member_tags')
         .select('*')
         .in('member_id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
+      
+      setLastRequestDetails(prevState => ({ 
+        ...prevState, 
+        memberTagsQuery: {
+          success: !memberTagsError,
+          error: memberTagsError?.message || null,
+          count: memberTagsData?.length || 0
+        }
+      }));
 
       if (memberTagsError) {
         console.warn('Failed to fetch member tags:', memberTagsError.message);
@@ -247,6 +294,11 @@ export const useUsers = () => {
     }
   };
 
+  // Added new method to get last request details
+  const getLastRequestDetails = useCallback(() => {
+    return lastRequestDetails;
+  }, [lastRequestDetails]);
+
   return {
     users,
     isLoading,
@@ -259,5 +311,7 @@ export const useUsers = () => {
     fetchUsers,
     resetFetchState,
     cleanup,
+    getLastRequestDetails,
+    lastRequestDetails
   };
 };

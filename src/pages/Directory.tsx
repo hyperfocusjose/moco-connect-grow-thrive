@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Plus, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Plus, RefreshCw, AlertTriangle, Database } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import { toast } from 'sonner';
 import { MembersSection } from '@/components/directory/MembersSection';
 import { VisitorsSection } from '@/components/directory/VisitorsSection';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 const Directory: React.FC = () => {
   const { 
@@ -44,6 +44,8 @@ const Directory: React.FC = () => {
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [isVisitorDetailOpen, setIsVisitorDetailOpen] = useState(false);
   const [dataRefreshing, setDataRefreshing] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const isAdmin = currentUser?.isAdmin;
 
@@ -83,6 +85,58 @@ const Directory: React.FC = () => {
     console.log("Data error state:", loadError);
     console.log("Authentication state:", { isAuthenticated, sessionValid });
   }, [currentUser, users, isAdmin, isLoading, loadError, isAuthenticated, sessionValid]);
+
+  const checkRlsAccess = async () => {
+    try {
+      setDataRefreshing(true);
+      
+      // Diagnostic data collection
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      // Direct query test
+      const { data: profileData, error: profileError, status: profileStatus } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(5);
+      
+      const newDebugInfo = {
+        timestamp: new Date().toISOString(),
+        auth: {
+          isAuthenticated,
+          sessionValid,
+          hasCurrentUser: !!currentUser,
+          hasSession: !!sessionData.session,
+          sessionExpiry: sessionData.session ? new Date(sessionData.session.expires_at * 1000).toISOString() : null,
+        },
+        directProfiles: {
+          status: profileStatus,
+          error: profileError?.message || null,
+          count: profileData?.length || 0,
+        },
+        users: {
+          count: users.length,
+          loadError: loadError || null,
+          isLoading
+        }
+      };
+      
+      setDebugInfo(newDebugInfo);
+      setShowDebugInfo(true);
+      
+      if (profileData && profileData.length > 0) {
+        toast.success(`Direct query success: Retrieved ${profileData.length} profiles!`);
+      } else if (profileError) {
+        toast.error(`Direct query failed: ${profileError.message}`);
+      } else {
+        toast.warning('Direct query returned no profiles');
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Error checking access: ${errorMsg}`);
+    } finally {
+      setDataRefreshing(false);
+    }
+  };
 
   const handleRefreshData = async () => {
     setDataRefreshing(true);
@@ -179,7 +233,8 @@ const Directory: React.FC = () => {
   const hasAuthError = loadError && (
     loadError.includes('authentication') || 
     loadError.includes('auth') || 
-    loadError.toLowerCase().includes('session')
+    loadError.toLowerCase().includes('session') ||
+    loadError.toLowerCase().includes('security')
   );
 
   return (
@@ -187,6 +242,15 @@ const Directory: React.FC = () => {
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Member Directory</h1>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={checkRlsAccess}
+            disabled={dataRefreshing}
+            className="flex items-center gap-1"
+          >
+            <Database className="h-4 w-4" />
+            Test DB Access
+          </Button>
           <Button
             variant="outline"
             onClick={handleRefreshData}
@@ -207,6 +271,22 @@ const Directory: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {showDebugInfo && debugInfo && (
+        <Alert className="mb-4 bg-gray-100">
+          <div className="flex justify-between items-start">
+            <div className="space-y-2">
+              <h3 className="font-bold">Database Access Debug Info</h3>
+              <pre className="text-xs overflow-auto max-h-60">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowDebugInfo(false)}>
+              Hide
+            </Button>
+          </div>
+        </Alert>
+      )}
       
       {hasAuthError && (
         <Alert variant="destructive" className="mb-4">
