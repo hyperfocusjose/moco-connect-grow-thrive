@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
 import { MemberDetail } from '@/components/directory/MemberDetail';
@@ -23,7 +23,8 @@ const Directory: React.FC = () => {
     fetchUsers, 
     reloadData,
     isLoading, 
-    loadError 
+    loadError,
+    rawProfileData 
   } = useData();
   
   const { 
@@ -51,9 +52,19 @@ const Directory: React.FC = () => {
 
   useEffect(() => {
     console.log("Directory: Loading initial data");
-    fetchUsers();
-  }, [fetchUsers]);
+    loadDirectoryData();
+  }, []);
   
+  const loadDirectoryData = useCallback(async () => {
+    try {
+      await fetchUsers();
+      toast.success("Directory data loaded");
+    } catch (error) {
+      console.error("Failed to load directory data", error);
+      toast.error("Failed to load directory data");
+    }
+  }, [fetchUsers]);
+
   // Handle authentication status changes
   useEffect(() => {
     console.log("Directory: Authentication status changed - ", { 
@@ -83,8 +94,9 @@ const Directory: React.FC = () => {
     console.log("Admin status:", isAdmin);
     console.log("Data loading state:", isLoading);
     console.log("Data error state:", loadError);
+    console.log("Raw profile data:", rawProfileData?.length || 0);
     console.log("Authentication state:", { isAuthenticated, sessionValid });
-  }, [currentUser, users, isAdmin, isLoading, loadError, isAuthenticated, sessionValid]);
+  }, [currentUser, users, isAdmin, isLoading, loadError, isAuthenticated, sessionValid, rawProfileData]);
 
   const checkRlsAccess = async () => {
     try {
@@ -112,6 +124,7 @@ const Directory: React.FC = () => {
           status: profileStatus,
           error: profileError?.message || null,
           count: profileData?.length || 0,
+          sample: profileData?.slice(0, 2) || [],
         },
         users: {
           count: users.length,
@@ -152,23 +165,44 @@ const Directory: React.FC = () => {
     }
   };
 
+  const forceReloadProfiles = async () => {
+    setDataRefreshing(true);
+    try {
+      // Force reload by bypassing the cache
+      toast.info("Forcefully reloading profiles...");
+      
+      // First refresh the session
+      await refreshSession();
+      
+      // Then fetch users directly with force refresh
+      await fetchUsers();
+      
+      toast.success("Profiles reloaded successfully");
+    } catch (error) {
+      console.error("Error reloading profiles:", error);
+      toast.error("Failed to reload profiles");
+    } finally {
+      setDataRefreshing(false);
+    }
+  };
+
   const filteredMembers = users.filter(member => {
-    if (!member.firstName || !member.lastName) {
+    if (!member.firstName && !member.lastName) {
       console.log(`Filtering out user with missing name: ID ${member.id}`);
       return false;
     }
     
     const searchLower = searchTerm.toLowerCase();
     return (
-      member.firstName.toLowerCase().includes(searchLower) ||
-      member.lastName.toLowerCase().includes(searchLower) ||
-      member.businessName.toLowerCase().includes(searchLower) ||
-      member.industry.toLowerCase().includes(searchLower) ||
-      member.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      (member.firstName?.toLowerCase() || '').includes(searchLower) ||
+      (member.lastName?.toLowerCase() || '').includes(searchLower) ||
+      (member.businessName?.toLowerCase() || '').includes(searchLower) ||
+      (member.industry?.toLowerCase() || '').includes(searchLower) ||
+      member.tags?.some(tag => tag.toLowerCase().includes(searchLower))
     );
   });
 
-  const totalMembers = users.filter(user => user.firstName && user.lastName).length;
+  const totalMembers = users.filter(user => user.firstName || user.lastName).length;
 
   const filteredVisitors = visitors ? visitors.filter(visitor => {
     if (!includeNoShows && visitor.didNotShow) {
@@ -237,11 +271,14 @@ const Directory: React.FC = () => {
     loadError.toLowerCase().includes('security')
   );
 
+  const hasProfileData = rawProfileData && rawProfileData.length > 0;
+  const hasTransformationIssue = hasProfileData && users.length === 0;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Member Directory</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={checkRlsAccess}
@@ -259,6 +296,15 @@ const Directory: React.FC = () => {
           >
             <RefreshCw className={`h-4 w-4 ${dataRefreshing ? 'animate-spin' : ''}`} />
             Refresh Data
+          </Button>
+          <Button
+            variant="outline"
+            onClick={forceReloadProfiles}
+            disabled={dataRefreshing}
+            className="flex items-center gap-1 bg-amber-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${dataRefreshing ? 'animate-spin' : ''}`} />
+            Force Reload Profiles
           </Button>
           {isAdmin && (
             <Button 
@@ -305,6 +351,16 @@ const Directory: React.FC = () => {
                 Refresh Session
               </Button>
             </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasTransformationIssue && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            <p>Data format issue: Raw profile data exists ({rawProfileData.length} profiles) but couldn't be transformed properly.</p>
+            <p className="mt-2">Please use the Debug panel to see the raw data and try Force Reload.</p>
           </AlertDescription>
         </Alert>
       )}

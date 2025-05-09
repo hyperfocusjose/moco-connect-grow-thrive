@@ -3,10 +3,11 @@ import { User } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, AlertCircle } from 'lucide-react';
+import { Search, AlertCircle, Check } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface MembersSectionProps {
   searchTerm: string;
@@ -34,6 +35,7 @@ export const MembersSection = ({
   const [error, setError] = useState<string | null>(loadError);
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [rawProfiles, setRawProfiles] = useState<any[]>([]);
 
   // Keep persistent error state when loadError changes
   useEffect(() => {
@@ -42,7 +44,7 @@ export const MembersSection = ({
     }
   }, [loadError]);
 
-  // Direct database debug check
+  // Direct database check
   const checkDatabaseAccess = async () => {
     try {
       const { data: authData } = await supabase.auth.getSession();
@@ -53,8 +55,8 @@ export const MembersSection = ({
       // Try direct profiles query
       const { data, error: profilesError, status } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, email')
-        .limit(5);
+        .select('id, first_name, last_name, email, business_name, industry, profile_picture')
+        .limit(10);
         
       setDebugInfo({
         hasSession,
@@ -63,8 +65,15 @@ export const MembersSection = ({
         profilesQueryStatus: status,
         profilesCount: data?.length || 0,
         profilesError: profilesError?.message || null,
-        errorCode: profilesError?.code || null
+        errorCode: profilesError?.code || null,
+        profilesData: data ? data.slice(0, 2) : null
       });
+
+      // Store raw profiles for debugging
+      if (data && data.length > 0) {
+        setRawProfiles(data);
+        toast.success(`Found ${data.length} profiles in the database`);
+      }
       
       if (profilesError) {
         setError(`Database access error: ${profilesError.message} (Code: ${profilesError.code})`);
@@ -77,6 +86,12 @@ export const MembersSection = ({
       setDebugInfo({ error: error instanceof Error ? error.message : 'Unknown error' });
       setError(`Error checking database access: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  };
+
+  // For emergency display of profiles directly from the database
+  const displayRawProfiles = () => {
+    toast.info("Displaying profiles directly from database");
+    setShowDebug(true);
   };
 
   console.log('MembersSection rendered with:', { 
@@ -128,7 +143,7 @@ export const MembersSection = ({
           <AlertTitle>Error loading members</AlertTitle>
           <AlertDescription className="space-y-2">
             <p>{error}</p>
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -146,6 +161,13 @@ export const MembersSection = ({
               <Button 
                 variant="outline" 
                 size="sm" 
+                onClick={displayRawProfiles}
+              >
+                Display Raw Profiles
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
                 onClick={() => setError(null)}
               >
                 Dismiss
@@ -157,11 +179,32 @@ export const MembersSection = ({
                 {JSON.stringify(debugInfo, null, 2)}
               </pre>
             )}
+
+            {showDebug && rawProfiles.length > 0 && (
+              <div className="mt-4 space-y-4">
+                <h4 className="font-medium">Raw Profiles from Database:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rawProfiles.map((profile) => (
+                    <Card key={profile.id} className="overflow-hidden">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">{profile.first_name} {profile.last_name}</CardTitle>
+                        <CardDescription>{profile.business_name || 'No business'}</CardDescription>
+                      </CardHeader>
+                      <div className="p-4">
+                        <p className="text-sm text-muted-foreground">ID: {profile.id}</p>
+                        <p className="text-sm text-muted-foreground">Email: {profile.email || 'No email'}</p>
+                        <p className="text-sm text-muted-foreground">Industry: {profile.industry || 'No industry'}</p>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </AlertDescription>
         </Alert>
       )}
 
-      {!isLoading && !error && filteredMembers.length === 0 && (
+      {!isLoading && !error && filteredMembers.length === 0 && totalMembers === 0 && (
         <Alert variant="default" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No members found</AlertTitle>
@@ -173,18 +216,38 @@ export const MembersSection = ({
         </Alert>
       )}
 
+      {!isLoading && !error && filteredMembers.length === 0 && totalMembers > 0 && (
+        <Alert variant="default" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No matching results</AlertTitle>
+          <AlertDescription>
+            No members match your search criteria. Try adjusting your search terms.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!isLoading && !error && filteredMembers.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMembers.map((member) => (
-            <MemberCard 
-              key={member.id} 
-              member={member} 
-              onClick={() => onSelectMember(member)}
-              showEditButton={isAdmin}
-              onEdit={() => onEditMember(member)}
-            />
-          ))}
-        </div>
+        <>
+          <Alert variant="default" className="mb-6 bg-green-50 border-green-200">
+            <Check className="h-4 w-4 text-green-500" />
+            <AlertTitle>Members loaded successfully</AlertTitle>
+            <AlertDescription>
+              Showing {filteredMembers.length} of {totalMembers} total members.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredMembers.map((member) => (
+              <MemberCard 
+                key={member.id} 
+                member={member} 
+                onClick={() => onSelectMember(member)}
+                showEditButton={isAdmin}
+                onEdit={() => onEditMember(member)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </>
   );

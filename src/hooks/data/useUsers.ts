@@ -14,6 +14,7 @@ export const useUsers = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [fetchAttempted, setFetchAttempted] = useState(false);
   const [lastRequestDetails, setLastRequestDetails] = useState<any>(null);
+  const [rawProfileData, setRawProfileData] = useState<any[]>([]);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     if (isLoading) return;
@@ -59,54 +60,13 @@ export const useUsers = () => {
 
       console.log('Session valid, token expiry:', new Date(sessionData.session.expires_at * 1000).toISOString());
 
-      // Admin user ID to exclude from results
-      const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
-
-      // Fetch user roles
-      console.log('Fetching user roles...');
-      const { data: userRolesData, error: userRolesError } = await supabase
-        .from('user_roles')
-        .select('*');
-
-      setLastRequestDetails(prevState => ({ 
-        ...prevState, 
-        userRolesQuery: {
-          success: !userRolesError,
-          error: userRolesError?.message || null,
-          count: userRolesData?.length || 0
-        }
-      }));
-
-      if (userRolesError) {
-        console.error('Error fetching user roles:', userRolesError.message);
-        if (userRolesError.message.includes('Row level security')) {
-          setAuthError('Authentication issue: Unable to access user roles due to security policies');
-          throw new Error(`Row level security error: ${userRolesError.message}`);
-        }
-        throw new Error(userRolesError.message);
-      }
-      
-      console.log('fetchUsers: Fetched user roles:', userRolesData?.length || 0);
-
-      const adminUserIds = userRolesData
-        ?.filter(role => role.role === 'admin')
-        .map(role => role.user_id) || [];
-
-      // Add more detailed debugging for profiles query
-      console.log('fetchUsers: About to fetch profiles');
-      
-      // Explicitly log the request details before making it
-      console.log('Profiles request details:', {
-        method: 'GET',
-        table: 'profiles',
-        filter: `neq(id, ${adminUserId})`,
-        auth: 'Using authenticated session token'
-      });
-      
-      // Modified direct query to simplify for debugging
+      // Simplified direct query for profiles
       const { data: profilesData, error: profilesError, status: profilesStatus } = await supabase
         .from('profiles')
         .select('*');
+      
+      // Store raw profile data for debugging
+      setRawProfileData(profilesData || []);
       
       setLastRequestDetails(prevState => ({ 
         ...prevState, 
@@ -145,28 +105,33 @@ export const useUsers = () => {
         return;
       }
 
-      const memberIds = profilesData.map(p => p.id);
+      // Fetch user roles (for identifying admins)
+      const { data: userRolesData, error: userRolesError } = await supabase
+        .from('user_roles')
+        .select('*');
+      
+      if (userRolesError) {
+        console.warn('Failed to fetch user roles:', userRolesError.message);
+      }
 
+      // Create a map of admin user IDs
+      const adminUserIds = userRolesData
+        ?.filter(role => role.role === 'admin')
+        .map(role => role.user_id) || [];
+
+      // Fetch member tags
+      const memberIds = profilesData.map(p => p.id);
+      
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
         .select('*')
         .in('member_id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
       
-      setLastRequestDetails(prevState => ({ 
-        ...prevState, 
-        memberTagsQuery: {
-          success: !memberTagsError,
-          error: memberTagsError?.message || null,
-          count: memberTagsData?.length || 0
-        }
-      }));
-
       if (memberTagsError) {
         console.warn('Failed to fetch member tags:', memberTagsError.message);
       }
-      
-      console.log('fetchUsers: Fetched member tags:', memberTagsData?.length || 0);
 
+      // Create a map of member tags
       const memberTagsMap = new Map();
       memberTagsData?.forEach(tagObj => {
         if (!memberTagsMap.has(tagObj.member_id)) {
@@ -175,28 +140,46 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      const transformedUsers: User[] = profilesData.map(profile => {
-        const user: User = {
-          id: profile.id,
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          email: profile.email || '',
-          phoneNumber: profile.phone_number || '',
-          businessName: profile.business_name || '',
-          industry: profile.industry || '',
-          bio: profile.bio || '',
-          tags: memberTagsMap.get(profile.id) || [],
-          profilePicture: profile.profile_picture || '',
-          isAdmin: adminUserIds.includes(profile.id),
-          website: profile.website || '',
-          linkedin: profile.linkedin || '',
-          facebook: profile.facebook || '',
-          tiktok: profile.tiktok || '',
-          instagram: profile.instagram || '',
-          createdAt: new Date(profile.created_at),
-        };
-        return user;
+      // Transform profiles into user objects with extra debug logging
+      const transformedUsers: User[] = [];
+      
+      profilesData.forEach(profile => {
+        try {
+          // Debug log for each profile
+          console.log(`Processing profile ${profile.id}: ${profile.first_name} ${profile.last_name}`);
+          
+          const user: User = {
+            id: profile.id,
+            firstName: profile.first_name || '',
+            lastName: profile.last_name || '',
+            email: profile.email || '',
+            phoneNumber: profile.phone_number || '',
+            businessName: profile.business_name || '',
+            industry: profile.industry || '',
+            bio: profile.bio || '',
+            tags: memberTagsMap.get(profile.id) || [],
+            profilePicture: profile.profile_picture || '',
+            isAdmin: adminUserIds.includes(profile.id),
+            website: profile.website || '',
+            linkedin: profile.linkedin || '',
+            facebook: profile.facebook || '',
+            tiktok: profile.tiktok || '',
+            instagram: profile.instagram || '',
+            createdAt: profile.created_at ? new Date(profile.created_at) : new Date(),
+          };
+          
+          transformedUsers.push(user);
+        } catch (err) {
+          console.error(`Error transforming profile ${profile.id}:`, err);
+        }
       });
+
+      console.log('Transformed user objects:', transformedUsers.length);
+      
+      if (transformedUsers.length === 0 && profilesData.length > 0) {
+        console.error('Failed to transform any profiles to users despite having profile data');
+        setLoadError('Error processing profile data. Contact administrator.');
+      }
 
       if (isMountedRef.current) {
         console.log('fetchUsers: Setting users state with:', transformedUsers.length);
@@ -299,6 +282,11 @@ export const useUsers = () => {
     return lastRequestDetails;
   }, [lastRequestDetails]);
 
+  // Add method to get raw profile data for debugging
+  const getRawProfileData = useCallback(() => {
+    return rawProfileData;
+  }, [rawProfileData]);
+
   return {
     users,
     isLoading,
@@ -312,6 +300,8 @@ export const useUsers = () => {
     resetFetchState,
     cleanup,
     getLastRequestDetails,
-    lastRequestDetails
+    lastRequestDetails,
+    getRawProfileData,
+    rawProfileData
   };
 };
