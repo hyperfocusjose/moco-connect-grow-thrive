@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types';
@@ -15,6 +14,7 @@ interface AuthContextType {
   updateCurrentUser: (user: User) => Promise<void>;
   refreshSession: () => Promise<boolean>;
   getAuthStatus: () => { isAuthenticated: boolean, sessionValid: boolean };
+  sessionValid: boolean;
 }
 
 // Define a type for the profile data from Supabase
@@ -47,6 +47,7 @@ const AuthContext = createContext<AuthContextType>({
   updateCurrentUser: async () => {},
   refreshSession: async () => false,
   getAuthStatus: () => ({ isAuthenticated: false, sessionValid: false }),
+  sessionValid: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -406,7 +407,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout, 
       updateCurrentUser,
       refreshSession,
-      getAuthStatus
+      getAuthStatus,
+      sessionValid
     }}>
       {children}
     </AuthContext.Provider>
