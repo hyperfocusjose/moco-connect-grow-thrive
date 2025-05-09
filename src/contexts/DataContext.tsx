@@ -32,7 +32,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authError: usersAuthError,
     fetchAttempted: usersFetchAttempted,
     resetFetchState: resetUsersState,
-    cleanup: cleanupUsers
+    cleanup: cleanupUsers,
+    rawProfileData
   } = useUsers();
 
   const {
@@ -280,7 +281,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchActivities,
       fetchVisitors,
       fetchPolls,
-      reloadData, // New utility function to manually reload all data
+      reloadData,
+      rawProfileData,
       // Loading and error states
       isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading || isInitialLoad,
       loadError: combinedLoadError,

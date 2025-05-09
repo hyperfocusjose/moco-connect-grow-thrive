@@ -4,7 +4,7 @@ import { User, Visitor } from '@/types';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Plus, RefreshCw, AlertTriangle, Database } from 'lucide-react';
+import { Plus, RefreshCw, AlertTriangle, Database, Bug } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -109,7 +109,7 @@ const Directory: React.FC = () => {
       const { data: profileData, error: profileError, status: profileStatus } = await supabase
         .from('profiles')
         .select('*')
-        .limit(5);
+        .limit(10);
       
       const newDebugInfo = {
         timestamp: new Date().toISOString(),
@@ -129,7 +129,14 @@ const Directory: React.FC = () => {
         users: {
           count: users.length,
           loadError: loadError || null,
-          isLoading
+          isLoading,
+          rawCount: rawProfileData?.length || 0
+        },
+        transformationStatus: {
+          hasRawData: (rawProfileData?.length || 0) > 0,
+          hasTransformedData: users.length > 0,
+          mismatch: (rawProfileData?.length || 0) !== users.length,
+          differenceCount: (rawProfileData?.length || 0) - users.length
         }
       };
       
@@ -174,13 +181,51 @@ const Directory: React.FC = () => {
       // First refresh the session
       await refreshSession();
       
-      // Then fetch users directly with force refresh
+      // Then fetch users directly
       await fetchUsers();
       
       toast.success("Profiles reloaded successfully");
     } catch (error) {
       console.error("Error reloading profiles:", error);
       toast.error("Failed to reload profiles");
+    } finally {
+      setDataRefreshing(false);
+    }
+  };
+  
+  // Debug transformation issues
+  const debugTransformation = async () => {
+    try {
+      setDataRefreshing(true);
+      toast.info("Checking data transformation...");
+      
+      // Direct query for comparison
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*');
+        
+      const transformationAnalysis = {
+        rawCount: profileData?.length || 0,
+        transformedCount: users.length,
+        rawSample: profileData?.slice(0, 2) || [],
+        transformedSample: users.slice(0, 2),
+        missingIds: profileData
+          ?.filter(raw => !users.some(user => user.id === raw.id))
+          .map(p => `${p.id} (${p.first_name} ${p.last_name})`) || [],
+        transformationError: loadError
+      };
+      
+      setDebugInfo(prev => ({ ...prev, transformationAnalysis }));
+      setShowDebugInfo(true);
+      
+      if ((profileData?.length || 0) !== users.length) {
+        toast.warning(`Transformation issue: ${profileData?.length || 0} raw profiles but ${users.length} transformed users`);
+      } else {
+        toast.success("Data transformation looks good");
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Error checking transformation: ${errorMsg}`);
     } finally {
       setDataRefreshing(false);
     }
@@ -290,6 +335,15 @@ const Directory: React.FC = () => {
           </Button>
           <Button
             variant="outline"
+            onClick={debugTransformation}
+            disabled={dataRefreshing}
+            className="flex items-center gap-1"
+          >
+            <Bug className="h-4 w-4" />
+            Debug Transformation
+          </Button>
+          <Button
+            variant="outline"
             onClick={handleRefreshData}
             disabled={dataRefreshing}
             className="flex items-center gap-1"
@@ -309,7 +363,7 @@ const Directory: React.FC = () => {
           {isAdmin && (
             <Button 
               className="bg-maroon hover:bg-maroon/90"
-              onClick={handleAddMember}
+              onClick={() => setIsAddFormOpen(true)}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add New Member
@@ -323,7 +377,7 @@ const Directory: React.FC = () => {
           <div className="flex justify-between items-start">
             <div className="space-y-2">
               <h3 className="font-bold">Database Access Debug Info</h3>
-              <pre className="text-xs overflow-auto max-h-60">
+              <pre className="text-xs overflow-auto max-h-96">
                 {JSON.stringify(debugInfo, null, 2)}
               </pre>
             </div>
@@ -393,7 +447,10 @@ const Directory: React.FC = () => {
             totalMembers={totalMembers}
             onSelectMember={handleSelectMember}
             isAdmin={isAdmin}
-            onEditMember={handleEditMember}
+            onEditMember={(member) => {
+              setMemberToEdit(member);
+              setIsEditFormOpen(true);
+            }}
             isLoading={isLoading}
             loadError={loadError}
           />

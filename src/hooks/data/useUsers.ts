@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +16,7 @@ export const useUsers = () => {
   const [fetchAttempted, setFetchAttempted] = useState(false);
   const [lastRequestDetails, setLastRequestDetails] = useState<any>(null);
   const [rawProfileData, setRawProfileData] = useState<any[]>([]);
+  const [processingError, setProcessingError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     if (isLoading) return;
@@ -22,6 +24,7 @@ export const useUsers = () => {
     setIsLoading(true);
     setLoadError(null);
     setAuthError(null);
+    setProcessingError(null);
     setFetchAttempted(true);
     console.log('fetchUsers: Starting to fetch users');
 
@@ -67,6 +70,8 @@ export const useUsers = () => {
       
       // Store raw profile data for debugging
       setRawProfileData(profilesData || []);
+      
+      console.log('Raw profile data set with', profilesData?.length || 0, 'profiles');
       
       setLastRequestDetails(prevState => ({ 
         ...prevState, 
@@ -143,36 +148,45 @@ export const useUsers = () => {
       // Transform profiles into user objects with extra debug logging
       const transformedUsers: User[] = [];
       
-      profilesData.forEach(profile => {
-        try {
-          // Debug log for each profile
-          console.log(`Processing profile ${profile.id}: ${profile.first_name} ${profile.last_name}`);
-          
-          const user: User = {
-            id: profile.id,
-            firstName: profile.first_name || '',
-            lastName: profile.last_name || '',
-            email: profile.email || '',
-            phoneNumber: profile.phone_number || '',
-            businessName: profile.business_name || '',
-            industry: profile.industry || '',
-            bio: profile.bio || '',
-            tags: memberTagsMap.get(profile.id) || [],
-            profilePicture: profile.profile_picture || '',
-            isAdmin: adminUserIds.includes(profile.id),
-            website: profile.website || '',
-            linkedin: profile.linkedin || '',
-            facebook: profile.facebook || '',
-            tiktok: profile.tiktok || '',
-            instagram: profile.instagram || '',
-            createdAt: profile.created_at ? new Date(profile.created_at) : new Date(),
-          };
-          
-          transformedUsers.push(user);
-        } catch (err) {
-          console.error(`Error transforming profile ${profile.id}:`, err);
-        }
-      });
+      try {
+        profilesData.forEach(profile => {
+          try {
+            // Debug log for each profile
+            console.log(`Processing profile ${profile.id}: ${profile.first_name} ${profile.last_name}`);
+            
+            const user: User = {
+              id: profile.id,
+              firstName: profile.first_name || '',
+              lastName: profile.last_name || '',
+              email: profile.email || '',
+              phoneNumber: profile.phone_number || '',
+              businessName: profile.business_name || '',
+              industry: profile.industry || '',
+              bio: profile.bio || '',
+              tags: memberTagsMap.get(profile.id) || [],
+              profilePicture: profile.profile_picture || '',
+              isAdmin: adminUserIds.includes(profile.id),
+              website: profile.website || '',
+              linkedin: profile.linkedin || '',
+              facebook: profile.facebook || '',
+              tiktok: profile.tiktok || '',
+              instagram: profile.instagram || '',
+              createdAt: profile.created_at ? new Date(profile.created_at) : new Date(),
+            };
+            
+            transformedUsers.push(user);
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            console.error(`Error transforming profile ${profile.id}:`, err);
+            setProcessingError(`Error transforming profile data: ${errorMsg}`);
+          }
+        });
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Error in profile transformation process:', err);
+        setProcessingError(`Error in profile transformation process: ${errorMsg}`);
+        throw new Error(`Failed to process profile data: ${errorMsg}`);
+      }
 
       console.log('Transformed user objects:', transformedUsers.length);
       
@@ -194,7 +208,7 @@ export const useUsers = () => {
         if (!authError && errorMsg.includes('auth')) {
           setAuthError(errorMsg);
         }
-        toast.error(authError || 'Failed to load users');
+        toast.error(authError || processingError || 'Failed to load users');
       }
     } finally {
       if (isMountedRef.current) {
@@ -202,7 +216,7 @@ export const useUsers = () => {
       }
       console.log('fetchUsers: Completed');
     }
-  }, [isLoading, authError]);
+  }, [isLoading, authError, processingError]);
 
   useEffect(() => {
     console.log('useUsers: Initial mount, fetching users');
@@ -219,6 +233,7 @@ export const useUsers = () => {
   const resetFetchState = useCallback(() => {
     setLoadError(null);
     setAuthError(null);
+    setProcessingError(null);
   }, []);
 
   const getUser = useCallback((userId: string | undefined) => {
@@ -277,16 +292,6 @@ export const useUsers = () => {
     }
   };
 
-  // Added new method to get last request details
-  const getLastRequestDetails = useCallback(() => {
-    return lastRequestDetails;
-  }, [lastRequestDetails]);
-
-  // Add method to get raw profile data for debugging
-  const getRawProfileData = useCallback(() => {
-    return rawProfileData;
-  }, [rawProfileData]);
-
   return {
     users,
     isLoading,
@@ -299,9 +304,8 @@ export const useUsers = () => {
     fetchUsers,
     resetFetchState,
     cleanup,
-    getLastRequestDetails,
     lastRequestDetails,
-    getRawProfileData,
-    rawProfileData
+    rawProfileData,
+    processingError
   };
 };

@@ -3,7 +3,7 @@ import { User } from '@/types';
 import { MemberCard } from '@/components/directory/MemberCard';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, AlertCircle, Check } from 'lucide-react';
+import { Search, AlertCircle, Check, Database, RefreshCw } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,7 @@ export const MembersSection = ({
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [showDebug, setShowDebug] = useState(false);
   const [rawProfiles, setRawProfiles] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Keep persistent error state when loadError changes
   useEffect(() => {
@@ -47,6 +48,7 @@ export const MembersSection = ({
   // Direct database check
   const checkDatabaseAccess = async () => {
     try {
+      setRefreshing(true);
       const { data: authData } = await supabase.auth.getSession();
       
       // Check session validity
@@ -85,6 +87,8 @@ export const MembersSection = ({
     } catch (error) {
       setDebugInfo({ error: error instanceof Error ? error.message : 'Unknown error' });
       setError(`Error checking database access: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -93,13 +97,34 @@ export const MembersSection = ({
     toast.info("Displaying profiles directly from database");
     setShowDebug(true);
   };
+  
+  const compareRawAndTransformed = () => {
+    if (rawProfiles.length > 0 && filteredMembers.length > 0) {
+      const comparison = {
+        rawCount: rawProfiles.length,
+        transformedCount: filteredMembers.length,
+        rawSample: rawProfiles.slice(0, 2),
+        transformedSample: filteredMembers.slice(0, 2),
+        missingIds: rawProfiles
+          .filter(raw => !filteredMembers.some(member => member.id === raw.id))
+          .map(p => `${p.id} (${p.first_name} ${p.last_name})`)
+      };
+      
+      setDebugInfo(prev => ({ ...prev, comparison }));
+      setShowDebug(true);
+      toast.info(`Comparison complete: ${rawProfiles.length} raw profiles vs ${filteredMembers.length} transformed members`);
+    } else {
+      toast.error("Can't compare: Need both raw profiles and transformed members");
+    }
+  };
 
   console.log('MembersSection rendered with:', { 
     membersCount: filteredMembers.length, 
     totalMembers, 
     isLoading, 
     hasError: !!error,
-    errorMessage: error
+    errorMessage: error,
+    rawProfilesCount: rawProfiles.length
   });
 
   return (
@@ -148,7 +173,10 @@ export const MembersSection = ({
                 variant="outline" 
                 size="sm" 
                 onClick={checkDatabaseAccess}
+                disabled={refreshing}
+                className="flex items-center gap-1"
               >
+                <Database className={`h-4 w-4 ${refreshing ? 'animate-pulse' : ''}`} />
                 Check Database Access
               </Button>
               <Button 
@@ -167,6 +195,15 @@ export const MembersSection = ({
               </Button>
               <Button 
                 variant="outline" 
+                size="sm"
+                onClick={compareRawAndTransformed}
+                disabled={rawProfiles.length === 0 || filteredMembers.length === 0}
+                className="bg-amber-50"
+              >
+                Compare Raw vs. Transformed
+              </Button>
+              <Button 
+                variant="outline" 
                 size="sm" 
                 onClick={() => setError(null)}
               >
@@ -175,14 +212,14 @@ export const MembersSection = ({
             </div>
             
             {showDebug && debugInfo && (
-              <pre className="mt-4 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-60">
+              <pre className="mt-4 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-96">
                 {JSON.stringify(debugInfo, null, 2)}
               </pre>
             )}
 
             {showDebug && rawProfiles.length > 0 && (
               <div className="mt-4 space-y-4">
-                <h4 className="font-medium">Raw Profiles from Database:</h4>
+                <h4 className="font-medium">Raw Profiles from Database ({rawProfiles.length}):</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rawProfiles.map((profile) => (
                     <Card key={profile.id} className="overflow-hidden">

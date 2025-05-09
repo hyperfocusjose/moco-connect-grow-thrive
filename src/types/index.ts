@@ -175,10 +175,13 @@ export interface DataContextType {
   fetchPolls: () => Promise<void>;
 
   // Data management methods
-  reloadData: () => Promise<void>; // Added this function to the type definition
-
+  reloadData: () => Promise<void>;
+  
   // Loading and error states
   isLoading: boolean;
   loadError: string | null;
   resetFetchState: () => void;
+  
+  // Raw profile data for debugging
+  rawProfileData?: any[];
 }
