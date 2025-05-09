@@ -4,11 +4,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
 
 export const AuthDebug: React.FC = () => {
   const { currentUser, isAuthenticated, refreshSession, getAuthStatus } = useAuth();
   const [supabaseSession, setSupabaseSession] = useState<any>(null);
   const [expanded, setExpanded] = useState(false);
+  const { isAuthenticated: authContextAuth, sessionValid } = getAuthStatus();
+  
+  // Show the panel by default if there are auth issues
+  useEffect(() => {
+    // Check for authentication issues when component mounts
+    const checkAuthIssues = async () => {
+      const { data } = await supabase.auth.getSession();
+      const hasSupabaseSession = !!data.session;
+      
+      // Automatically expand the panel if there's an auth mismatch
+      if (hasSupabaseSession !== authContextAuth || hasSupabaseSession !== sessionValid) {
+        setExpanded(true);
+      }
+      
+      setSupabaseSession(data.session);
+    };
+
+    checkAuthIssues();
+    
+    // Re-check every 60 seconds
+    const interval = setInterval(checkAuthIssues, 60000);
+    
+    return () => clearInterval(interval);
+  }, [authContextAuth, sessionValid]);
 
   useEffect(() => {
     const checkSupabaseSession = async () => {
@@ -58,21 +83,22 @@ export const AuthDebug: React.FC = () => {
     }
   };
 
+  const sessionExists = !!supabaseSession;
+  const hasAuthIssue = (sessionExists && !authContextAuth) || (authContextAuth && !sessionValid) || (sessionExists && !sessionValid);
+
   if (!expanded) {
     return (
       <div className="fixed bottom-4 right-4 z-50">
         <Button 
           onClick={() => setExpanded(true)} 
-          className="bg-amber-600 hover:bg-amber-700"
+          className={hasAuthIssue ? "bg-red-600 hover:bg-red-700" : "bg-amber-600 hover:bg-amber-700"}
         >
+          {hasAuthIssue && <AlertTriangle className="mr-1 h-4 w-4" />}
           Debug Auth
         </Button>
       </div>
     );
   }
-
-  const { isAuthenticated: authContextAuth, sessionValid } = getAuthStatus();
-  const sessionExists = !!supabaseSession;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 bg-background border shadow-lg p-4 rounded-lg w-80">
@@ -80,6 +106,16 @@ export const AuthDebug: React.FC = () => {
         <h3 className="font-bold">Auth Debug Panel</h3>
         <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>×</Button>
       </div>
+
+      {hasAuthIssue && (
+        <div className="bg-red-100 text-red-800 p-2 rounded mb-4 text-sm">
+          <div className="font-bold flex items-center">
+            <AlertTriangle className="mr-1 h-4 w-4" /> 
+            Authentication Issue Detected
+          </div>
+          <p className="mt-1">There's a mismatch between your Supabase session and the app's auth state.</p>
+        </div>
+      )}
 
       <div className="space-y-2 text-sm mb-4">
         <div className="grid grid-cols-2 gap-1">

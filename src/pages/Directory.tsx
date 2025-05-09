@@ -5,7 +5,7 @@ import { User, Visitor } from '@/types';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,26 @@ import { MemberForm } from '@/components/forms/member/MemberForm';
 import { toast } from 'sonner';
 import { MembersSection } from '@/components/directory/MembersSection';
 import { VisitorsSection } from '@/components/directory/VisitorsSection';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Directory: React.FC = () => {
-  const { users, visitors, markVisitorNoShow, fetchUsers, isLoading, loadError } = useData();
-  const { currentUser } = useAuth();
+  const { 
+    users, 
+    visitors, 
+    markVisitorNoShow, 
+    fetchUsers, 
+    reloadData,
+    isLoading, 
+    loadError 
+  } = useData();
+  
+  const { 
+    currentUser, 
+    isAuthenticated, 
+    sessionValid, 
+    refreshSession 
+  } = useAuth();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -27,12 +43,34 @@ const Directory: React.FC = () => {
   const [includeNoShows, setIncludeNoShows] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [isVisitorDetailOpen, setIsVisitorDetailOpen] = useState(false);
+  const [dataRefreshing, setDataRefreshing] = useState(false);
+  
   const isAdmin = currentUser?.isAdmin;
 
   useEffect(() => {
-    console.log("Directory: Manually fetching users");
+    console.log("Directory: Loading initial data");
     fetchUsers();
   }, [fetchUsers]);
+  
+  // Handle authentication status changes
+  useEffect(() => {
+    console.log("Directory: Authentication status changed - ", { 
+      isAuthenticated, 
+      sessionValid, 
+      hasCurrentUser: !!currentUser 
+    });
+    
+    if (!isAuthenticated || !sessionValid) {
+      console.warn("Directory: Not authenticated or session invalid");
+    }
+  }, [isAuthenticated, sessionValid, currentUser]);
+
+  // Add effect to handle auth error conditions detected during data loading
+  useEffect(() => {
+    if (loadError && (loadError.includes('authentication') || loadError.includes('auth'))) {
+      console.error("Directory: Authentication error detected:", loadError);
+    }
+  }, [loadError]);
 
   // Log data to debug data loading issues
   useEffect(() => {
@@ -43,7 +81,22 @@ const Directory: React.FC = () => {
     console.log("Admin status:", isAdmin);
     console.log("Data loading state:", isLoading);
     console.log("Data error state:", loadError);
-  }, [currentUser, users, isAdmin, isLoading, loadError]);
+    console.log("Authentication state:", { isAuthenticated, sessionValid });
+  }, [currentUser, users, isAdmin, isLoading, loadError, isAuthenticated, sessionValid]);
+
+  const handleRefreshData = async () => {
+    setDataRefreshing(true);
+    try {
+      await refreshSession();
+      await reloadData();
+      toast.success("Data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast.error("Failed to refresh data");
+    } finally {
+      setDataRefreshing(false);
+    }
+  };
 
   const filteredMembers = users.filter(member => {
     if (!member.firstName || !member.lastName) {
@@ -121,20 +174,69 @@ const Directory: React.FC = () => {
     setIsVisitorDetailOpen(true);
   };
 
+  // Check if the users array exists but is empty (possibly due to auth issues)
+  const hasNoUsers = users.length === 0 && !isLoading;
+  const hasAuthError = loadError && (
+    loadError.includes('authentication') || 
+    loadError.includes('auth') || 
+    loadError.toLowerCase().includes('session')
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Member Directory</h1>
-        {isAdmin && (
-          <Button 
-            className="bg-maroon hover:bg-maroon/90"
-            onClick={handleAddMember}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRefreshData}
+            disabled={dataRefreshing}
+            className="flex items-center gap-1"
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Member
+            <RefreshCw className={`h-4 w-4 ${dataRefreshing ? 'animate-spin' : ''}`} />
+            Refresh Data
           </Button>
-        )}
+          {isAdmin && (
+            <Button 
+              className="bg-maroon hover:bg-maroon/90"
+              onClick={handleAddMember}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Member
+            </Button>
+          )}
+        </div>
       </div>
+      
+      {hasAuthError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            Authentication issue detected. Please try refreshing your browser or logging out and back in.
+            <div className="mt-2">
+              <Button 
+                onClick={async () => {
+                  await refreshSession();
+                  await reloadData();
+                }} 
+                variant="outline" 
+                size="sm"
+              >
+                Refresh Session
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasNoUsers && !loadError && !isLoading && (
+        <Alert className="mb-4">
+          <AlertTriangle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            No members found. This may be due to an authentication issue or because no members have been added yet.
+          </AlertDescription>
+        </Alert>
+      )}
       
       <Tabs 
         defaultValue="members" 

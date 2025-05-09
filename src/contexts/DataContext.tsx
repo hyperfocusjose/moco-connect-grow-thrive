@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
@@ -6,6 +7,9 @@ import { useActivities } from '@/hooks/data/useActivities';
 import { useMetrics } from '@/hooks/data/useMetrics';
 import { usePollOperations } from '@/hooks/data/usePollOperations';
 import { DataContextType, Referral, OneToOne, TYFCB } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Initialize with empty data arrays
 const DataContext = createContext<DataContextType>({} as DataContextType);
@@ -15,6 +19,8 @@ export const useData = () => useContext(DataContext);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const initialLoadCompleteRef = useRef(false);
+  const { isAuthenticated, sessionValid, refreshSession } = useAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
   
   const { 
     users, 
@@ -24,6 +30,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUsers,
     isLoading: usersLoading,
     loadError: usersError,
+    authError: usersAuthError,
     resetFetchState: resetUsersState,
     cleanup: cleanupUsers
   } = useUsers();
@@ -100,11 +107,45 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getActivityForAllMembers
   } = useMetrics({ users, referrals, visitors, oneToOnes, tyfcbs });
 
+  // Check authentication status before attempting data load
+  const verifyAuthBeforeLoad = useCallback(async (): Promise<boolean> => {
+    console.log("DataContext: Verifying authentication before loading data");
+    
+    // Check current auth status
+    if (!isAuthenticated || !sessionValid) {
+      // Try to refresh the session
+      console.log("DataContext: Authentication state invalid, attempting to refresh session");
+      const refreshSuccessful = await refreshSession();
+      
+      if (!refreshSuccessful) {
+        console.error("DataContext: Not authenticated, cannot load data");
+        setAuthError("Authentication required. Please log in to access data.");
+        
+        // Check if we need to notify the user about authentication issues
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) {
+          toast.error("Authentication required. Please log in to access data.");
+          return false;
+        }
+      }
+    }
+    
+    setAuthError(null);
+    return true;
+  }, [isAuthenticated, sessionValid, refreshSession]);
+
   // Create a single coordinated data fetch function to load all data
   const loadAllData = useCallback(async () => {
     console.log("DataContext: Starting coordinated data load");
     
     try {
+      // Verify authentication first
+      const isAuthed = await verifyAuthBeforeLoad();
+      if (!isAuthed) {
+        console.log("DataContext: Aborting data load due to authentication failure");
+        return;
+      }
+      
       // Set loading state to true for the data context
       setIsInitialLoad(true);
       
@@ -125,7 +166,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Always set loading state to false once we're done
       setIsInitialLoad(false);
     }
-  }, [fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
+  }, [fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls, verifyAuthBeforeLoad]);
 
   // When the app first loads, do a coordinated fetch of all data
   useEffect(() => {
@@ -158,6 +199,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [cleanupUsers, cleanupEvents, cleanupVisitors, cleanupActivities, cleanupPolls]);
 
+  // Add effect to handle auth state changes
+  useEffect(() => {
+    if (isAuthenticated && sessionValid && initialLoadCompleteRef.current) {
+      // If we become authenticated and already did the initial load, reload data
+      loadAllData();
+    }
+  }, [isAuthenticated, sessionValid, loadAllData]);
+
   // Diagnostic logging
   useEffect(() => {
     console.log("DataContext: Data state changed -", 
@@ -166,17 +215,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       "Visitors:", visitors.length, 
       "Activities:", activities.length,
       "Polls:", polls.length,
-      "Loading:", usersLoading || eventsLoading || visitorsLoading || activitiesLoading || pollsLoading || isInitialLoad
+      "Loading:", usersLoading || eventsLoading || visitorsLoading || activitiesLoading || pollsLoading || isInitialLoad,
+      "Auth:", isAuthenticated && sessionValid ? "Valid" : "Invalid"
     );
   }, [
     users.length, events.length, visitors.length, activities.length, polls.length,
-    usersLoading, eventsLoading, visitorsLoading, activitiesLoading, pollsLoading, isInitialLoad
+    usersLoading, eventsLoading, visitorsLoading, activitiesLoading, pollsLoading, isInitialLoad,
+    isAuthenticated, sessionValid
   ]);
 
   const reloadData = useCallback(async () => {
     console.log("DataContext: Manual reload triggered");
     await loadAllData();
   }, [loadAllData]);
+
+  const combinedLoadError = usersAuthError || authError || usersError || eventsError || activitiesError || visitorsError || pollsError;
 
   return (
     <DataContext.Provider value={{
@@ -217,7 +270,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reloadData, // New utility function to manually reload all data
       // Loading and error states
       isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading || isInitialLoad,
-      loadError: usersError || eventsError || activitiesError || visitorsError || pollsError,
+      loadError: combinedLoadError,
       resetFetchState: () => {
         resetUsersState();
         resetEventsState();

@@ -12,15 +12,30 @@ export const useUsers = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     if (isLoading) return;
 
     setIsLoading(true);
     setLoadError(null);
+    setAuthError(null);
     console.log('fetchUsers: Starting to fetch users');
 
     try {
+      // First check if we have a valid session
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        throw new Error(`Authentication error: ${sessionError.message}`);
+      }
+      
+      if (!sessionData.session) {
+        const authErr = 'No valid authentication session found';
+        setAuthError(authErr);
+        throw new Error(authErr);
+      }
+
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
 
       const { data: userRolesData, error: userRolesError } = await supabase
@@ -29,6 +44,10 @@ export const useUsers = () => {
 
       if (userRolesError) {
         console.error('Error fetching user roles:', userRolesError.message);
+        if (userRolesError.message.includes('Row level security')) {
+          setAuthError('Authentication issue: Unable to access user roles due to security policies');
+          throw new Error(`Row level security error: ${userRolesError.message}`);
+        }
         throw new Error(userRolesError.message);
       }
       
@@ -38,6 +57,9 @@ export const useUsers = () => {
         ?.filter(role => role.role === 'admin')
         .map(role => role.user_id) || [];
 
+      // Add more detailed debugging for profiles query
+      console.log('fetchUsers: About to fetch profiles');
+      
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -45,6 +67,10 @@ export const useUsers = () => {
 
       if (profilesError) {
         console.error('Error fetching profiles:', profilesError.message);
+        if (profilesError.message.includes('Row level security')) {
+          setAuthError('Authentication issue: Unable to access profiles due to security policies');
+          throw new Error(`Row level security error: ${profilesError.message}`);
+        }
         throw new Error(profilesError.message);
       }
       
@@ -54,7 +80,14 @@ export const useUsers = () => {
           : { "notes": "No profiles found" }
       );
 
-      const memberIds = profilesData?.map(p => p.id) || [];
+      if (!profilesData || profilesData.length === 0) {
+        console.warn('No profiles found in the database');
+        setUsers([]);
+        setLoadError('No profiles found in the database');
+        return;
+      }
+
+      const memberIds = profilesData.map(p => p.id);
 
       const { data: memberTagsData, error: memberTagsError } = await supabase
         .from('member_tags')
@@ -75,7 +108,7 @@ export const useUsers = () => {
         memberTagsMap.get(tagObj.member_id).push(tagObj.tag);
       });
 
-      const transformedUsers: User[] = profilesData?.map(profile => {
+      const transformedUsers: User[] = profilesData.map(profile => {
         const user: User = {
           id: profile.id,
           firstName: profile.first_name || '',
@@ -96,7 +129,7 @@ export const useUsers = () => {
           createdAt: new Date(profile.created_at),
         };
         return user;
-      }) || [];
+      });
 
       if (isMountedRef.current) {
         console.log('fetchUsers: Setting users state with:', transformedUsers.length);
@@ -106,8 +139,12 @@ export const useUsers = () => {
     } catch (error) {
       console.error('Error fetching users:', error);
       if (isMountedRef.current) {
-        setLoadError(error instanceof Error ? error.message : 'Unknown error');
-        toast.error('Failed to load users');
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        setLoadError(errorMsg);
+        if (!authError && errorMsg.includes('auth')) {
+          setAuthError(errorMsg);
+        }
+        toast.error(authError || 'Failed to load users');
       }
     } finally {
       if (isMountedRef.current) {
@@ -115,7 +152,7 @@ export const useUsers = () => {
       }
       console.log('fetchUsers: Completed');
     }
-  }, [isLoading]);
+  }, [isLoading, authError]);
 
   useEffect(() => {
     console.log('useUsers: Initial mount, fetching users');
@@ -131,6 +168,7 @@ export const useUsers = () => {
 
   const resetFetchState = useCallback(() => {
     setLoadError(null);
+    setAuthError(null);
   }, []);
 
   const getUser = useCallback((userId: string | undefined) => {
@@ -193,6 +231,7 @@ export const useUsers = () => {
     users,
     isLoading,
     loadError,
+    authError,
     getUser,
     addUser,
     updateUser,

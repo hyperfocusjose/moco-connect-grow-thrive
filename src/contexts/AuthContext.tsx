@@ -85,6 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Function to fetch user profile data
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Add debug logging to track data access attempts
+      console.log('Fetching profile for user:', userId);
+      
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -96,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
 
+      console.log('Profile data received:', profileData ? 'yes' : 'no');
       return profileData as ProfileData;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -107,9 +111,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshSession = async (): Promise<boolean> => {
     try {
       console.log('Refreshing Supabase session');
+      
+      // Get the current session state from Supabase
       const { data, error } = await supabase.auth.getSession();
       
-      if (error || !data.session) {
+      if (error) {
         console.error('Session refresh error:', error);
         setIsAuthenticated(false);
         setSessionValid(false);
@@ -117,29 +123,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      console.log('Session refreshed successfully:', !!data.session);
-      setSessionValid(!!data.session);
+      // Debug log to track session state
+      console.log('Session refreshed, session exists:', !!data.session);
+      console.log('Session user:', data.session?.user?.id);
       
-      // If we have a valid session but no current user, let's fetch the user data
-      if (data.session && !currentUser) {
-        const userData = data.session.user;
-        const profileData = await fetchUserProfile(userData.id);
+      // Update session validity state
+      const hasValidSession = !!data.session;
+      setSessionValid(hasValidSession);
+      
+      // If no valid session, clear user state
+      if (!hasValidSession) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        return false;
+      }
+      
+      // If we have a valid session, check if we need to update user data
+      const userId = data.session.user.id;
+      const storedUserJson = localStorage.getItem('currentUser');
+      const storedUser = storedUserJson ? JSON.parse(storedUserJson) : null;
+      
+      // Only fetch profile if we don't have it or it doesn't match the session user
+      if (!storedUser || storedUser.id !== userId) {
+        console.log('Fetching full user profile during refresh');
+        const profileData = await fetchUserProfile(userId);
         
         if (profileData) {
-          const userRoles = await fetchRoles(userData.id);
+          const userRoles = await fetchRoles(userId);
           const isAdmin = userRoles.includes('admin');
           
           const newUser: User = {
-            id: userData.id,
+            id: userId,
             firstName: profileData.first_name || '',
             lastName: profileData.last_name || '',
-            email: profileData.email || userData.email || '',
+            email: profileData.email || data.session.user.email || '',
             phoneNumber: profileData.phone_number || '',
             businessName: profileData.business_name || '',
             industry: profileData.industry || '',
             bio: profileData.bio || '',
             profilePicture: profileData.profile_picture || '',
-            tags: [], // We'll fetch tags separately
+            tags: [], // We'll fetch tags separately if needed
             isAdmin,
             website: profileData.website || '',
             linkedin: profileData.linkedin || '',
@@ -152,10 +176,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUser(newUser);
           setIsAuthenticated(true);
           localStorage.setItem('currentUser', JSON.stringify(newUser));
+        } else {
+          console.warn('Valid session but profile not found');
         }
+      } else if (!isAuthenticated && storedUser) {
+        // Restore authentication state
+        console.log('Restoring user from localStorage during refresh');
+        setCurrentUser(storedUser);
+        setIsAuthenticated(true);
+        // We already have the stored user, so no need to refetch roles
+        // This may help avoid unnecessary database queries
       }
       
-      return !!data.session;
+      return hasValidSession;
     } catch (error) {
       console.error('Error refreshing session:', error);
       setSessionValid(false);
@@ -192,9 +225,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   try {
                     const userId = session.user.id;
                     const profileData = await fetchUserProfile(userId);
-                    const userRoles = await fetchRoles(userId);
                     
                     if (profileData) {
+                      const userRoles = await fetchRoles(userId);
+                      
                       const newUser: User = {
                         id: userId,
                         firstName: profileData.first_name || '',
