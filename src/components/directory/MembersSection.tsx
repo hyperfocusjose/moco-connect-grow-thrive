@@ -34,7 +34,8 @@ export const MembersSection = ({
     membersCount: filteredMembers.length, 
     totalMembers, 
     isLoading, 
-    hasError: !!loadError 
+    hasError: !!loadError,
+    errorMessage: loadError
   });
 
   return (
@@ -77,7 +78,7 @@ export const MembersSection = ({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error loading members</AlertTitle>
           <AlertDescription>
-            There was a problem loading the member directory. Please try again later.
+            {loadError}
           </AlertDescription>
         </Alert>
       )}

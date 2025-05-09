@@ -13,6 +13,7 @@ export const useUsers = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [fetchAttempted, setFetchAttempted] = useState(false);
 
   const fetchUsers = useCallback(async (): Promise<void> => {
     if (isLoading) return;
@@ -20,6 +21,7 @@ export const useUsers = () => {
     setIsLoading(true);
     setLoadError(null);
     setAuthError(null);
+    setFetchAttempted(true);
     console.log('fetchUsers: Starting to fetch users');
 
     try {
@@ -27,17 +29,24 @@ export const useUsers = () => {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
+        console.error('Session error:', sessionError.message);
         throw new Error(`Authentication error: ${sessionError.message}`);
       }
       
       if (!sessionData.session) {
         const authErr = 'No valid authentication session found';
+        console.error(authErr);
         setAuthError(authErr);
         throw new Error(authErr);
       }
 
+      console.log('Session valid, token expiry:', new Date(sessionData.session.expires_at * 1000).toISOString());
+
+      // Admin user ID to exclude from results
       const adminUserId = '31727ff4-213c-492a-bbc6-ce91c8bab2d2';
 
+      // Fetch user roles
+      console.log('Fetching user roles...');
       const { data: userRolesData, error: userRolesError } = await supabase
         .from('user_roles')
         .select('*');
@@ -60,13 +69,24 @@ export const useUsers = () => {
       // Add more detailed debugging for profiles query
       console.log('fetchUsers: About to fetch profiles');
       
-      const { data: profilesData, error: profilesError } = await supabase
+      // Explicitly log the request details before making it
+      console.log('Profiles request details:', {
+        method: 'GET',
+        table: 'profiles',
+        filter: `neq(id, ${adminUserId})`,
+        auth: 'Using authenticated session token'
+      });
+      
+      const { data: profilesData, error: profilesError, status: profilesStatus } = await supabase
         .from('profiles')
         .select('*')
         .neq('id', adminUserId);
 
+      // Log the status code from the response
+      console.log('Profiles request status code:', profilesStatus);
+
       if (profilesError) {
-        console.error('Error fetching profiles:', profilesError.message);
+        console.error('Error fetching profiles:', profilesError.message, 'Status code:', profilesStatus);
         if (profilesError.message.includes('Row level security')) {
           setAuthError('Authentication issue: Unable to access profiles due to security policies');
           throw new Error(`Row level security error: ${profilesError.message}`);
@@ -232,6 +252,7 @@ export const useUsers = () => {
     isLoading,
     loadError,
     authError,
+    fetchAttempted,
     getUser,
     addUser,
     updateUser,

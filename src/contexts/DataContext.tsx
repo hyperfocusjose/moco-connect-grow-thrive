@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
@@ -31,6 +30,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: usersLoading,
     loadError: usersError,
     authError: usersAuthError,
+    fetchAttempted: usersFetchAttempted,
     resetFetchState: resetUsersState,
     cleanup: cleanupUsers
   } = useUsers();
@@ -110,6 +110,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check authentication status before attempting data load
   const verifyAuthBeforeLoad = useCallback(async (): Promise<boolean> => {
     console.log("DataContext: Verifying authentication before loading data");
+    
+    // Output detailed diagnostic info on auth state
+    console.log("DataContext: Auth state details:", {
+      isAuthenticated,
+      sessionValid,
+      sessionInfo: await supabase.auth.getSession()
+        .then(({data}) => ({
+          hasSession: !!data.session,
+          expiresAt: data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : 'No session',
+          currentTime: new Date().toISOString()
+        }))
+        .catch(e => ({error: e.message}))
+    });
     
     // Check current auth status
     if (!isAuthenticated || !sessionValid) {
@@ -211,17 +224,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log("DataContext: Data state changed -", 
       "Users:", users.length, 
-      "Events:", events.length, 
-      "Visitors:", visitors.length, 
-      "Activities:", activities.length,
-      "Polls:", polls.length,
-      "Loading:", usersLoading || eventsLoading || visitorsLoading || activitiesLoading || pollsLoading || isInitialLoad,
-      "Auth:", isAuthenticated && sessionValid ? "Valid" : "Invalid"
+      "Auth:", isAuthenticated && sessionValid ? "Valid" : "Invalid",
+      "User fetch attempted:", usersFetchAttempted,
+      "Loading:", usersLoading || isInitialLoad
     );
   }, [
-    users.length, events.length, visitors.length, activities.length, polls.length,
-    usersLoading, eventsLoading, visitorsLoading, activitiesLoading, pollsLoading, isInitialLoad,
-    isAuthenticated, sessionValid
+    users.length, 
+    isAuthenticated, 
+    sessionValid,
+    usersFetchAttempted,
+    usersLoading,
+    isInitialLoad
   ]);
 
   const reloadData = useCallback(async () => {
