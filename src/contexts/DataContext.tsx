@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { useUsers } from '@/hooks/data/useUsers';
 import { useEvents } from '@/hooks/data/useEvents';
@@ -6,7 +5,7 @@ import { useVisitors } from '@/hooks/data/useVisitors';
 import { useActivities } from '@/hooks/data/useActivities';
 import { useMetrics } from '@/hooks/data/useMetrics';
 import { usePollOperations } from '@/hooks/data/usePollOperations';
-import { DataContextType } from '@/types';
+import { DataContextType, Referral, OneToOne, TYFCB } from '@/types';
 
 // Initialize with empty data arrays
 const DataContext = createContext<DataContextType>({} as DataContextType);
