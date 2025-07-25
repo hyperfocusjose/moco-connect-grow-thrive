@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { User, Visitor } from '@/types';
 import { MemberDetail } from '@/components/directory/MemberDetail';
 import { VisitorDetail } from '@/components/directory/VisitorDetail';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Plus, RefreshCw, AlertTriangle, Database, Bug } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,27 +12,18 @@ import { MemberForm } from '@/components/forms/member/MemberForm';
 import { toast } from 'sonner';
 import { MembersSection } from '@/components/directory/MembersSection';
 import { VisitorsSection } from '@/components/directory/VisitorsSection';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
+import { DataDebugPanel } from '@/components/debug/DataDebugPanel';
 
 const Directory: React.FC = () => {
   const { 
     users, 
     visitors, 
     markVisitorNoShow, 
-    fetchUsers, 
-    reloadData,
     isLoading, 
-    loadError,
-    rawProfileData 
+    loadError
   } = useData();
   
-  const { 
-    currentUser, 
-    isAuthenticated, 
-    sessionValid, 
-    refreshSession 
-  } = useAuth();
+  const { currentUser } = useAuth();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -44,192 +35,9 @@ const Directory: React.FC = () => {
   const [includeNoShows, setIncludeNoShows] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [isVisitorDetailOpen, setIsVisitorDetailOpen] = useState(false);
-  const [dataRefreshing, setDataRefreshing] = useState(false);
-  const [showDebugInfo, setShowDebugInfo] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   const isAdmin = currentUser?.isAdmin;
 
-  useEffect(() => {
-    console.log("Directory: Loading initial data");
-    loadDirectoryData();
-  }, []);
-  
-  const loadDirectoryData = useCallback(async () => {
-    try {
-      await fetchUsers();
-      toast.success("Directory data loaded");
-    } catch (error) {
-      console.error("Failed to load directory data", error);
-      toast.error("Failed to load directory data");
-    }
-  }, [fetchUsers]);
-
-  // Handle authentication status changes
-  useEffect(() => {
-    console.log("Directory: Authentication status changed - ", { 
-      isAuthenticated, 
-      sessionValid, 
-      hasCurrentUser: !!currentUser 
-    });
-    
-    if (!isAuthenticated || !sessionValid) {
-      console.warn("Directory: Not authenticated or session invalid");
-    }
-  }, [isAuthenticated, sessionValid, currentUser]);
-
-  // Add effect to handle auth error conditions detected during data loading
-  useEffect(() => {
-    if (loadError && (loadError.includes('authentication') || loadError.includes('auth'))) {
-      console.error("Directory: Authentication error detected:", loadError);
-    }
-  }, [loadError]);
-
-  // Log data to debug data loading issues
-  useEffect(() => {
-    console.log("Directory component mounted/updated");
-    console.log("Current user:", currentUser);
-    console.log("All users:", users);
-    console.log("Users count:", users.length);
-    console.log("Admin status:", isAdmin);
-    console.log("Data loading state:", isLoading);
-    console.log("Data error state:", loadError);
-    console.log("Raw profile data:", rawProfileData?.length || 0);
-    console.log("Authentication state:", { isAuthenticated, sessionValid });
-  }, [currentUser, users, isAdmin, isLoading, loadError, isAuthenticated, sessionValid, rawProfileData]);
-
-  const checkRlsAccess = async () => {
-    try {
-      setDataRefreshing(true);
-      
-      // Diagnostic data collection
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      // Direct query test
-      const { data: profileData, error: profileError, status: profileStatus } = await supabase
-        .from('profiles')
-        .select('*')
-        .limit(10);
-      
-      const newDebugInfo = {
-        timestamp: new Date().toISOString(),
-        auth: {
-          isAuthenticated,
-          sessionValid,
-          hasCurrentUser: !!currentUser,
-          hasSession: !!sessionData.session,
-          sessionExpiry: sessionData.session ? new Date(sessionData.session.expires_at * 1000).toISOString() : null,
-        },
-        directProfiles: {
-          status: profileStatus,
-          error: profileError?.message || null,
-          count: profileData?.length || 0,
-          sample: profileData?.slice(0, 2) || [],
-        },
-        users: {
-          count: users.length,
-          loadError: loadError || null,
-          isLoading,
-          rawCount: rawProfileData?.length || 0
-        },
-        transformationStatus: {
-          hasRawData: (rawProfileData?.length || 0) > 0,
-          hasTransformedData: users.length > 0,
-          mismatch: (rawProfileData?.length || 0) !== users.length,
-          differenceCount: (rawProfileData?.length || 0) - users.length
-        }
-      };
-      
-      setDebugInfo(newDebugInfo);
-      setShowDebugInfo(true);
-      
-      if (profileData && profileData.length > 0) {
-        toast.success(`Direct query success: Retrieved ${profileData.length} profiles!`);
-      } else if (profileError) {
-        toast.error(`Direct query failed: ${profileError.message}`);
-      } else {
-        toast.warning('Direct query returned no profiles');
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Error checking access: ${errorMsg}`);
-    } finally {
-      setDataRefreshing(false);
-    }
-  };
-
-  const handleRefreshData = async () => {
-    setDataRefreshing(true);
-    try {
-      await refreshSession();
-      await reloadData();
-      toast.success("Data refreshed successfully");
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      toast.error("Failed to refresh data");
-    } finally {
-      setDataRefreshing(false);
-    }
-  };
-
-  const forceReloadProfiles = async () => {
-    setDataRefreshing(true);
-    try {
-      // Force reload by bypassing the cache
-      toast.info("Forcefully reloading profiles...");
-      
-      // First refresh the session
-      await refreshSession();
-      
-      // Then fetch users directly
-      await fetchUsers();
-      
-      toast.success("Profiles reloaded successfully");
-    } catch (error) {
-      console.error("Error reloading profiles:", error);
-      toast.error("Failed to reload profiles");
-    } finally {
-      setDataRefreshing(false);
-    }
-  };
-  
-  // Debug transformation issues
-  const debugTransformation = async () => {
-    try {
-      setDataRefreshing(true);
-      toast.info("Checking data transformation...");
-      
-      // Direct query for comparison
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*');
-        
-      const transformationAnalysis = {
-        rawCount: profileData?.length || 0,
-        transformedCount: users.length,
-        rawSample: profileData?.slice(0, 2) || [],
-        transformedSample: users.slice(0, 2),
-        missingIds: profileData
-          ?.filter(raw => !users.some(user => user.id === raw.id))
-          .map(p => `${p.id} (${p.first_name} ${p.last_name})`) || [],
-        transformationError: loadError
-      };
-      
-      setDebugInfo(prev => ({ ...prev, transformationAnalysis }));
-      setShowDebugInfo(true);
-      
-      if ((profileData?.length || 0) !== users.length) {
-        toast.warning(`Transformation issue: ${profileData?.length || 0} raw profiles but ${users.length} transformed users`);
-      } else {
-        toast.success("Data transformation looks good");
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Error checking transformation: ${errorMsg}`);
-    } finally {
-      setDataRefreshing(false);
-    }
-  };
 
   const filteredMembers = users.filter(member => {
     if (!member.firstName && !member.lastName) {
@@ -307,126 +115,22 @@ const Directory: React.FC = () => {
     setIsVisitorDetailOpen(true);
   };
 
-  // Check if the users array exists but is empty (possibly due to auth issues)
-  const hasNoUsers = users.length === 0 && !isLoading;
-  const hasAuthError = loadError && (
-    loadError.includes('authentication') || 
-    loadError.includes('auth') || 
-    loadError.toLowerCase().includes('session') ||
-    loadError.toLowerCase().includes('security')
-  );
-
-  const hasProfileData = rawProfileData && rawProfileData.length > 0;
-  const hasTransformationIssue = hasProfileData && users.length === 0;
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Member Directory</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={checkRlsAccess}
-            disabled={dataRefreshing}
-            className="flex items-center gap-1"
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Directory</h1>
+        {isAdmin && (
+          <Button 
+            className="bg-maroon hover:bg-maroon/90"
+            onClick={() => setIsAddFormOpen(true)}
           >
-            <Database className="h-4 w-4" />
-            Test DB Access
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Member
           </Button>
-          <Button
-            variant="outline"
-            onClick={debugTransformation}
-            disabled={dataRefreshing}
-            className="flex items-center gap-1"
-          >
-            <Bug className="h-4 w-4" />
-            Debug Transformation
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleRefreshData}
-            disabled={dataRefreshing}
-            className="flex items-center gap-1"
-          >
-            <RefreshCw className={`h-4 w-4 ${dataRefreshing ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </Button>
-          <Button
-            variant="outline"
-            onClick={forceReloadProfiles}
-            disabled={dataRefreshing}
-            className="flex items-center gap-1 bg-amber-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${dataRefreshing ? 'animate-spin' : ''}`} />
-            Force Reload Profiles
-          </Button>
-          {isAdmin && (
-            <Button 
-              className="bg-maroon hover:bg-maroon/90"
-              onClick={() => setIsAddFormOpen(true)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Member
-            </Button>
-          )}
-        </div>
+        )}
       </div>
       
-      {showDebugInfo && debugInfo && (
-        <Alert className="mb-4 bg-gray-100">
-          <div className="flex justify-between items-start">
-            <div className="space-y-2">
-              <h3 className="font-bold">Database Access Debug Info</h3>
-              <pre className="text-xs overflow-auto max-h-96">
-                {JSON.stringify(debugInfo, null, 2)}
-              </pre>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setShowDebugInfo(false)}>
-              Hide
-            </Button>
-          </div>
-        </Alert>
-      )}
-      
-      {hasAuthError && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          <AlertDescription>
-            Authentication issue detected. Please try refreshing your browser or logging out and back in.
-            <div className="mt-2">
-              <Button 
-                onClick={async () => {
-                  await refreshSession();
-                  await reloadData();
-                }} 
-                variant="outline" 
-                size="sm"
-              >
-                Refresh Session
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {hasTransformationIssue && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          <AlertDescription>
-            <p>Data format issue: Raw profile data exists ({rawProfileData.length} profiles) but couldn't be transformed properly.</p>
-            <p className="mt-2">Please use the Debug panel to see the raw data and try Force Reload.</p>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {hasNoUsers && !loadError && !isLoading && (
-        <Alert className="mb-4">
-          <AlertTriangle className="h-4 w-4 mr-2" />
-          <AlertDescription>
-            No members found. This may be due to an authentication issue or because no members have been added yet.
-          </AlertDescription>
-        </Alert>
-      )}
+      <DataDebugPanel />
       
       <Tabs 
         defaultValue="members" 
