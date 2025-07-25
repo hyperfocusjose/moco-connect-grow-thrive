@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { useUsers } from '@/hooks/data/useUsers';
-import { useEvents } from '@/hooks/data/useEvents';
-import { useVisitors } from '@/hooks/data/useVisitors';
-import { useActivities } from '@/hooks/data/useActivities';
+import { useUsers } from '@/hooks/data/useDemoUsers';
+import { useEvents } from '@/hooks/data/useDemoEvents';
+import { useVisitors } from '@/hooks/data/useDemoVisitors';
+import { useActivities } from '@/hooks/data/useDemoActivities';
 import { useMetrics } from '@/hooks/data/useMetrics';
-import { usePollOperations } from '@/hooks/data/usePollOperations';
-import { DataContextType, Referral, OneToOne, TYFCB } from '@/types';
-import { useAuth } from '@/contexts/AuthContext';
+import { usePollOperations } from '@/hooks/data/useDemoPolls';
+import { DataContextType, Referral, OneToOne, TYFCB, Event, Visitor, Poll } from '@/types';
+// Demo data doesn't need authentication
 
 const DataContext = createContext<DataContextType>({} as DataContextType);
 
@@ -14,7 +14,6 @@ export const useData = () => useContext(DataContext);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const { isAuthenticated } = useAuth();
   
   const { 
     users, 
@@ -76,6 +75,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await addTYFCBOriginal(tyfcb);
   };
 
+  // Wrapper functions to match DataContextType signatures
+  const createEventWrapper = async (event: Partial<Event>): Promise<void> => {
+    await createEvent(event);
+  };
+
+  const addVisitorWrapper = async (visitor: Partial<Visitor>): Promise<void> => {
+    await addVisitor(visitor);
+  };
+
+  const createPollWrapper = async (poll: Partial<Poll>): Promise<void> => {
+    await createPoll(poll);
+  };
+
   const {
     polls,
     createPoll,
@@ -97,8 +109,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Simple data reload function
   const reloadData = useCallback(async () => {
-    if (!isAuthenticated) return;
-    
     console.log("DataContext: Manual reload triggered");
     await Promise.allSettled([
       fetchUsers(),
@@ -107,7 +117,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchActivities(),
       fetchPolls()
     ]);
-  }, [isAuthenticated, fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
+  }, [fetchUsers, fetchEvents, fetchVisitors, fetchActivities, fetchPolls]);
 
   // Set initial load to false once we have attempted to load data
   useEffect(() => {
@@ -130,17 +140,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       polls,
       stats,
       getUser,
-      createEvent,
+      createEvent: createEventWrapper,
       updateEvent,
       deleteEvent,
       fetchEvents,
       getUserMetrics,
-      addVisitor,
+      addVisitor: addVisitorWrapper,
       updateVisitor,
       addReferral,
       addOneToOne,
       addTYFCB,
-      createPoll,
+      createPoll: createPollWrapper,
       updatePoll,
       deletePoll,
       votePoll,
@@ -155,7 +165,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchVisitors,
       fetchPolls,
       reloadData,
-      rawProfileData: debugInfo?.profilesData || [],
+      rawProfileData: [],
       // Loading and error states
       isLoading: usersLoading || eventsLoading || activitiesLoading || visitorsLoading || pollsLoading || isInitialLoad,
       loadError: combinedLoadError,
