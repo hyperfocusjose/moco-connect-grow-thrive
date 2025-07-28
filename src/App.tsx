@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/DemoAuthContext";
 import { DataProvider } from "@/contexts/DataContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
@@ -17,8 +17,7 @@ import Polls from "./pages/Polls";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import AdminPanel from "./pages/AdminPanel";
-import { useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/DemoAuthContext";
 import { AuthDebug } from "@/components/debug/AuthDebug";
 
 const queryClient = new QueryClient({
@@ -32,12 +31,7 @@ const queryClient = new QueryClient({
 
 // Home redirect component to handle redirects based on auth state
 const HomeRedirect = () => {
-  const { currentUser, isLoading, refreshSession } = useAuth();
-  
-  // Always refresh the session when the component mounts
-  useEffect(() => {
-    refreshSession();
-  }, [refreshSession]);
+  const { user, isLoading } = useAuth();
   
   if (isLoading) {
     return <div className="h-screen w-full flex items-center justify-center">
@@ -45,7 +39,7 @@ const HomeRedirect = () => {
     </div>;
   }
   
-  return currentUser ? <Navigate to="/dashboard" replace /> : <Index />;
+  return user ? <Navigate to="/dashboard" replace /> : <Index />;
 };
 
 const AppRoutes = () => {

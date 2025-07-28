@@ -3,7 +3,7 @@ import React from 'react';
 import { Navbar } from './Navbar';
 import { MobileNavbar } from './MobileNavbar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/DemoAuthContext';
 import { Outlet, Navigate } from 'react-router-dom';
 
 interface AppLayoutProps {
@@ -15,7 +15,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   requireAuth = false,
   requireAdmin = false,
 }) => {
-  const { isAuthenticated, currentUser, isLoading } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const isMobile = useIsMobile();
 
   // Show loading state
@@ -33,7 +33,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   }
 
   // Handle admin requirements
-  if (requireAdmin && (!isAuthenticated || !currentUser?.isAdmin)) {
+  if (requireAdmin && (!isAuthenticated || !user?.isAdmin)) {
     return <Navigate to="/dashboard" replace />;
   }
 
